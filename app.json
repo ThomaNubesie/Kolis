@@ -6,6 +6,12 @@
     "orientation": "portrait",
     "scheme": "kolis",
     "userInterfaceStyle": "light",
+    "icon": "./assets/images/icon.png",
+    "splash": {
+      "image": "./assets/images/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F7F5EF"
+    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "ca.kolis.app",
@@ -17,6 +23,10 @@
     },
     "android": {
       "package": "ca.kolis.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#E11D6B"
+      },
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",

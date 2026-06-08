@@ -1,20 +1,28 @@
 import { useState } from "react";
 import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
+import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
-import { estimatePrice, SizeKey } from "../../constants/pricing";
+import { compare, SizeKey } from "../../constants/pricing";
 
 type Mode = "zone" | "door";
 
 export default function Send() {
   const { t } = useStrings();
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("zone");
   const [size, setSize] = useState<SizeKey>("small");
   const [from, setFrom] = useState("Ottawa");
   const [to, setTo] = useState("Montréal");
 
-  const price = estimatePrice(size, mode);
+  const cmp = compare(size, mode);
+
+  const go = () => {
+    const params = { mode, size, from, to, price: String(cmp.price) };
+    if (mode === "zone") router.push({ pathname: "/(app)/zones", params });
+    else router.push({ pathname: "/(app)/confirm", params });
+  };
 
   const Mono = ({ children }: { children: string }) => (
     <Text style={{ fontSize: 10.5, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 5, fontWeight: "600" }}>{children}</Text>
@@ -65,15 +73,21 @@ export default function Send() {
           ))}
         </View>
 
-        <View style={{ backgroundColor: Colors.ink, borderRadius: 15, padding: 15, flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <View style={{ backgroundColor: Colors.ink, borderRadius: 15, padding: 15, flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <View>
             <Text style={{ fontSize: 10, color: "#fff", opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.6 }}>{t("estimatedPrice")}</Text>
-            <Text style={{ fontSize: 26, fontWeight: "800", color: "#ff7eb0" }}>C${price}</Text>
+            <Text style={{ fontSize: 26, fontWeight: "800", color: "#ff7eb0" }}>C${cmp.price}</Text>
           </View>
           <Text style={{ fontSize: 11, color: "#fff", opacity: 0.75, maxWidth: 120, textAlign: "right" }}>{t("payWhenMatched")}</Text>
         </View>
 
-        <Pressable style={{ backgroundColor: Colors.accent, borderRadius: 13, padding: 16, alignItems: "center" }}>
+        {/* Cost saved + time gained vs express couriers */}
+        <View style={{ backgroundColor: "rgba(46,204,143,0.12)", borderRadius: 12, padding: 11, marginBottom: 6 }}>
+          <Text style={{ color: "#178a5e", fontWeight: "800", fontSize: 13 }}>💸 {t("saveVs", { amount: cmp.saved })}</Text>
+        </View>
+        <Text style={{ fontSize: 11.5, color: Colors.t2, marginBottom: 16 }}>⏱ {t("daysFaster", { days: cmp.courierDays })}</Text>
+
+        <Pressable onPress={go} style={{ backgroundColor: Colors.accent, borderRadius: 13, padding: 16, alignItems: "center" }}>
           <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{t("findDriver")}</Text>
         </Pressable>
       </ScrollView>

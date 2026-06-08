@@ -2,7 +2,8 @@ import { View, Text, Pressable } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
-import { setLang, Lang } from "../../hooks/useStrings";
+import { setLang } from "../../hooks/useStrings";
+import { Lang } from "../../constants/i18n";
 
 export default function Language() {
   const router = useRouter();

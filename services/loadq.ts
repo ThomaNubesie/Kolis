@@ -8,16 +8,40 @@ export type LoadqZone = {
   region: string | null;
   address: string | null;
   is_active: boolean;
+  latitude: number | null;
+  longitude: number | null;
+};
+
+// Sender-facing available driver (from kolis_available_drivers RPC — PII-safe).
+export type AvailableDriver = {
+  driver_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  trust_score: number | null;
+  verified: boolean;
+  queue_position: number | null;
+  seats_available: number;
+  queued_minutes: number;
 };
 
 export const LoadqAPI = {
   async zones() {
     const { data, error } = await supabase
       .from("zones")
-      .select("id,name,region,address,is_active")
+      .select("id,name,region,address,is_active,latitude,longitude")
       .eq("is_active", true)
       .order("name");
     return { zones: (data ?? []) as LoadqZone[], error: error?.message };
+  },
+
+  // Sender-facing available drivers for a route (PII-safe RPC). Pass zoneId for a
+  // specific loading zone, or null to list everyone queued for the destination.
+  async availableDrivers(destinationRegion: string, zoneId?: string | null): Promise<AvailableDriver[]> {
+    const { data } = await supabase.rpc("kolis_available_drivers", {
+      p_zone_id: zoneId ?? null,
+      p_dest_region: destinationRegion,
+    });
+    return (data ?? []) as AvailableDriver[];
   },
 
   // Live count of queued drivers per zone heading to a destination region.

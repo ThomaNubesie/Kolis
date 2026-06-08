@@ -20,6 +20,8 @@ export default function AppLayout() {
       {/* Non-tab screens (pushed full-screen, hidden from the tab bar) */}
       <Tabs.Screen name="hub" options={{ href: null }} />
       <Tabs.Screen name="zones" options={{ href: null }} />
+      <Tabs.Screen name="drivers" options={{ href: null }} />
+      <Tabs.Screen name="directions" options={{ href: null }} />
       <Tabs.Screen name="confirm" options={{ href: null }} />
       <Tabs.Screen name="request" options={{ href: null }} />
       <Tabs.Screen name="track" options={{ href: null }} />

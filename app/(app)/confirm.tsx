@@ -13,7 +13,7 @@ export default function Confirm() {
   const { t } = useStrings();
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
-  const p = useLocalSearchParams<{ drop: string; size: string; from: string; to: string; price: string; pickup_zone?: string; pickup_hub?: string; zoneName?: string; hubName?: string }>();
+  const p = useLocalSearchParams<{ drop: string; size: string; from: string; to: string; price: string; pickup_zone?: string; pickup_hub?: string; zoneName?: string; hubName?: string; preferred_driver_name?: string }>();
   const [busy, setBusy] = useState(false);
   const price = Number(p.price ?? 0);
   const drop = (p.drop as DropType) ?? "zone";
@@ -68,6 +68,9 @@ export default function Confirm() {
         <Card>
           <Text style={{ fontWeight: "800", fontSize: 16, color: Colors.ink }}>{p.from} → {p.to}</Text>
           <Text style={{ fontSize: 12.5, color: Colors.t2, marginTop: 6 }}>{dropLine}</Text>
+          {p.preferred_driver_name ? (
+            <Text style={{ fontSize: 12.5, color: Colors.t2, marginTop: 4 }}>🚗 {t("driverLabel")}: <Text style={{ fontWeight: "800", color: Colors.ink }}>{p.preferred_driver_name}</Text></Text>
+          ) : null}
         </Card>
 
         <Text style={{ fontSize: 10.5, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, marginTop: 4, fontWeight: "600" }}>{t("payment")}</Text>

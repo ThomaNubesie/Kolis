@@ -7,6 +7,8 @@ export type Hub = {
   address: string | null;
   hours: string | null;
   is_active: boolean;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export const HubsAPI = {

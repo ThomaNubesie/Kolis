@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { SizeKey, DropType } from "../constants/pricing";
+import { SizeKey, DropType, driverPayoutCents } from "../constants/pricing";
 import { regionCode } from "../constants/geo";
 
 export type ParcelStatus =
@@ -64,6 +64,7 @@ export const ParcelsAPI = {
         pickup_zone: input.pickup_zone ?? null,
         pickup_hub: input.pickup_hub ?? null,
         price_cents: Math.round(input.price * 100),
+        driver_payout_cents: driverPayoutCents(Math.round(input.price * 100), input.dropoff_type),
       })
       .select()
       .single();

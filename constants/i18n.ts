@@ -57,6 +57,7 @@ export const STRINGS = {
     hubPromise: "Leave it with our team. We dispatch it with the next driver heading to {city} — on the platform or not. You're only charged once it's dispatched.",
     dispatchedSameDay: "Dispatched same day · typically within hours", confirmHubBtn: "Confirm {city} hub →",
     dropAtHub: "Drop at", chargedWhenDispatched: "You're only charged when a driver is matched or dispatched",
+    paymentError: "Payment couldn't be completed.",
     atHubNote: "at {city} hub · we'll notify you · not charged yet",
     // admin
     admin: "Admin", adminGate: "Admins only",
@@ -116,6 +117,7 @@ export const STRINGS = {
     hubPromise: "Laissez-le à notre équipe. Nous l'expédions avec le prochain conducteur vers {city} — sur la plateforme ou non. Vous n'êtes facturé qu'au moment de l'expédition.",
     dispatchedSameDay: "Expédié le jour même · souvent en quelques heures", confirmHubBtn: "Confirmer le hub de {city} →",
     dropAtHub: "Dépôt à", chargedWhenDispatched: "Vous n'êtes facturé qu'une fois un conducteur associé ou l'envoi expédié",
+    paymentError: "Le paiement n'a pas pu être effectué.",
     atHubNote: "au hub de {city} · nous vous aviserons · pas encore facturé",
     admin: "Admin", adminGate: "Réservé aux admins",
     adminHubs: "Hubs", adminZones: "Zones", adminDispatch: "Expédition hub", adminParcels: "Colis",

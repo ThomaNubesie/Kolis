@@ -2,14 +2,17 @@ import { useState } from "react";
 import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useStripe } from "@stripe/stripe-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { ParcelsAPI } from "../../services/parcels";
+import { PaymentsAPI } from "../../services/payments";
 import { SizeKey, DropType } from "../../constants/pricing";
 
 export default function Confirm() {
   const { t } = useStrings();
   const router = useRouter();
+  const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const p = useLocalSearchParams<{ drop: string; size: string; from: string; to: string; price: string; pickup_zone?: string; pickup_hub?: string; zoneName?: string; hubName?: string }>();
   const [busy, setBusy] = useState(false);
   const price = Number(p.price ?? 0);
@@ -26,8 +29,22 @@ export default function Confirm() {
       pickup_hub: p.pickup_hub ?? null,
       price,
     });
+    if (error || !parcel) { setBusy(false); Alert.alert("Error", error ?? "Could not create the request."); return; }
+
+    // Escrow hold via Stripe (manual-capture PaymentIntent), then PaymentSheet.
+    const { clientSecret, error: pErr } = await PaymentsAPI.createIntent(parcel.id);
+    if (pErr || !clientSecret) { setBusy(false); Alert.alert(t("payment"), pErr ?? t("paymentError")); return; }
+
+    const init = await initPaymentSheet({ merchantDisplayName: "Kolis", paymentIntentClientSecret: clientSecret, allowsDelayedPaymentMethods: false });
+    if (init.error) { setBusy(false); Alert.alert(t("payment"), init.error.message); return; }
+
+    const res = await presentPaymentSheet();
     setBusy(false);
-    if (error || !parcel) { Alert.alert("Error", error ?? "Could not create the request."); return; }
+    if (res.error) {
+      if (res.error.code !== "Canceled") Alert.alert(t("payment"), res.error.message || t("paymentError"));
+      return; // parcel stays pending/unpaid; sender can retry
+    }
+    // Authorized & held — funds captured on delivery.
     router.replace({ pathname: "/(app)/request", params: { id: parcel.id, to: p.to ?? "", drop, where: p.hubName || p.zoneName || "" } });
   };
 

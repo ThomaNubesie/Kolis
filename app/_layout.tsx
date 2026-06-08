@@ -3,8 +3,11 @@ import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { View, Text } from "react-native";
+import { StripeProvider } from "@stripe/stripe-react-native";
 import { initLang } from "../hooks/useStrings";
 import { Colors } from "../constants/colors";
+
+const STRIPE_PK = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
@@ -22,14 +25,16 @@ export default function RootLayout() {
   }
 
   return (
-    <SafeAreaProvider>
-      <StatusBar style="dark" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.bg } }}>
-        <Stack.Screen name="index" />
-        <Stack.Screen name="(auth)" />
-        <Stack.Screen name="(app)" />
-        <Stack.Screen name="(admin)" />
-      </Stack>
-    </SafeAreaProvider>
+    <StripeProvider publishableKey={STRIPE_PK} merchantIdentifier="merchant.ca.kolis.app">
+      <SafeAreaProvider>
+        <StatusBar style="dark" />
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.bg } }}>
+          <Stack.Screen name="index" />
+          <Stack.Screen name="(auth)" />
+          <Stack.Screen name="(app)" />
+          <Stack.Screen name="(admin)" />
+        </Stack>
+      </SafeAreaProvider>
+    </StripeProvider>
   );
 }

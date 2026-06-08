@@ -69,6 +69,9 @@ export const STRINGS = {
     dispatchSub: "Parcels awaiting a driver", noAwaiting: "Nothing awaiting dispatch.",
     assignDriver: "Assign a driver", offPlatform: "Off-platform driver", dispatchBtn: "Dispatch",
     senderHidden: "Sender details hidden from driver", externalName: "Driver name (off-platform)",
+    payouts: "Payouts", payoutsSub: "Pending driver payouts · batched end of day", noPayouts: "No pending payouts.",
+    markPaid: "Mark paid", autoSend: "Auto-send", noInterac: "No Interac email on file", pendingLabel: "pending",
+    autoNotConfigured: "Auto-send isn't set up — send the e-Transfer, then Mark paid.",
     // tabs
     tabSend: "Send", tabShipments: "Shipments", tabProfile: "Profile",
   },
@@ -128,6 +131,9 @@ export const STRINGS = {
     dispatchSub: "Colis en attente d'un conducteur", noAwaiting: "Rien en attente d'expédition.",
     assignDriver: "Assigner un conducteur", offPlatform: "Conducteur hors plateforme", dispatchBtn: "Expédier",
     senderHidden: "Coordonnées de l'expéditeur masquées au conducteur", externalName: "Nom du conducteur (hors plateforme)",
+    payouts: "Versements", payoutsSub: "Versements en attente · groupés en fin de journée", noPayouts: "Aucun versement en attente.",
+    markPaid: "Marquer payé", autoSend: "Envoi auto", noInterac: "Aucun courriel Interac enregistré", pendingLabel: "en attente",
+    autoNotConfigured: "L'envoi auto n'est pas configuré — envoyez le virement, puis Marquer payé.",
     tabSend: "Envoyer", tabShipments: "Envois", tabProfile: "Profil",
   },
 };

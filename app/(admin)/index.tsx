@@ -25,6 +25,7 @@ export default function AdminHome() {
         <Row icon="🏢" label={t("adminHubs")} to="/(admin)/hubs" />
         <Row icon="🏁" label={t("adminZones")} to="/(admin)/zones" />
         <Row icon="🚚" label={t("adminDispatch")} to="/(admin)/dispatch" />
+        <Row icon="💸" label={t("payouts")} to="/(admin)/payouts" />
       </ScrollView>
     </SafeAreaView>
   );

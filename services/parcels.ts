@@ -50,7 +50,7 @@ export const ParcelsAPI = {
     // Hub drops start at the hub; zone/door start pending until a match.
     const status: ParcelStatus = input.dropoff_type === "hub" ? "received_at_hub" : "requested";
     const { data, error } = await supabase
-      .from("parcels")
+      .from("kolis_parcels")
       .insert({
         code: genCode(),
         sender_id: user.id,
@@ -70,14 +70,14 @@ export const ParcelsAPI = {
 
   async listMine() {
     const { data, error } = await supabase
-      .from("parcels")
+      .from("kolis_parcels")
       .select("*")
       .order("created_at", { ascending: false });
     return { parcels: (data ?? []) as Parcel[], error: error?.message };
   },
 
   async get(id: string) {
-    const { data, error } = await supabase.from("parcels").select("*").eq("id", id).single();
+    const { data, error } = await supabase.from("kolis_parcels").select("*").eq("id", id).single();
     return { parcel: (data as Parcel) ?? null, error: error?.message };
   },
 };

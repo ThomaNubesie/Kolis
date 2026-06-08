@@ -45,11 +45,15 @@ export const ParcelsAPI = {
     pickup_zone?: string | null;
     pickup_hub?: string | null;
     price: number;
+    preferred_driver_id?: string | null;
   }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { parcel: null, error: "Not signed in" };
     // Hub drops start at the hub; zone/door start pending until a match.
     const status: ParcelStatus = input.dropoff_type === "hub" ? "received_at_hub" : "requested";
+    // First right of refusal: chosen driver gets a 10-min exclusive window.
+    const preferred = input.preferred_driver_id || null;
+    const offerExpires = preferred ? new Date(Date.now() + 10 * 60 * 1000).toISOString() : null;
     const { data, error } = await supabase
       .from("kolis_parcels")
       .insert({
@@ -65,6 +69,8 @@ export const ParcelsAPI = {
         pickup_hub: input.pickup_hub ?? null,
         price_cents: Math.round(input.price * 100),
         driver_payout_cents: driverPayoutCents(Math.round(input.price * 100), input.dropoff_type),
+        preferred_driver_id: preferred,
+        offer_expires_at: offerExpires,
       })
       .select()
       .single();

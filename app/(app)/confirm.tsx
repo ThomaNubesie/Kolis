@@ -13,7 +13,7 @@ export default function Confirm() {
   const { t } = useStrings();
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
-  const p = useLocalSearchParams<{ drop: string; size: string; from: string; to: string; price: string; pickup_zone?: string; pickup_hub?: string; zoneName?: string; hubName?: string; preferred_driver_name?: string }>();
+  const p = useLocalSearchParams<{ drop: string; size: string; from: string; to: string; price: string; pickup_zone?: string; pickup_hub?: string; zoneName?: string; hubName?: string; preferred_driver_name?: string; preferred_driver_id?: string }>();
   const [busy, setBusy] = useState(false);
   const price = Number(p.price ?? 0);
   const drop = (p.drop as DropType) ?? "zone";
@@ -28,6 +28,7 @@ export default function Confirm() {
       pickup_zone: p.pickup_zone ?? null,
       pickup_hub: p.pickup_hub ?? null,
       price,
+      preferred_driver_id: p.preferred_driver_id || null,
     });
     if (error || !parcel) { setBusy(false); Alert.alert("Error", error ?? "Could not create the request."); return; }
 

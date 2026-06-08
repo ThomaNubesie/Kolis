@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE);
     const { data: parcel } = await admin
       .from("kolis_parcels")
-      .select("id, sender_id, to_city, pickup_zone, to_region, dropoff_type, status")
+      .select("id, sender_id, to_city, pickup_zone, to_region, dropoff_type, status, preferred_driver_id, offer_expires_at")
       .eq("id", parcel_id)
       .single();
     if (!parcel || parcel.sender_id !== user.id) return json({ error: "not found" }, 404);
@@ -40,7 +40,12 @@ Deno.serve(async (req) => {
     const { data: queued } = await admin
       .from("queue_entries").select("driver_id")
       .eq("zone_id", parcel.pickup_zone).eq("destination_region", parcel.to_region);
-    const driverIds = [...new Set((queued ?? []).map((q: { driver_id: string }) => q.driver_id).filter(Boolean))];
+    let driverIds = [...new Set((queued ?? []).map((q: { driver_id: string }) => q.driver_id).filter(Boolean))];
+
+    // First right of refusal: during the offer window, only the chosen driver is pinged.
+    const offerOpen = parcel.offer_expires_at && new Date(parcel.offer_expires_at).getTime() > Date.now();
+    const reserved = !!(parcel.preferred_driver_id && offerOpen);
+    if (reserved) driverIds = driverIds.filter((id: string) => id === parcel.preferred_driver_id);
     if (driverIds.length === 0) return json({ ok: true, notified: 0 });
 
     const { data: drivers } = await admin.from("drivers").select("push_token").in("id", driverIds);
@@ -50,7 +55,9 @@ Deno.serve(async (req) => {
         to: d.push_token,
         sound: "default",
         title: `Kolis · parcel to ${parcel.to_city}`,
-        body: `Ready at ${zoneName} — tap to accept and earn on your trip.`,
+        body: reserved
+          ? `Reserved for you at ${zoneName} — accept within 10 min.`
+          : `Ready at ${zoneName} — tap to accept and earn on your trip.`,
         data: { type: "kolis_parcel", parcel_id: parcel.id },
         channelId: "default",
         priority: "high",

@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { AuthAPI } from "../../services/auth";
+import { toE164, isValidE164 } from "../../constants/phone";
 
 export default function SignIn() {
   const router = useRouter();
@@ -13,8 +14,8 @@ export default function SignIn() {
   const [busy, setBusy] = useState(false);
 
   const send = async () => {
-    const e164 = phone.trim();
-    if (e164.length < 8) { Alert.alert(t("phoneNumber"), "Enter a valid phone number with country code, e.g. +1…"); return; }
+    const e164 = toE164(phone);
+    if (!isValidE164(e164)) { Alert.alert(t("phoneNumber"), t("phoneInvalid")); return; }
     setBusy(true);
     const { error } = await AuthAPI.sendOTP(e164);
     setBusy(false);

@@ -20,6 +20,11 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "shaloderick@yahoo.com",
+        "appleTeamId": "7SFCZ8VTQ8"
+      }
+    }
   }
 }

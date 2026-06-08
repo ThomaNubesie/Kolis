@@ -10,7 +10,7 @@ import { SizeKey, DropType } from "../../constants/pricing";
 export default function Confirm() {
   const { t } = useStrings();
   const router = useRouter();
-  const p = useLocalSearchParams<{ drop: string; size: string; from: string; to: string; price: string; pickup_zone?: string; pickup_hub?: string }>();
+  const p = useLocalSearchParams<{ drop: string; size: string; from: string; to: string; price: string; pickup_zone?: string; pickup_hub?: string; zoneName?: string; hubName?: string }>();
   const [busy, setBusy] = useState(false);
   const price = Number(p.price ?? 0);
   const drop = (p.drop as DropType) ?? "zone";
@@ -28,7 +28,7 @@ export default function Confirm() {
     });
     setBusy(false);
     if (error || !parcel) { Alert.alert("Error", error ?? "Could not create the request."); return; }
-    router.replace({ pathname: "/(app)/request", params: { id: parcel.id, to: p.to ?? "", drop, where: p.pickup_hub || p.pickup_zone || "" } });
+    router.replace({ pathname: "/(app)/request", params: { id: parcel.id, to: p.to ?? "", drop, where: p.hubName || p.zoneName || "" } });
   };
 
   const Card = ({ children }: { children: React.ReactNode }) => (
@@ -36,9 +36,9 @@ export default function Confirm() {
   );
 
   const dropLine = drop === "hub"
-    ? `${t("dropAtHub")} ${p.pickup_hub}`
+    ? `${t("dropAtHub")} ${p.hubName ?? ""}`
     : drop === "zone"
-      ? `${t("dropAt")} ${p.pickup_zone}`
+      ? `${t("dropAt")} ${p.zoneName ?? ""}`
       : t("doorToDoor");
 
   return (

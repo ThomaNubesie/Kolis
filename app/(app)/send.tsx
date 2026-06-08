@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { compare, SizeKey, DropType } from "../../constants/pricing";
+import { HubsAPI } from "../../services/hubs";
+import { regionCode } from "../../constants/geo";
 
 export default function Send() {
   const { t } = useStrings();
@@ -13,6 +15,13 @@ export default function Send() {
   const [size, setSize] = useState<SizeKey>("small");
   const [from, setFrom] = useState("Ottawa");
   const [to, setTo] = useState("Montréal");
+  const [hubRegions, setHubRegions] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    HubsAPI.listActive().then(({ hubs }) => setHubRegions(new Set(hubs.map((h) => regionCode(h.city)))));
+  }, []);
+  const hubOk = hubRegions.has(regionCode(from));
+  useEffect(() => { if (!hubOk && drop === "hub") setDrop("zone"); }, [hubOk, drop]);
 
   const cmp = compare(size, drop);
 
@@ -54,11 +63,15 @@ export default function Send() {
 
         <Mono>{t("dropOff")}</Mono>
         <View style={{ flexDirection: "row", gap: 8, marginBottom: 8 }}>
-          {modes.map(([m, label]) => (
-            <Pressable key={m} onPress={() => setDrop(m)} style={{ flex: 1, borderWidth: 1.5, borderRadius: 999, paddingVertical: 9, alignItems: "center", borderColor: drop === m ? Colors.accent : Colors.line, backgroundColor: drop === m ? Colors.accent : "#fff" }}>
-              <Text style={{ fontWeight: "700", fontSize: 12, color: drop === m ? "#fff" : Colors.t2 }}>{label}</Text>
-            </Pressable>
-          ))}
+          {modes.map(([m, label]) => {
+            const disabled = m === "hub" && !hubOk;
+            const on = drop === m;
+            return (
+              <Pressable key={m} disabled={disabled} onPress={() => setDrop(m)} style={{ flex: 1, borderWidth: 1.5, borderRadius: 999, paddingVertical: 9, alignItems: "center", borderColor: on ? Colors.accent : Colors.line, backgroundColor: on ? Colors.accent : "#fff", opacity: disabled ? 0.4 : 1 }}>
+                <Text style={{ fontWeight: "700", fontSize: 12, color: on ? "#fff" : Colors.t2 }}>{label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
         <Text style={{ fontSize: 11, color: Colors.t3, marginBottom: 14, lineHeight: 15 }}>{t("modeHint3")}</Text>
 

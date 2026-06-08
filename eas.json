@@ -23,7 +23,8 @@
     "production": {
       "ios": {
         "appleId": "shaloderick@yahoo.com",
-        "appleTeamId": "7SFCZ8VTQ8"
+        "appleTeamId": "7SFCZ8VTQ8",
+        "ascAppId": "6778120565"
       }
     }
   }

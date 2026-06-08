@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Kolis",
+    "slug": "kolis",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "kolis",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "ca.kolis.app",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSPhotoLibraryUsageDescription": "Kolis needs access to your photos so you can add a photo of your parcel.",
+        "NSCameraUsageDescription": "Kolis uses the camera so you can photograph your parcel."
+      }
+    },
+    "android": {
+      "package": "ca.kolis.app",
+      "softwareKeyboardLayoutMode": "pan",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Kolis uses your location to find loading zones and drivers near you."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "platforms": ["ios", "android"]
+  }
+}

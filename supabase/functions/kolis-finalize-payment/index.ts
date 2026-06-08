@@ -1,5 +1,7 @@
-// Captures (on delivery) or cancels (releases the hold) a Kolis parcel's escrow
-// PaymentIntent. capture = admin only; cancel = parcel sender or admin.
+// Finalizes a Kolis parcel's escrow PaymentIntent.
+//   action "deliver": assigned driver (with matching 4-digit code) -> capture + delivered
+//   action "capture": admin -> capture + delivered
+//   action "cancel":  sender or admin -> cancel (release the hold)
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14?target=deno";
@@ -28,19 +30,25 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return json({ error: "unauthorized" }, 401);
 
-    const { parcel_id, action } = await req.json(); // action: 'capture' | 'cancel'
+    const { parcel_id, action, code } = await req.json();
     const admin = createClient(SUPABASE_URL, SERVICE);
     const { data: parcel } = await admin
       .from("kolis_parcels")
-      .select("id, sender_id, stripe_payment_intent_id")
+      .select("id, sender_id, driver_id, delivery_code, stripe_payment_intent_id")
       .eq("id", parcel_id)
       .single();
     if (!parcel?.stripe_payment_intent_id) return json({ error: "no payment" }, 404);
 
     const { data: drv } = await admin.from("drivers").select("is_admin").eq("id", user.id).maybeSingle();
     const isAdmin = !!drv?.is_admin;
+    const isDriver = parcel.driver_id === user.id;
 
-    if (action === "capture") {
+    if (action === "deliver") {
+      if (!isDriver && !isAdmin) return json({ error: "forbidden" }, 403);
+      if (String(code) !== String(parcel.delivery_code)) return json({ error: "bad_code" }, 400);
+      await stripe.paymentIntents.capture(parcel.stripe_payment_intent_id);
+      await admin.from("kolis_parcels").update({ status: "delivered" }).eq("id", parcel.id);
+    } else if (action === "capture") {
       if (!isAdmin) return json({ error: "forbidden" }, 403);
       await stripe.paymentIntents.capture(parcel.stripe_payment_intent_id);
       await admin.from("kolis_parcels").update({ status: "delivered" }).eq("id", parcel.id);

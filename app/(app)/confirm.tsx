@@ -44,7 +44,8 @@ export default function Confirm() {
       if (res.error.code !== "Canceled") Alert.alert(t("payment"), res.error.message || t("paymentError"));
       return; // parcel stays pending/unpaid; sender can retry
     }
-    // Authorized & held — funds captured on delivery.
+    // Authorized & held — funds captured on delivery. Ping queued drivers.
+    if (drop === "zone") ParcelsAPI.notifyDrivers(parcel.id);
     router.replace({ pathname: "/(app)/request", params: { id: parcel.id, to: p.to ?? "", drop, where: p.hubName || p.zoneName || "" } });
   };
 

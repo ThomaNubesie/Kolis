@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import { SizeKey, DropType } from "../constants/pricing";
+import { regionCode } from "../constants/geo";
 
 export type ParcelStatus =
   | "requested"        // pending — waiting for a match
@@ -59,6 +60,7 @@ export const ParcelsAPI = {
         size: input.size,
         from_city: input.from_city,
         to_city: input.to_city,
+        to_region: regionCode(input.to_city),
         pickup_zone: input.pickup_zone ?? null,
         pickup_hub: input.pickup_hub ?? null,
         price_cents: Math.round(input.price * 100),
@@ -89,6 +91,11 @@ export const ParcelsAPI = {
       .eq("status", "received_at_hub")
       .order("created_at", { ascending: true });
     return { parcels: (data ?? []) as Parcel[], error: error?.message };
+  },
+
+  // Notify queued LoadQ drivers that a zone parcel is available (push).
+  async notifyDrivers(id: string) {
+    try { await supabase.functions.invoke("kolis-notify-drivers", { body: { parcel_id: id } }); } catch { /* best-effort */ }
   },
 
   // Admin: dispatch a hub parcel with a platform or off-platform driver.

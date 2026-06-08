@@ -1,22 +1,32 @@
 import { supabase } from "./supabase";
-import { SizeKey } from "../constants/pricing";
+import { SizeKey, DropType } from "../constants/pricing";
 
-export type ParcelStatus = "requested" | "matched" | "picked_up" | "in_transit" | "delivered" | "cancelled";
+export type ParcelStatus =
+  | "requested"        // pending — waiting for a match
+  | "received_at_hub"  // dropped at a staffed hub, awaiting dispatch
+  | "matched"          // zone/door driver matched
+  | "dispatched"       // hub: handed to a driver (platform or off-platform)
+  | "picked_up"
+  | "in_transit"
+  | "delivered"
+  | "cancelled";
 
 export type Parcel = {
   id: string;
   code: string;
   status: ParcelStatus;
-  mode: "zone" | "door";
+  dropoff_type: DropType;
   size: SizeKey;
   from_city: string;
   to_city: string;
   pickup_zone: string | null;
+  pickup_hub: string | null;
   pickup_addr: string | null;
   dropoff_zone: string | null;
   dropoff_addr: string | null;
   price_cents: number;
   driver_id: string | null;
+  external_driver_name: string | null;
   created_at: string;
 };
 
@@ -27,28 +37,30 @@ function genCode() {
 
 export const ParcelsAPI = {
   async create(input: {
-    mode: "zone" | "door";
+    dropoff_type: DropType;
     size: SizeKey;
     from_city: string;
     to_city: string;
     pickup_zone?: string | null;
-    pickup_addr?: string | null;
+    pickup_hub?: string | null;
     price: number;
   }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { parcel: null, error: "Not signed in" };
+    // Hub drops start at the hub; zone/door start pending until a match.
+    const status: ParcelStatus = input.dropoff_type === "hub" ? "received_at_hub" : "requested";
     const { data, error } = await supabase
       .from("parcels")
       .insert({
         code: genCode(),
         sender_id: user.id,
-        status: "requested",
-        mode: input.mode,
+        status,
+        dropoff_type: input.dropoff_type,
         size: input.size,
         from_city: input.from_city,
         to_city: input.to_city,
         pickup_zone: input.pickup_zone ?? null,
-        pickup_addr: input.pickup_addr ?? null,
+        pickup_hub: input.pickup_hub ?? null,
         price_cents: Math.round(input.price * 100),
       })
       .select()

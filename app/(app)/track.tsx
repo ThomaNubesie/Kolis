@@ -6,7 +6,8 @@ import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { ParcelsAPI, Parcel, ParcelStatus } from "../../services/parcels";
 
-const ORDER: ParcelStatus[] = ["requested", "matched", "picked_up", "in_transit", "delivered"];
+const ORDER_DEFAULT: ParcelStatus[] = ["requested", "matched", "picked_up", "in_transit", "delivered"];
+const ORDER_HUB: ParcelStatus[] = ["received_at_hub", "dispatched", "in_transit", "delivered"];
 
 export default function Track() {
   const { t } = useStrings();
@@ -28,21 +29,23 @@ export default function Track() {
   }
 
   const labels: Record<ParcelStatus, string> = {
-    requested: t("statusRequested"), matched: t("statusMatched"), picked_up: t("statusPickedUp"),
-    in_transit: t("statusInTransit"), delivered: t("statusDelivered"), cancelled: "—",
+    requested: t("statusPending"), received_at_hub: t("statusReceivedHub"), matched: t("statusMatched"),
+    dispatched: t("statusDispatched"), picked_up: t("statusPickedUp"), in_transit: t("statusInTransit"),
+    delivered: t("statusDelivered"), cancelled: "—",
   };
-  const cur = ORDER.indexOf(parcel.status);
+  const order = parcel.dropoff_type === "hub" ? ORDER_HUB : ORDER_DEFAULT;
+  const cur = order.indexOf(parcel.status);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["top"]}>
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }}>
         <Pressable onPress={() => router.replace("/(app)/shipments")}><Text style={{ color: Colors.t2, fontSize: 15, marginBottom: 6 }}>← {t("tabShipments")}</Text></Pressable>
         <Text style={{ fontSize: 22, fontWeight: "800", color: Colors.ink }}>{parcel.from_city} → {parcel.to_city}</Text>
-        <Text style={{ fontSize: 12.5, color: Colors.t3, marginBottom: 20 }}>#{parcel.code} · {t("eta")} ~1h 20m</Text>
+        <Text style={{ fontSize: 12.5, color: Colors.t3, marginBottom: 20 }}>#{parcel.code}</Text>
 
         <View style={{ marginBottom: 18 }}>
-          {ORDER.map((s, i) => {
-            const done = i <= cur;
+          {order.map((s, i) => {
+            const done = cur >= 0 && i <= cur;
             const now = i === cur;
             return (
               <View key={s} style={{ flexDirection: "row", gap: 11, alignItems: "flex-start", marginBottom: 16 }}>

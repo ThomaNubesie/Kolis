@@ -4,23 +4,22 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
-import { compare, SizeKey } from "../../constants/pricing";
-
-type Mode = "zone" | "door";
+import { compare, SizeKey, DropType } from "../../constants/pricing";
 
 export default function Send() {
   const { t } = useStrings();
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("zone");
+  const [drop, setDrop] = useState<DropType>("hub");
   const [size, setSize] = useState<SizeKey>("small");
   const [from, setFrom] = useState("Ottawa");
   const [to, setTo] = useState("Montréal");
 
-  const cmp = compare(size, mode);
+  const cmp = compare(size, drop);
 
   const go = () => {
-    const params = { mode, size, from, to, price: String(cmp.price) };
-    if (mode === "zone") router.push({ pathname: "/(app)/zones", params });
+    const params = { drop, size, from, to, price: String(cmp.price) };
+    if (drop === "hub") router.push({ pathname: "/(app)/hub", params });
+    else if (drop === "zone") router.push({ pathname: "/(app)/zones", params });
     else router.push({ pathname: "/(app)/confirm", params });
   };
 
@@ -28,6 +27,7 @@ export default function Send() {
     <Text style={{ fontSize: 10.5, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 5, fontWeight: "600" }}>{children}</Text>
   );
 
+  const modes: [DropType, string][] = [["hub", "🏢 " + t("mHub")], ["zone", "🏁 " + t("mZone")], ["door", "🚪 " + t("mDoor")]];
   const sizes: { key: SizeKey; emoji: string; label: string; weight: string }[] = [
     { key: "envelope", emoji: "✉️", label: t("envelope"), weight: "≤1 kg" },
     { key: "small", emoji: "📦", label: t("small"), weight: "≤5 kg" },
@@ -54,13 +54,13 @@ export default function Send() {
 
         <Mono>{t("dropOff")}</Mono>
         <View style={{ flexDirection: "row", gap: 8, marginBottom: 8 }}>
-          {([["zone", "🏁 " + t("loadqZone")], ["door", "🚪 " + t("doorToDoor")]] as [Mode, string][]).map(([m, label]) => (
-            <Pressable key={m} onPress={() => setMode(m)} style={{ flex: 1, borderWidth: 1.5, borderRadius: 999, paddingVertical: 9, alignItems: "center", borderColor: mode === m ? Colors.accent : Colors.line, backgroundColor: mode === m ? Colors.accent : "#fff" }}>
-              <Text style={{ fontWeight: "700", fontSize: 12.5, color: mode === m ? "#fff" : Colors.t2 }}>{label}</Text>
+          {modes.map(([m, label]) => (
+            <Pressable key={m} onPress={() => setDrop(m)} style={{ flex: 1, borderWidth: 1.5, borderRadius: 999, paddingVertical: 9, alignItems: "center", borderColor: drop === m ? Colors.accent : Colors.line, backgroundColor: drop === m ? Colors.accent : "#fff" }}>
+              <Text style={{ fontWeight: "700", fontSize: 12, color: drop === m ? "#fff" : Colors.t2 }}>{label}</Text>
             </Pressable>
           ))}
         </View>
-        <Text style={{ fontSize: 11, color: Colors.t3, marginBottom: 14, lineHeight: 15 }}>{t("modeHint")}</Text>
+        <Text style={{ fontSize: 11, color: Colors.t3, marginBottom: 14, lineHeight: 15 }}>{t("modeHint3")}</Text>
 
         <Mono>{t("size")}</Mono>
         <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
@@ -81,7 +81,6 @@ export default function Send() {
           <Text style={{ fontSize: 11, color: "#fff", opacity: 0.75, maxWidth: 120, textAlign: "right" }}>{t("payWhenMatched")}</Text>
         </View>
 
-        {/* Cost saved + time gained vs express couriers */}
         <View style={{ backgroundColor: "rgba(46,204,143,0.12)", borderRadius: 12, padding: 11, marginBottom: 6 }}>
           <Text style={{ color: "#178a5e", fontWeight: "800", fontSize: 13 }}>💸 {t("saveVs", { amount: cmp.saved })}</Text>
         </View>

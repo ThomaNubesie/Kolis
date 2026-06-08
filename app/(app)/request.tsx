@@ -7,10 +7,13 @@ import { useStrings } from "../../hooks/useStrings";
 export default function RequestPlaced() {
   const { t } = useStrings();
   const router = useRouter();
-  const p = useLocalSearchParams<{ id: string; to: string; mode: string; zone: string }>();
-  const msg = p.mode === "zone"
-    ? t("delegating", { zone: p.zone || "the zone", city: p.to || "" })
-    : t("matching", { city: p.to || "" });
+  const p = useLocalSearchParams<{ id: string; to: string; drop: string; where: string }>();
+
+  const msg = p.drop === "hub"
+    ? t("dispatchedSameDay")
+    : p.drop === "zone"
+      ? t("delegating", { zone: p.where || "the zone", city: p.to || "" })
+      : t("matching", { city: p.to || "" });
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg, padding: 24, alignItems: "center", justifyContent: "center" }}>
@@ -20,7 +23,7 @@ export default function RequestPlaced() {
       <Text style={{ fontSize: 24, fontWeight: "800", color: Colors.ink, marginBottom: 8 }}>{t("requestPlaced")}</Text>
       <Text style={{ fontSize: 14, color: Colors.t2, textAlign: "center", lineHeight: 20, marginBottom: 18 }}>{msg}</Text>
       <View style={{ backgroundColor: Colors.cardAlt, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 24 }}>
-        <Text style={{ fontSize: 12.5, fontWeight: "700", color: Colors.t2 }}>⏱ {t("usuallyMatched")}</Text>
+        <Text style={{ fontSize: 12.5, fontWeight: "700", color: Colors.t2 }}>🔒 {t("chargedWhenDispatched")}</Text>
       </View>
       <Pressable onPress={() => router.replace({ pathname: "/(app)/track", params: { id: p.id } })}
         style={{ backgroundColor: Colors.accent, borderRadius: 13, padding: 16, alignItems: "center", alignSelf: "stretch" }}>

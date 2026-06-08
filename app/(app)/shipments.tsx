@@ -21,7 +21,8 @@ export default function Shipments() {
   const done = parcels.filter((p) => p.status === "delivered");
 
   const statusLabel: Record<string, string> = {
-    requested: t("statusRequested"), matched: t("statusMatched"), picked_up: t("statusPickedUp"),
+    requested: t("statusPending"), received_at_hub: t("statusReceivedHub"), matched: t("statusMatched"),
+    dispatched: t("statusDispatched"), picked_up: t("statusPickedUp"),
     in_transit: t("statusInTransit"), delivered: t("statusDelivered"),
   };
 

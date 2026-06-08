@@ -33,4 +33,27 @@ export const LoadqAPI = {
     });
     return counts;
   },
+
+  // Total queued drivers per zone (any destination) — used in the zone admin.
+  async queuedByZone(): Promise<Record<string, number>> {
+    const { data } = await supabase.from("queue_entries").select("zone_id");
+    const counts: Record<string, number> = {};
+    (data ?? []).forEach((r: { zone_id: string }) => {
+      counts[r.zone_id] = (counts[r.zone_id] ?? 0) + 1;
+    });
+    return counts;
+  },
+
+  // Kolis enablement per zone (kolis_zone_settings). Missing row = enabled (default).
+  async zoneSettings(): Promise<Record<string, boolean>> {
+    const { data } = await supabase.from("kolis_zone_settings").select("zone_id, kolis_enabled");
+    const map: Record<string, boolean> = {};
+    (data ?? []).forEach((r: { zone_id: string; kolis_enabled: boolean }) => { map[r.zone_id] = r.kolis_enabled; });
+    return map;
+  },
+
+  async setZoneEnabled(zone_id: string, kolis_enabled: boolean) {
+    const { error } = await supabase.from("kolis_zone_settings").upsert({ zone_id, kolis_enabled });
+    return { error: error?.message };
+  },
 };

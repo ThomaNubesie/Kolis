@@ -80,4 +80,23 @@ export const ParcelsAPI = {
     const { data, error } = await supabase.from("kolis_parcels").select("*").eq("id", id).single();
     return { parcel: (data as Parcel) ?? null, error: error?.message };
   },
+
+  // Admin: parcels dropped at a hub, awaiting dispatch.
+  async atHub() {
+    const { data, error } = await supabase
+      .from("kolis_parcels")
+      .select("*")
+      .eq("status", "received_at_hub")
+      .order("created_at", { ascending: true });
+    return { parcels: (data ?? []) as Parcel[], error: error?.message };
+  },
+
+  // Admin: dispatch a hub parcel with a platform or off-platform driver.
+  async dispatch(id: string, opts: { driver_id?: string | null; external_driver_name?: string | null }) {
+    const { error } = await supabase
+      .from("kolis_parcels")
+      .update({ status: "dispatched", driver_id: opts.driver_id ?? null, external_driver_name: opts.external_driver_name ?? null })
+      .eq("id", id);
+    return { error: error?.message };
+  },
 };

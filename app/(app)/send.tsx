@@ -23,7 +23,7 @@ export default function Send() {
   const hubOk = hubRegions.has(regionCode(from));
   useEffect(() => { if (!hubOk && drop === "hub") setDrop("zone"); }, [hubOk, drop]);
 
-  const cmp = compare(size, drop);
+  const cmp = compare(size, drop, from, to);
 
   const go = () => {
     const params = { drop, size, from, to, price: String(cmp.price) };

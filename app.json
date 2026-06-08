@@ -55,6 +55,16 @@
     "experiments": {
       "typedRoutes": true
     },
-    "platforms": ["ios", "android"]
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a1e023f4-20fe-4d64-8e4d-ad5871ab1d07"
+      }
+    },
+    "owner": "thomasderick"
   }
 }

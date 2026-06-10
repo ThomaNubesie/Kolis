@@ -196,6 +196,11 @@ export const STRINGS = {
     insureAdd: "Add insurance", insureDecline: "Decline",
     insureAddNote: "If the package is lost or damaged, you're reimbursed up to the declared value.",
     insurePremiumLine: "Insurance premium (5% of value): +C${amount}", payTotalLine: "Total: C${amount}",
+    // structured address
+    doorToWord: "to",
+    addrStreet: "Street address", addrCity: "City", addrPostal: "Postal code", addrZip: "ZIP code",
+    addrProvince: "Province", addrState: "State", addrRegion: "Region",
+    addrSearchPh: "Start typing the address…", addrManualHint: "Type the address; pick a suggestion to auto-fill.",
     insureDeclineNote: "If you decline and the package is lost, we reimburse the shipping fee only — nothing more.",
     agreementText: "By continuing you confirm that: the contents are legal and not prohibited (no cash, weapons, hazardous materials, perishables, or illegal items); the declared value is accurate; and you have the right to ship them. Liability: if you DECLINE insurance, the maximum reimbursement for loss or damage is the shipping fee paid. If you ADD insurance, coverage is up to the declared value. Concord Express Co Inc. and its couriers are not liable for indirect or consequential damages, and you agree to indemnify Concord Express Co Inc. against claims arising from prohibited or misdeclared contents.",
     agreeCheckbox: "I have read and agree to the terms above.",
@@ -396,6 +401,11 @@ export const STRINGS = {
     insureAdd: "Ajouter une assurance", insureDecline: "Refuser",
     insureAddNote: "En cas de perte ou de dommage, vous êtes remboursé jusqu'à la valeur déclarée.",
     insurePremiumLine: "Prime d'assurance (5 % de la valeur) : +C${amount}", payTotalLine: "Total : C${amount}",
+    // structured address
+    doorToWord: "à",
+    addrStreet: "Adresse (rue)", addrCity: "Ville", addrPostal: "Code postal", addrZip: "Code ZIP",
+    addrProvince: "Province", addrState: "État", addrRegion: "Région",
+    addrSearchPh: "Commencez à taper l'adresse…", addrManualHint: "Tapez l'adresse; choisissez une suggestion pour remplir automatiquement.",
     insureDeclineNote: "Si vous refusez et que le colis est perdu, nous remboursons uniquement les frais d'expédition — rien de plus.",
     agreementText: "En continuant, vous confirmez que : le contenu est légal et non interdit (ni argent comptant, armes, matières dangereuses, denrées périssables ou articles illégaux); la valeur déclarée est exacte; et vous avez le droit de l'expédier. Responsabilité : si vous REFUSEZ l'assurance, le remboursement maximal en cas de perte ou de dommage correspond aux frais d'expédition payés. Si vous AJOUTEZ une assurance, la couverture va jusqu'à la valeur déclarée. Concord Express Co Inc. et ses coursiers ne sont pas responsables des dommages indirects ou consécutifs, et vous acceptez d'indemniser Concord Express Co Inc. contre toute réclamation découlant d'un contenu interdit ou mal déclaré.",
     agreeCheckbox: "J'ai lu et j'accepte les conditions ci-dessus.",

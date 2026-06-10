@@ -8,7 +8,8 @@ import { compare, SizeKey, DropType } from "../../constants/pricing";
 import { HubsAPI } from "../../services/hubs";
 import { regionCode } from "../../constants/geo";
 import { CityPicker } from "../../components/CityPicker";
-import { AddressAutocomplete } from "../../components/AddressAutocomplete";
+import { AddressFields, Address, emptyAddress, formatAddress, isAddressComplete } from "../../components/AddressFields";
+import { ProfileAPI } from "../../services/profile";
 import { NearbyPicker, NearbyChoice } from "../../components/NearbyPicker";
 
 export default function Send() {
@@ -20,11 +21,13 @@ export default function Send() {
   const [to, setTo] = useState("Montréal");
   const [hubRegions, setHubRegions] = useState<Set<string>>(new Set());
   const [selHub, setSelHub] = useState<NearbyChoice | null>(null);
-  const [addr, setAddr] = useState(""); // door pickup address
+  const [addr, setAddr] = useState<Address>(emptyAddress); // door pickup address
+  const [country, setCountry] = useState("CA");
   const [modal, setModal] = useState(false); // hub picker
 
   useEffect(() => {
     HubsAPI.listActive().then(({ hubs }) => setHubRegions(new Set(hubs.map((h) => regionCode(h.city)))));
+    ProfileAPI.get().then((pr) => { if (pr?.country) setCountry(pr.country); });
   }, []);
   const hubOk = hubRegions.has(regionCode(from));
   useEffect(() => { if (!hubOk && drop === "hub") setDrop("door"); }, [hubOk, drop]);
@@ -52,7 +55,7 @@ export default function Send() {
         params: { drop: "hub", size, from, to, price: String(cmp.price), pickup_hub: selHub.id, hubName: selHub.name, hubAddr: selHub.address ?? "" },
       });
     } else {
-      router.push({ pathname: "/(app)/details", params: { drop: "door", size, from, to, price: String(cmp.price), pickup_addr: addr.trim() } });
+      router.push({ pathname: "/(app)/details", params: { drop: "door", size, from, to, price: String(cmp.price), pickup_addr: formatAddress(addr) } });
     }
   };
 
@@ -60,7 +63,7 @@ export default function Send() {
     <Text style={{ fontSize: 10.5, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 5, fontWeight: "600" }}>{children}</Text>
   );
 
-  const modes: [DropType, string][] = [["hub", "🏢 " + t("mHub")], ["door", "🚪 " + t("mDoor")]];
+  const modes: [DropType, string][] = [["hub", "🏢 " + t("mHub")], ["door", `🚪 ${t("doorToWord")} 🚪`]];
   const sizes: { key: SizeKey; emoji: string; label: string; weight: string }[] = [
     { key: "envelope", emoji: "✉️", label: t("envelope"), weight: "≤1 kg" },
     { key: "small", emoji: "📦", label: t("small"), weight: "≤5 kg" },
@@ -68,7 +71,7 @@ export default function Send() {
   ];
 
   const isHub = drop === "hub";
-  const doorReady = drop !== "door" || addr.trim().length > 3;
+  const doorReady = drop !== "door" || isAddressComplete(addr);
   const ctaLabel = isHub ? (selHub ? t("directionsToHub") : t("chooseHub")) : t("continue");
 
   return (
@@ -106,7 +109,7 @@ export default function Send() {
         ) : drop === "door" ? (
           <View style={{ marginBottom: 14 }}>
             <Mono>{t("pickupAddress")}</Mono>
-            <AddressAutocomplete value={addr} onChange={setAddr} placeholder={t("pickupAddressPh")} />
+            <AddressFields value={addr} onChange={setAddr} country={country} />
             <Text style={{ fontSize: 10.5, color: Colors.t3, marginTop: 1, lineHeight: 14 }}>{t("pickupAddressHint")}</Text>
           </View>
         ) : (

@@ -1,15 +1,36 @@
 // Shipping details — security + insurance form. Sender info auto-fills (read
-// only); recipient + contents + insurance + liability agreement are required
-// before payment. Carries everything forward to the pay step as a JSON param.
+// only); recipient + structured address + contents + insurance + liability
+// agreement are required before payment. Carried forward as a JSON param.
 import { useEffect, useState } from "react";
-import { View, Text, TextInput, Pressable, ScrollView, Alert } from "react-native";
+import { View, Text, TextInput, Pressable, ScrollView, Alert, KeyboardTypeOptions } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { ProfileAPI } from "../../services/profile";
 import { supabase } from "../../services/supabase";
-import { AddressAutocomplete } from "../../components/AddressAutocomplete";
+import { AddressFields, Address, emptyAddress, formatAddress, isAddressComplete } from "../../components/AddressFields";
+
+// Module-level so they keep a stable identity — defining these inside the screen
+// remounts every input on each keystroke and drops the keyboard.
+function Mono({ children }: { children: string }) {
+  return <Text style={{ fontSize: 10.5, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 7, marginTop: 6, fontWeight: "700" }}>{children}</Text>;
+}
+function Field({ label, value, onChange, ph, req, keyboardType, multiline, autoCap }: {
+  label: string; value: string; onChange: (v: string) => void; ph?: string; req?: boolean;
+  keyboardType?: KeyboardTypeOptions; multiline?: boolean; autoCap?: "none" | "words" | "sentences" | "characters";
+}) {
+  return (
+    <View style={{ marginBottom: 10 }}>
+      <Text style={{ fontSize: 11.5, color: Colors.t2, marginBottom: 4, fontWeight: "600" }}>{label}{req ? <Text style={{ color: Colors.accent }}> *</Text> : null}</Text>
+      <TextInput
+        value={value} onChangeText={onChange} placeholder={ph} placeholderTextColor={Colors.t3}
+        keyboardType={keyboardType} multiline={multiline} autoCapitalize={autoCap}
+        style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 12, padding: 12, fontSize: 14, color: Colors.ink, backgroundColor: "#fff", minHeight: multiline ? 64 : undefined, textAlignVertical: multiline ? "top" : "center" }}
+      />
+    </View>
+  );
+}
 
 export default function Details() {
   const { t } = useStrings();
@@ -17,9 +38,10 @@ export default function Details() {
   const p = useLocalSearchParams<{ drop: string; size: string; from: string; to: string; price: string; pickup_hub?: string; hubName?: string; hubAddr?: string; pickup_addr?: string }>();
 
   const [sender, setSender] = useState<{ name: string; email: string; phone: string }>({ name: "", email: "", phone: "" });
+  const [country, setCountry] = useState("CA");
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
-  const [addr, setAddr] = useState("");
+  const [addr, setAddr] = useState<Address>(emptyAddress);
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [contents, setContents] = useState("");
@@ -32,6 +54,7 @@ export default function Details() {
       const prof = await ProfileAPI.get();
       const { data: { user } } = await supabase.auth.getUser();
       setSender({ name: (prof as any)?.verified_name || prof?.full_name || "", email: prof?.email || "", phone: user?.phone || "" });
+      if (prof?.country) setCountry(prof.country);
     })();
   }, []);
 
@@ -40,7 +63,7 @@ export default function Details() {
   const premium = insured && valNum > 0 ? valNum * 0.05 : 0;
   const total = shipPrice + premium;
   const ready =
-    first.trim() && last.trim() && addr.trim().length > 3 &&
+    !!first.trim() && !!last.trim() && isAddressComplete(addr) &&
     phone.trim().length >= 6 && contents.trim().length > 1 &&
     valNum > 0 && insured !== null && agreed;
 
@@ -50,7 +73,7 @@ export default function Details() {
       recipient_name: `${first.trim()} ${last.trim()}`,
       recipient_phone: phone.trim(),
       recipient_email: email.trim() || null,
-      dropoff_addr: addr.trim(),
+      dropoff_addr: formatAddress(addr),
       contents_description: contents.trim(),
       declared_value: valNum,
       insured,
@@ -63,20 +86,6 @@ export default function Details() {
       router.push({ pathname: "/(app)/confirm", params: { ...base, drop: "door", pickup_addr: p.pickup_addr ?? "" } });
     }
   };
-
-  const Mono = ({ children }: { children: string }) => (
-    <Text style={{ fontSize: 10.5, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 7, marginTop: 6, fontWeight: "700" }}>{children}</Text>
-  );
-  const Field = ({ label, value, onChange, ph, req, keyboardType, multiline, autoCap }: any) => (
-    <View style={{ marginBottom: 10 }}>
-      <Text style={{ fontSize: 11.5, color: Colors.t2, marginBottom: 4, fontWeight: "600" }}>{label}{req ? <Text style={{ color: Colors.accent }}> *</Text> : null}</Text>
-      <TextInput
-        value={value} onChangeText={onChange} placeholder={ph} placeholderTextColor={Colors.t3}
-        keyboardType={keyboardType} multiline={multiline} autoCapitalize={autoCap}
-        style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 12, padding: 12, fontSize: 14, color: Colors.ink, backgroundColor: "#fff", minHeight: multiline ? 64 : undefined, textAlignVertical: multiline ? "top" : "center" }}
-      />
-    </View>
-  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["top"]}>
@@ -99,9 +108,12 @@ export default function Details() {
           <View style={{ flex: 1 }}><Field label={t("firstName")} value={first} onChange={setFirst} req autoCap="words" /></View>
           <View style={{ flex: 1 }}><Field label={t("lastName")} value={last} onChange={setLast} req autoCap="words" /></View>
         </View>
-        <AddressAutocomplete label={t("destAddress")} value={addr} onChange={setAddr} required placeholder={t("pickupAddressPh")} />
         <Field label={t("recipientPhone")} value={phone} onChange={setPhone} req keyboardType="phone-pad" />
         <Field label={t("recipientEmail")} value={email} onChange={setEmail} keyboardType="email-address" autoCap="none" ph="name@email.com" />
+
+        {/* Structured destination address */}
+        <Mono>{t("destAddress")}</Mono>
+        <AddressFields value={addr} onChange={setAddr} country={country} />
 
         {/* Contents */}
         <Mono>{t("contentsSection")}</Mono>

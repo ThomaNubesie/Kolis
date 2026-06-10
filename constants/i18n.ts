@@ -179,6 +179,12 @@ export const STRINGS = {
     // door pickup address
     pickupAddress: "Pickup address", pickupAddressPh: "Street, unit, city",
     pickupAddressHint: "The courier picks the parcel up here. Shared only once a courier accepts.",
+    // tax documents
+    taxDocuments: "Tax documents", taxSub: "Year-end statements of your courier earnings.",
+    taxNone: "No tax documents yet", taxNoneSub: "A statement appears here for each year you complete deliveries.",
+    taxGross: "Gross", taxParcels: "{n} parcel(s) delivered", taxEmailDoc: "Email document",
+    taxEmailedTo: "Sent to {email}. Check your inbox (and spam).",
+    taxNoEmail: "No email on file. Add one in your profile to receive the document.",
   },
   fr: {
     continue: "Continuer", cancel: "Annuler", back: "Retour", done: "Terminé",
@@ -345,6 +351,12 @@ export const STRINGS = {
     // door pickup address
     pickupAddress: "Adresse de ramassage", pickupAddressPh: "Rue, unité, ville",
     pickupAddressHint: "Le coursier récupère le colis ici. Partagé seulement après l'acceptation d'un coursier.",
+    // tax documents
+    taxDocuments: "Documents fiscaux", taxSub: "Relevés de fin d'année de vos revenus de coursier.",
+    taxNone: "Aucun document fiscal", taxNoneSub: "Un relevé apparaît ici pour chaque année où vous effectuez des livraisons.",
+    taxGross: "Brut", taxParcels: "{n} colis livré(s)", taxEmailDoc: "Envoyer par courriel",
+    taxEmailedTo: "Envoyé à {email}. Vérifiez votre boîte de réception (et les indésirables).",
+    taxNoEmail: "Aucun courriel enregistré. Ajoutez-en un dans votre profil pour recevoir le document.",
   },
 };
 

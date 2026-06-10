@@ -3,13 +3,14 @@
 import { useCallback, useState } from "react";
 import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { CourierAPI } from "../../services/courier";
 
 export default function Earnings() {
   const { t } = useStrings();
+  const router = useRouter();
   const [earn, setEarn] = useState({ paid: 0, pending: 0 });
   const [interac, setInterac] = useState("");
   const [loading, setLoading] = useState(true);
@@ -66,9 +67,14 @@ export default function Earnings() {
         </View>
         <Text style={{ fontSize: 11.5, color: Colors.t2, marginBottom: 20, lineHeight: 16 }}>{t("payoutHint")}</Text>
 
-        <View style={{ backgroundColor: Colors.cardAlt, borderRadius: 12, padding: 13 }}>
+        <View style={{ backgroundColor: Colors.cardAlt, borderRadius: 12, padding: 13, marginBottom: 12 }}>
           <Text style={{ fontSize: 11.5, color: Colors.t2, lineHeight: 17 }}>🧾 {t("contractorNote")}</Text>
         </View>
+
+        <Pressable onPress={() => router.push("/(app)/tax")} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1.5, borderColor: Colors.line, borderRadius: 13, padding: 14, backgroundColor: "#fff" }}>
+          <Text style={{ fontSize: 13.5, fontWeight: "700", color: Colors.ink }}>🧾 {t("taxDocuments")}</Text>
+          <Text style={{ fontSize: 16, color: Colors.t3 }}>›</Text>
+        </Pressable>
       </ScrollView>
     </SafeAreaView>
   );

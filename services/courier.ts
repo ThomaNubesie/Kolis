@@ -34,6 +34,8 @@ export type CourierReceipt = {
   payout_cents: number;
 };
 
+export type TaxYear = { year: number; total_payout_cents: number; parcels: number };
+
 export const CourierAPI = {
   // Parcels proposed to this courier (verified Kolis member, by hub/door rules).
   async proposals(): Promise<CourierParcel[]> {
@@ -57,6 +59,19 @@ export const CourierAPI = {
   async receipt(id: string): Promise<CourierReceipt | null> {
     const { data } = await supabase.rpc("kolis_parcel_receipt", { p_id: id });
     return (data as CourierReceipt) ?? null;
+  },
+
+  // Tax: years with delivered earnings + annual gross totals.
+  async taxYears(): Promise<TaxYear[]> {
+    const { data } = await supabase.rpc("kolis_tax_years");
+    return (data ?? []) as TaxYear[];
+  },
+
+  // Generate + email the year's contractor tax document (T4A/1099/statement).
+  async taxDocument(year: number): Promise<{ ok?: boolean; emailed?: boolean; emailed_to?: string | null; doc_type?: string; gross_cents?: number; parcels?: number; error?: string }> {
+    const { data, error } = await supabase.functions.invoke("kolis-tax-document", { body: { year } });
+    if (error) return { error: error.message };
+    return data;
   },
 
   // Earnings split paid vs pending (cents). NOTE: never exposes the sender's price.

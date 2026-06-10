@@ -49,6 +49,7 @@ export default function AppLayout() {
       <Tabs.Screen name="confirm" options={{ href: null }} />
       <Tabs.Screen name="request" options={{ href: null }} />
       <Tabs.Screen name="track" options={{ href: null }} />
+      <Tabs.Screen name="tax" options={{ href: null }} />
     </Tabs>
   );
 }

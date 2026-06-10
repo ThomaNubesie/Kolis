@@ -91,3 +91,5 @@ begin
 end;
 $$;
 grant execute on function public.kolis_parcel_receipt(uuid) to authenticated;
+-- Wall off anon: receipt is auth.uid()-gated, so revoke the default PUBLIC grant.
+revoke execute on function public.kolis_parcel_receipt(uuid) from public, anon;

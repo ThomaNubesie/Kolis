@@ -58,3 +58,7 @@ as $$
   order by p.created_at asc;
 $$;
 grant execute on function public.kolis_carrying() to authenticated;
+
+-- Wall off anon: these are auth.uid()-gated, so revoke the default PUBLIC grant.
+revoke execute on function public.kolis_available_parcels() from public, anon;
+revoke execute on function public.kolis_carrying() from public, anon;

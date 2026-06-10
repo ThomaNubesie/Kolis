@@ -37,13 +37,14 @@ export default function Pay() {
     })();
   }, []);
 
-  const done = () => router.replace("/(app)/send"); // stage 5 inserts the receipt screen here
+  const toReceipt = (params: Record<string, string>) =>
+    router.replace({ pathname: "/(auth)/receipt", params: { country, ...params } });
 
   const activateFree = async () => {
     setBusy(true);
     const r = await VerificationAPI.activateFree();
     setBusy(false);
-    if (r.ok) { done(); return; }
+    if (r.ok) { toReceipt({ receiptId: `KL-${String(Date.now()).slice(-6)}`, founding: "1", total: "0" }); return; }
     if (r.founding === false) {
       // Last spot was taken while we were here — switch to paying.
       const res = await VerificationAPI.quote();
@@ -68,7 +69,11 @@ export default function Pay() {
     }
     await VerificationAPI.finalize(res.payment_intent_id!);
     setBusy(false);
-    done();
+    toReceipt({
+      receiptId: res.payment_intent_id!, founding: "0",
+      verify: String(res.verify ?? 399), membership: String(res.membership ?? 1000),
+      subtotal: String(res.subtotal ?? 1399), tax: String(res.tax ?? 0), total: String(res.total ?? 0),
+    });
   };
 
   const Primary = ({ label, onPress, loading: l }: { label: string; onPress: () => void; loading?: boolean }) => (

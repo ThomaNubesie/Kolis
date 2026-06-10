@@ -27,3 +27,11 @@ export const VerificationAPI = {
   createIntent: (province?: string) => call({ action: "create_intent", province }) as Promise<FeeQuote & { client_secret?: string; payment_intent_id?: string; error?: string }>,
   finalize: (payment_intent_id: string) => call({ action: "finalize", payment_intent_id }) as Promise<{ ok?: boolean; error?: string }>,
 };
+
+export const ReceiptAPI = {
+  async email(receipt: { receiptId: string; lines: { label: string; amount: string }[]; total: string; date: string }) {
+    const { data, error } = await supabase.functions.invoke("kolis-email-receipt", { body: receipt });
+    if (error) return { error: error.message };
+    return data as { ok?: boolean; skipped?: boolean; error?: string };
+  },
+};

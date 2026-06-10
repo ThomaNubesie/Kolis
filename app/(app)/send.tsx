@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, Pressable, ScrollView, TextInput } from "react-native";
+import { View, Text, Pressable, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
@@ -8,6 +8,7 @@ import { compare, SizeKey, DropType } from "../../constants/pricing";
 import { HubsAPI } from "../../services/hubs";
 import { regionCode } from "../../constants/geo";
 import { CityPicker } from "../../components/CityPicker";
+import { AddressAutocomplete } from "../../components/AddressAutocomplete";
 import { NearbyPicker, NearbyChoice } from "../../components/NearbyPicker";
 
 export default function Send() {
@@ -105,11 +106,8 @@ export default function Send() {
         ) : drop === "door" ? (
           <View style={{ marginBottom: 14 }}>
             <Mono>{t("pickupAddress")}</Mono>
-            <TextInput
-              value={addr} onChangeText={setAddr} placeholder={t("pickupAddressPh")} placeholderTextColor={Colors.t3}
-              style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 13, padding: 12, fontSize: 14, color: Colors.ink, backgroundColor: "#fff" }}
-            />
-            <Text style={{ fontSize: 10.5, color: Colors.t3, marginTop: 5, lineHeight: 14 }}>{t("pickupAddressHint")}</Text>
+            <AddressAutocomplete value={addr} onChange={setAddr} placeholder={t("pickupAddressPh")} />
+            <Text style={{ fontSize: 10.5, color: Colors.t3, marginTop: 1, lineHeight: 14 }}>{t("pickupAddressHint")}</Text>
           </View>
         ) : (
           <Text style={{ fontSize: 11, color: Colors.t3, marginBottom: 14, lineHeight: 15 }}>{t("modeHint3")}</Text>

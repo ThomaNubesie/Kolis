@@ -9,6 +9,7 @@ import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { ProfileAPI } from "../../services/profile";
 import { supabase } from "../../services/supabase";
+import { AddressAutocomplete } from "../../components/AddressAutocomplete";
 
 export default function Details() {
   const { t } = useStrings();
@@ -98,7 +99,7 @@ export default function Details() {
           <View style={{ flex: 1 }}><Field label={t("firstName")} value={first} onChange={setFirst} req autoCap="words" /></View>
           <View style={{ flex: 1 }}><Field label={t("lastName")} value={last} onChange={setLast} req autoCap="words" /></View>
         </View>
-        <Field label={t("destAddress")} value={addr} onChange={setAddr} req ph={t("pickupAddressPh")} autoCap="words" />
+        <AddressAutocomplete label={t("destAddress")} value={addr} onChange={setAddr} required placeholder={t("pickupAddressPh")} />
         <Field label={t("recipientPhone")} value={phone} onChange={setPhone} req keyboardType="phone-pad" />
         <Field label={t("recipientEmail")} value={email} onChange={setEmail} keyboardType="email-address" autoCap="none" ph="name@email.com" />
 

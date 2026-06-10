@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, Pressable, Modal, ActivityIndicator, Alert, Linking, Platform } from "react-native";
+import { View, Text, Pressable, Modal, ActivityIndicator, Alert, Linking, Platform, Image } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useStripe } from "@stripe/stripe-react-native";
@@ -13,6 +13,13 @@ import { watchLocation } from "../../services/location";
 import { haversineKm, kmLabel } from "../../constants/distance";
 
 const ARRIVE_KM = 0.15; // ~150 m geofence
+const GMAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+// Real photo of the hub: Street View if imagery exists there, else a map tile.
+const streetViewUrl = (lat: number, lng: number) =>
+  `https://maps.googleapis.com/maps/api/streetview?size=640x400&location=${lat},${lng}&fov=80&pitch=8&key=${GMAPS_KEY}`;
+const staticMapUrl = (lat: number, lng: number) =>
+  `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=17&size=640x400&scale=2&markers=color:0xE11D6B%7C${lat},${lng}&key=${GMAPS_KEY}`;
 
 export default function Directions() {
   const { t } = useStrings();
@@ -25,6 +32,7 @@ export default function Directions() {
   const total = price + premium;
 
   const [hub, setHub] = useState<Hub | null>(null);
+  const [hubImg, setHubImg] = useState<string | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
   const [arrived, setArrived] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -32,6 +40,18 @@ export default function Directions() {
   useEffect(() => {
     HubsAPI.listActive().then(({ hubs }) => setHub(hubs.find((h) => h.id === p.pickup_hub) ?? null));
   }, [p.pickup_hub]);
+
+  // Resolve a real picture of the hub: Street View where available, else a map.
+  useEffect(() => {
+    if (!GMAPS_KEY || !hub || hub.latitude == null || hub.longitude == null) return;
+    const lat = hub.latitude, lng = hub.longitude;
+    let cancelled = false;
+    fetch(`https://maps.googleapis.com/maps/api/streetview/metadata?location=${lat},${lng}&key=${GMAPS_KEY}`)
+      .then((r) => r.json())
+      .then((m) => { if (!cancelled) setHubImg(m?.status === "OK" ? streetViewUrl(lat, lng) : staticMapUrl(lat, lng)); })
+      .catch(() => { if (!cancelled) setHubImg(staticMapUrl(lat, lng)); });
+    return () => { cancelled = true; };
+  }, [hub]);
 
   // Live distance to the hub; auto-arrive within the geofence.
   useEffect(() => {
@@ -83,8 +103,13 @@ export default function Directions() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["top"]}>
-      {/* faux map backdrop */}
-      <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "#e9e6dd" }} />
+      {/* Real hub backdrop (Street View / map) with a soft scrim, else paper. */}
+      {hubImg ? (
+        <Image source={{ uri: hubImg }} resizeMode="cover" style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }} />
+      ) : (
+        <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "#e9e6dd" }} />
+      )}
+      {hubImg ? <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(247,245,239,0.35)" }} /> : null}
       <View style={{ padding: 16 }}>
         <Pressable onPress={() => router.back()}><Text style={{ color: Colors.t2, fontSize: 15, marginBottom: 10 }}>← {t("back")}</Text></Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 11, backgroundColor: "#fff", borderRadius: 14, padding: 12, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }}>
@@ -97,10 +122,12 @@ export default function Directions() {
       </View>
 
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <Text style={{ fontSize: 54 }}>🗺️</Text>
-        <Text style={{ color: Colors.t2, fontSize: 13, marginTop: 8, paddingHorizontal: 40, textAlign: "center" }}>
-          {distance != null ? t("hubDistanceAway", { km: kmLabel(distance) }) : t("headToHub")}
-        </Text>
+        {!hubImg && <Text style={{ fontSize: 54 }}>🗺️</Text>}
+        <View style={{ backgroundColor: hubImg ? "rgba(15,26,23,0.78)" : "transparent", borderRadius: 999, paddingHorizontal: hubImg ? 14 : 0, paddingVertical: hubImg ? 8 : 0, marginTop: hubImg ? 0 : 8 }}>
+          <Text style={{ color: hubImg ? "#fff" : Colors.t2, fontSize: 13, paddingHorizontal: 8, textAlign: "center", fontWeight: hubImg ? "700" : "400" }}>
+            📍 {distance != null ? t("hubDistanceAway", { km: kmLabel(distance) }) : t("headToHub")}
+          </Text>
+        </View>
       </View>
 
       <View style={{ padding: 16, paddingBottom: 26 }}>

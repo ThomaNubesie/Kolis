@@ -10,10 +10,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { AuthAPI } from "../../services/auth";
+import { ProfileAPI, KolisRole } from "../../services/profile";
 import { COUNTRIES, PHONE_RULES, countryByCode } from "../../constants/countries";
 import type { Lang } from "../../constants/i18n";
 
-type Step = "welcome" | "language" | "country" | "name" | "contact" | "otp" | "summary";
+type Step = "welcome" | "language" | "country" | "name" | "contact" | "otp" | "summary" | "role";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function Onboarding() {
@@ -32,6 +33,7 @@ export default function Onboarding() {
   const [otpMode, setOtpMode] = useState<"email" | "phone">("email");
   const [otp, setOtp] = useState("");
   const [otpErr, setOtpErr] = useState("");
+  const [role, setRole] = useState<KolisRole>("sender");
   const [devOtp, setDevOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -93,17 +95,26 @@ export default function Onboarding() {
   };
 
   const finish = async () => {
-    // Phone OTP created the auth session; save the rest of the profile.
+    // Phone OTP created the auth session; persist the full profile (incl. role).
+    setBusy(true);
+    await ProfileAPI.save({
+      role,
+      full_name: `${firstName.trim()} ${lastName.trim()}`.trim(),
+      email: email.trim(),
+      country,
+    });
     try {
       await AsyncStorage.multiSet([
         ["onboarded", "true"],
+        ["userRole", role],
         ["userCountry", country],
         ["userName", `${firstName.trim()} ${lastName.trim()}`.trim()],
         ["userEmail", email.trim()],
       ]);
       await setLang(lang);
     } catch {}
-    // Role → identity verify → payment come next (later stages). For now, into the app.
+    setBusy(false);
+    // Identity verify → payment come next (later stages). For now, into the app.
     router.replace("/(app)/send");
   };
 
@@ -133,7 +144,7 @@ export default function Onboarding() {
         <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 40, flexGrow: 1 }} keyboardShouldPersistTaps="handled">
           {step !== "summary" && (
             <Pressable onPress={() => {
-              const order: Step[] = ["welcome", "language", "country", "name", "contact", "summary"];
+              const order: Step[] = ["welcome", "language", "country", "name", "contact", "summary", "role"];
               const i = order.indexOf(step === "otp" ? "contact" : step);
               if (i > 0) setStep(order[i - 1]);
             }} style={{ marginBottom: 6 }}>
@@ -267,7 +278,31 @@ export default function Onboarding() {
                 </View>
               ))}
               <View style={{ flex: 1, minHeight: 16 }} />
-              <Primary label="Continue" onPress={finish} />
+              <Primary label="Continue" onPress={() => setStep("role")} />
+            </>
+          )}
+
+          {/* ROLE */}
+          {step === "role" && (
+            <>
+              <Header title="How will you use Kolis?" sub="You can do both — pick what fits. This sets up your verification." />
+              {([
+                ["sender", "📦", "Send parcels", "Ship things between cities"],
+                ["courier", "🚗", "Deliver & earn", "Carry parcels on trips you take"],
+                ["both", "🔁", "Both", "Send and deliver"],
+              ] as [KolisRole, string, string, string][]).map(([r, icon, title, desc]) => (
+                <Pressable key={r} onPress={() => setRole(r)}
+                  style={{ flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1.5, borderRadius: 13, padding: 13, marginBottom: 9, backgroundColor: role === r ? "#fdeef4" : "#fff", borderColor: role === r ? Colors.accent : Colors.line }}>
+                  <View style={{ width: 40, height: 40, borderRadius: 11, backgroundColor: Colors.cardAlt, alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 18 }}>{icon}</Text></View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: "800", color: Colors.ink, fontSize: 14 }}>{title}</Text>
+                    <Text style={{ fontSize: 11, color: Colors.t3 }}>{desc}</Text>
+                  </View>
+                  {role === r && <Text style={{ color: Colors.accent, fontWeight: "800" }}>✓</Text>}
+                </Pressable>
+              ))}
+              <View style={{ flex: 1, minHeight: 16 }} />
+              <Primary label="Continue" loading={busy} onPress={finish} />
             </>
           )}
         </ScrollView>

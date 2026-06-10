@@ -62,6 +62,15 @@ export const ParcelsAPI = {
     pickup_addr?: string | null;
     price: number;
     preferred_driver_id?: string | null;
+    // Shipping form (security + insurance)
+    recipient_name?: string | null;
+    recipient_phone?: string | null;
+    recipient_email?: string | null;
+    dropoff_addr?: string | null;
+    contents_description?: string | null;
+    declared_value?: number | null; // dollars
+    insured?: boolean;
+    terms_accepted?: boolean;
   }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { parcel: null, error: "Not signed in" };
@@ -88,6 +97,15 @@ export const ParcelsAPI = {
         driver_payout_cents: driverPayoutCents(Math.round(input.price * 100), input.dropoff_type),
         preferred_driver_id: preferred,
         offer_expires_at: offerExpires,
+        // Shipping form
+        recipient_name: input.recipient_name ?? null,
+        recipient_phone: input.recipient_phone ?? null,
+        recipient_email: input.recipient_email ?? null,
+        dropoff_addr: input.dropoff_addr ?? null,
+        contents_description: input.contents_description ?? null,
+        declared_value_cents: input.declared_value != null ? Math.round(input.declared_value * 100) : null,
+        insured: input.insured ?? false,
+        terms_accepted_at: input.terms_accepted ? new Date().toISOString() : null,
       })
       .select()
       .single();

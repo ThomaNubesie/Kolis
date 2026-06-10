@@ -45,13 +45,13 @@ export default function Send() {
   const go = () => {
     if (drop === "hub") {
       if (!selHub) { setModal(true); return; }
+      // Collect shipping/insurance details before payment.
       router.push({
-        pathname: "/(app)/directions",
-        params: { size, from, to, price: String(cmp.price), pickup_hub: selHub.id, hubName: selHub.name, hubAddr: selHub.address ?? "" },
+        pathname: "/(app)/details",
+        params: { drop: "hub", size, from, to, price: String(cmp.price), pickup_hub: selHub.id, hubName: selHub.name, hubAddr: selHub.address ?? "" },
       });
     } else {
-      // Door-to-door: review & pay, then the parcel is proposed to drivers.
-      router.push({ pathname: "/(app)/confirm", params: { drop: "door", size, from, to, price: String(cmp.price), pickup_addr: addr.trim() } });
+      router.push({ pathname: "/(app)/details", params: { drop: "door", size, from, to, price: String(cmp.price), pickup_addr: addr.trim() } });
     }
   };
 

@@ -46,10 +46,13 @@ export default function AppLayout() {
       <Tabs.Screen name="zones" options={{ href: null }} />
       <Tabs.Screen name="drivers" options={{ href: null }} />
       <Tabs.Screen name="directions" options={{ href: null }} />
+      <Tabs.Screen name="details" options={{ href: null }} />
       <Tabs.Screen name="confirm" options={{ href: null }} />
       <Tabs.Screen name="request" options={{ href: null }} />
       <Tabs.Screen name="track" options={{ href: null }} />
       <Tabs.Screen name="tax" options={{ href: null }} />
+      <Tabs.Screen name="wallet" options={{ href: null }} />
+      <Tabs.Screen name="notifications" options={{ href: null }} />
     </Tabs>
   );
 }

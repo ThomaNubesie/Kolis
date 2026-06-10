@@ -18,8 +18,9 @@ export default function Directions() {
   const { t } = useStrings();
   const router = useRouter();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
-  const p = useLocalSearchParams<{ size: string; from: string; to: string; price: string; pickup_hub: string; hubName: string; hubAddr: string }>();
+  const p = useLocalSearchParams<{ size: string; from: string; to: string; price: string; pickup_hub: string; hubName: string; hubAddr: string; form?: string }>();
   const price = Number(p.price ?? 0);
+  const form = p.form ? JSON.parse(p.form) : {};
 
   const [hub, setHub] = useState<Hub | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
@@ -60,6 +61,7 @@ export default function Directions() {
       to_city: p.to ?? "",
       pickup_hub: p.pickup_hub,
       price,
+      ...form,
     });
     if (error || !parcel) { setBusy(false); Alert.alert("Kolis", error ?? t("paymentError")); return; }
     const { clientSecret, error: pErr } = await PaymentsAPI.createIntent(parcel.id);

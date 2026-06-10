@@ -19,13 +19,13 @@ export default function Send() {
   const [to, setTo] = useState("Montréal");
   const [hubRegions, setHubRegions] = useState<Set<string>>(new Set());
   const [selHub, setSelHub] = useState<NearbyChoice | null>(null);
-  const [modal, setModal] = useState<null | "hub" | "zone">(null);
+  const [modal, setModal] = useState(false); // hub picker
 
   useEffect(() => {
     HubsAPI.listActive().then(({ hubs }) => setHubRegions(new Set(hubs.map((h) => regionCode(h.city)))));
   }, []);
   const hubOk = hubRegions.has(regionCode(from));
-  useEffect(() => { if (!hubOk && drop === "hub") setDrop("zone"); }, [hubOk, drop]);
+  useEffect(() => { if (!hubOk && drop === "hub") setDrop("door"); }, [hubOk, drop]);
   // Selected hub no longer valid if the origin city changed.
   useEffect(() => { setSelHub(null); }, [from]);
 
@@ -33,33 +33,24 @@ export default function Send() {
 
   const selectMode = (m: DropType) => {
     setDrop(m);
-    if (m === "hub") setModal("hub");
-    else if (m === "zone") setModal("zone");
+    if (m === "hub") setModal(true);
   };
 
   const onPick = (choice: NearbyChoice) => {
-    setModal(null);
-    if (choice.kind === "hub") {
-      setSelHub(choice); // stays on this screen; CTA becomes "Directions to hub"
-    } else {
-      router.push({
-        pathname: "/(app)/drivers",
-        params: { drop: "zone", size, from, to, price: String(cmp.price), pickup_zone: choice.id, zoneName: choice.name },
-      });
-    }
+    setModal(false);
+    setSelHub(choice); // stays on this screen; CTA becomes "Directions to hub"
   };
 
   const go = () => {
     if (drop === "hub") {
-      if (!selHub) { setModal("hub"); return; }
+      if (!selHub) { setModal(true); return; }
       router.push({
         pathname: "/(app)/directions",
         params: { size, from, to, price: String(cmp.price), pickup_hub: selHub.id, hubName: selHub.name, hubAddr: selHub.address ?? "" },
       });
-    } else if (drop === "zone") {
-      setModal("zone");
     } else {
-      router.push({ pathname: "/(app)/drivers", params: { drop: "door", size, from, to, price: String(cmp.price) } });
+      // Door-to-door: review & pay, then the parcel is proposed to drivers.
+      router.push({ pathname: "/(app)/confirm", params: { drop: "door", size, from, to, price: String(cmp.price) } });
     }
   };
 
@@ -67,7 +58,7 @@ export default function Send() {
     <Text style={{ fontSize: 10.5, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 5, fontWeight: "600" }}>{children}</Text>
   );
 
-  const modes: [DropType, string][] = [["hub", "🏢 " + t("mHub")], ["zone", "🏁 " + t("mZone")], ["door", "🚪 " + t("mDoor")]];
+  const modes: [DropType, string][] = [["hub", "🏢 " + t("mHub")], ["door", "🚪 " + t("mDoor")]];
   const sizes: { key: SizeKey; emoji: string; label: string; weight: string }[] = [
     { key: "envelope", emoji: "✉️", label: t("envelope"), weight: "≤1 kg" },
     { key: "small", emoji: "📦", label: t("small"), weight: "≤5 kg" },
@@ -75,7 +66,7 @@ export default function Send() {
   ];
 
   const isHub = drop === "hub";
-  const ctaLabel = isHub ? (selHub ? t("directionsToHub") : t("chooseHub")) : t("findDriver");
+  const ctaLabel = isHub ? (selHub ? t("directionsToHub") : t("chooseHub")) : t("continue");
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["top"]}>
@@ -101,7 +92,7 @@ export default function Send() {
         </View>
 
         {isHub && selHub ? (
-          <Pressable onPress={() => setModal("hub")} style={{ flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 13, padding: 11, marginBottom: 14, backgroundColor: "rgba(225,29,107,0.04)" }}>
+          <Pressable onPress={() => setModal(true)} style={{ flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 13, padding: 11, marginBottom: 14, backgroundColor: "rgba(225,29,107,0.04)" }}>
             <Text style={{ fontSize: 16 }}>🏢</Text>
             <View style={{ flex: 1 }}>
               <Text style={{ fontWeight: "700", fontSize: 13.5, color: Colors.ink }}>{selHub.name}</Text>
@@ -144,12 +135,12 @@ export default function Send() {
       </ScrollView>
 
       <NearbyPicker
-        visible={modal !== null}
-        mode={modal ?? "zone"}
+        visible={modal}
+        mode="hub"
         originLabel={from}
         destLabel={to}
-        ctaLabel={modal === "hub" ? t("useThisHub") : t("findDriver")}
-        onClose={() => setModal(null)}
+        ctaLabel={t("useThisHub")}
+        onClose={() => setModal(false)}
         onPick={onPick}
       />
     </SafeAreaView>

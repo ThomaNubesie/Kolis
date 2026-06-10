@@ -12,6 +12,7 @@ import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { AuthAPI } from "../../services/auth";
 import { ProfileAPI, KolisRole } from "../../services/profile";
+import { supabase } from "../../services/supabase";
 import { COUNTRIES, PHONE_RULES, countryByCode } from "../../constants/countries";
 import type { Lang } from "../../constants/i18n";
 
@@ -38,6 +39,19 @@ export default function Onboarding() {
   const [devOtp, setDevOtp] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+
+  // Already signed in (e.g. an existing LoadQ login) but no Kolis profile yet:
+  // skip welcome + the redundant phone re-verification and collect the Kolis
+  // profile (country → name → email → role) before identity-verify + payment.
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setPhoneOk(true);
+        if (session.user.phone) setPhone(session.user.phone);
+        setStep("country");
+      }
+    });
+  }, []);
 
   const cty = countryByCode(country);
   const rule = PHONE_RULES[country] || PHONE_RULES.CA;

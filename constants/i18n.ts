@@ -185,6 +185,10 @@ export const STRINGS = {
     taxGross: "Gross", taxParcels: "{n} parcel(s) delivered", taxEmailDoc: "Email document",
     taxEmailedTo: "Sent to {email}. Check your inbox (and spam).",
     taxNoEmail: "No email on file. Add one in your profile to receive the document.",
+    // account / ownership
+    signOut: "Sign out", deleteAccount: "Delete account", deleting: "Deleting…",
+    deleteAccountBody: "This permanently deletes your account, profile, parcels and payout details across Kolis and LoadQ. This cannot be undone.",
+    ownedBy: "Owned by Concord Express Co Inc.",
   },
   fr: {
     continue: "Continuer", cancel: "Annuler", back: "Retour", done: "Terminé",
@@ -357,6 +361,10 @@ export const STRINGS = {
     taxGross: "Brut", taxParcels: "{n} colis livré(s)", taxEmailDoc: "Envoyer par courriel",
     taxEmailedTo: "Envoyé à {email}. Vérifiez votre boîte de réception (et les indésirables).",
     taxNoEmail: "Aucun courriel enregistré. Ajoutez-en un dans votre profil pour recevoir le document.",
+    // account / ownership
+    signOut: "Déconnexion", deleteAccount: "Supprimer le compte", deleting: "Suppression…",
+    deleteAccountBody: "Ceci supprime définitivement votre compte, profil, colis et coordonnées de paiement sur Kolis et LoadQ. Action irréversible.",
+    ownedBy: "Propriété de Concord Express Co Inc.",
   },
 };
 

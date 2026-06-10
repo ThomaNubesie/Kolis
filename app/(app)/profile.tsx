@@ -1,22 +1,41 @@
 import { useCallback, useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Pressable, Alert, Linking } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { AuthAPI } from "../../services/auth";
 import { AdminAPI } from "../../services/admin";
+import { ProfileAPI } from "../../services/profile";
 
 export default function Profile() {
   const router = useRouter();
   const { t, lang, setLang } = useStrings();
   const [isAdmin, setIsAdmin] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useFocusEffect(useCallback(() => { AdminAPI.isAdmin().then(setIsAdmin); }, []));
 
   const signOut = async () => {
     await AuthAPI.signOut();
     router.replace("/(auth)/language");
+  };
+
+  const confirmDelete = () => {
+    if (deleting) return;
+    Alert.alert(t("deleteAccount"), t("deleteAccountBody"), [
+      { text: t("cancel"), style: "cancel" },
+      {
+        text: t("deleteAccount"), style: "destructive",
+        onPress: async () => {
+          setDeleting(true);
+          const { error } = await ProfileAPI.deleteAccount();
+          if (error) { setDeleting(false); Alert.alert("Kolis", error); return; }
+          await AuthAPI.signOut();
+          router.replace("/(auth)/language");
+        },
+      },
+    ]);
   };
 
   const Row = ({ icon, label, value, onPress, danger }: { icon: string; label: string; value?: string; onPress?: () => void; danger?: boolean }) => (
@@ -38,8 +57,16 @@ export default function Profile() {
         </View>
         <Row icon="🌐" label={t("chooseLanguage")} value={lang === "en" ? "English" : "Français"} onPress={() => setLang(lang === "en" ? "fr" : "en")} />
         {isAdmin && <Row icon="🛠️" label={t("admin")} onPress={() => router.push("/(admin)")} />}
-        <Row icon="↩︎" label="Sign out" onPress={signOut} danger />
-        <Text style={{ textAlign: "center", color: Colors.t3, fontSize: 12, marginTop: 16 }}>Kolis · {t("partOf")}</Text>
+        <Row icon="↩︎" label={t("signOut")} onPress={signOut} />
+        <Row icon="🗑️" label={deleting ? t("deleting") : t("deleteAccount")} onPress={confirmDelete} danger />
+
+        <View style={{ alignItems: "center", marginTop: 22 }}>
+          <Text style={{ textAlign: "center", color: Colors.t3, fontSize: 12 }}>Kolis · {t("partOf")}</Text>
+          <Text style={{ textAlign: "center", color: Colors.t3, fontSize: 11.5, marginTop: 4 }}>{t("ownedBy")}</Text>
+          <Pressable onPress={() => Linking.openURL("https://www.concordexpress.ca").catch(() => {})}>
+            <Text style={{ textAlign: "center", color: Colors.accent, fontSize: 11.5, marginTop: 1, fontWeight: "600" }}>www.concordexpress.ca</Text>
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );

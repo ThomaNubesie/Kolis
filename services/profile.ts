@@ -29,4 +29,10 @@ export const ProfileAPI = {
     const { data } = await supabase.from("kolis_profiles").select("*").maybeSingle();
     return (data as KolisProfile) ?? null;
   },
+
+  // Permanently deletes the caller's account + all Kolis/LoadQ data (shared RPC).
+  async deleteAccount(): Promise<{ error?: string }> {
+    const { error } = await supabase.rpc("delete_my_account");
+    return { error: error?.message };
+  },
 };

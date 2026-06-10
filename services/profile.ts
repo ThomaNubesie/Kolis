@@ -30,9 +30,10 @@ export const ProfileAPI = {
     return (data as KolisProfile) ?? null;
   },
 
-  // Permanently deletes the caller's account + all Kolis/LoadQ data (shared RPC).
+  // Permanently deletes the caller's KOLIS account (scoped). A LoadQ account on
+  // the same login is left intact; the login is removed only if nothing remains.
   async deleteAccount(): Promise<{ error?: string }> {
-    const { error } = await supabase.rpc("delete_my_account");
+    const { error } = await supabase.rpc("delete_kolis_account");
     return { error: error?.message };
   },
 };

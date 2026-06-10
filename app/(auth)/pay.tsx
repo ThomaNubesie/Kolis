@@ -8,11 +8,13 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useStripe } from "@stripe/stripe-react-native";
 import { Colors } from "../../constants/colors";
+import { useStrings } from "../../hooks/useStrings";
 import { VerificationAPI, FeeQuote } from "../../services/verification";
 import { formatCurrency, COUNTRY_CURRENCY, CountryCode } from "../../constants/currency";
 
 export default function Pay() {
   const router = useRouter();
+  const { t } = useStrings();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<"founding" | "pay">("pay");
@@ -52,13 +54,13 @@ export default function Pay() {
       setMode("pay");
       return;
     }
-    Alert.alert("Kolis", r.error || "Could not activate. Try again.");
+    Alert.alert("Kolis", r.error || t("payCouldNotActivate"));
   };
 
   const pay = async () => {
     setBusy(true);
     const res = await VerificationAPI.createIntent();
-    if (res.error || !res.client_secret) { setBusy(false); Alert.alert("Kolis", res.error || "Could not start payment."); return; }
+    if (res.error || !res.client_secret) { setBusy(false); Alert.alert("Kolis", res.error || t("payCouldNotStart")); return; }
     const init = await initPaymentSheet({ merchantDisplayName: "Kolis", paymentIntentClientSecret: res.client_secret, allowsDelayedPaymentMethods: false });
     if (init.error) { setBusy(false); Alert.alert("Kolis", init.error.message); return; }
     const pres = await presentPaymentSheet();
@@ -103,35 +105,35 @@ export default function Pay() {
 
         {mode === "founding" ? (
           <>
-            <Text style={{ fontSize: 23, fontWeight: "900", color: Colors.ink, marginBottom: 14 }}>Almost there</Text>
+            <Text style={{ fontSize: 23, fontWeight: "900", color: Colors.ink, marginBottom: 14 }}>{t("payAlmostThere")}</Text>
             <View style={{ backgroundColor: "#fdf6e6", borderWidth: 1, borderColor: "#e8b54a88", borderRadius: 14, padding: 14, alignItems: "center", marginBottom: 12 }}>
               <Text style={{ fontSize: 28 }}>🏅</Text>
-              <Text style={{ fontWeight: "900", fontSize: 15, color: "#b5862a", marginTop: 4 }}>Founding member{q.founding_number ? ` #${q.founding_number}` : ""}</Text>
-              <Text style={{ fontSize: 11.5, color: "#a98c52", marginTop: 3, textAlign: "center" }}>The first 100 are free · your verification & first year are free</Text>
+              <Text style={{ fontWeight: "900", fontSize: 15, color: "#b5862a", marginTop: 4 }}>{q.founding_number ? t("payFoundingNumber", { n: q.founding_number }) : t("payFoundingMember")}</Text>
+              <Text style={{ fontSize: 11.5, color: "#a98c52", marginTop: 3, textAlign: "center" }}>{t("payFoundingNote")}</Text>
             </View>
             <View style={{ backgroundColor: "#fff", borderWidth: 1.5, borderColor: Colors.line, borderRadius: 14, padding: 14 }}>
-              <Line label="Identity verification" value="FREE" muted />
-              <Line label="Annual membership" value="FREE" muted />
-              <Line label="Total today" value={fmt(0)} total />
+              <Line label={t("payIdentityVerification")} value={t("payFree")} muted />
+              <Line label={t("payAnnualMembership")} value={t("payFree")} muted />
+              <Line label={t("payTotalToday")} value={fmt(0)} total />
             </View>
             <View style={{ flex: 1, minHeight: 18 }} />
-            <Primary label="Activate — it's free" loading={busy} onPress={activateFree} />
+            <Primary label={t("payActivateFree")} loading={busy} onPress={activateFree} />
           </>
         ) : (
           <>
-            <Text style={{ fontSize: 23, fontWeight: "900", color: Colors.ink, marginBottom: 14 }}>Almost there</Text>
+            <Text style={{ fontSize: 23, fontWeight: "900", color: Colors.ink, marginBottom: 14 }}>{t("payAlmostThere")}</Text>
             <View style={{ backgroundColor: "#fff", borderWidth: 1.5, borderColor: Colors.line, borderRadius: 14, padding: 14 }}>
-              <Line label="Identity verification" value={fmt(q.verify)} muted />
-              <Line label="Annual membership" value={fmt(q.membership)} muted />
-              <Line label="Subtotal" value={fmt(q.subtotal)} muted total />
-              {(q.tax ?? 0) > 0 && <Line label={country === "CA" ? "Tax" : "VAT"} value={fmt(q.tax)} muted />}
-              <Line label="Total today" value={fmt(q.total)} total />
+              <Line label={t("payIdentityVerification")} value={fmt(q.verify)} muted />
+              <Line label={t("payAnnualMembership")} value={fmt(q.membership)} muted />
+              <Line label={t("paySubtotal")} value={fmt(q.subtotal)} muted total />
+              {(q.tax ?? 0) > 0 && <Line label={country === "CA" ? t("payTax") : t("payVat")} value={fmt(q.tax)} muted />}
+              <Line label={t("payTotalToday")} value={fmt(q.total)} total />
             </View>
             <Text style={{ fontSize: 10.5, color: Colors.t3, textAlign: "center", marginTop: 8 }}>
-              Tax set by your region. Charged via card (CAD){currency !== "CAD" ? ` · shown in ${currency}` : ""}.
+              {t("payTaxNote", { currencyNote: currency !== "CAD" ? t("payShownIn", { currency }) : "" })}
             </Text>
             <View style={{ flex: 1, minHeight: 18 }} />
-            <Primary label={`Pay ${fmt(q.total)} & activate`} loading={busy} onPress={pay} />
+            <Primary label={t("payPayActivate", { total: fmt(q.total) })} loading={busy} onPress={pay} />
           </>
         )}
       </ScrollView>

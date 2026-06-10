@@ -9,6 +9,7 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as WebBrowser from "expo-web-browser";
 import { Colors } from "../../constants/colors";
+import { useStrings } from "../../hooks/useStrings";
 import { IdentityAPI } from "../../services/identity";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -17,13 +18,14 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 
 type Step = "doc_select" | "scanning" | "confirmed" | "failed";
 const ALL_DOCS = [
-  { id: "dl", label: "Driver's Licence", sub: "Front & back · required", icon: "🪪" },
-  { id: "passport", label: "Passport", sub: "Photo page", icon: "📘" },
-  { id: "id_card", label: "Provincial ID", sub: "Front & back", icon: "🆔" },
+  { id: "dl", labelKey: "vfDocDl", subKey: "vfDocDlSub", icon: "🪪" },
+  { id: "passport", labelKey: "vfDocPassport", subKey: "vfDocPassportSub", icon: "📘" },
+  { id: "id_card", labelKey: "vfDocIdCard", subKey: "vfDocIdCardSub", icon: "🆔" },
 ];
 
 export default function Verify() {
   const router = useRouter();
+  const { t } = useStrings();
   const [role, setRole] = useState<string>("sender");
   const [step, setStep] = useState<Step>("doc_select");
   const [docType, setDocType] = useState<string | null>(null);
@@ -104,9 +106,9 @@ export default function Verify() {
             <View style={{ width: 48, height: 48, borderRadius: 13, backgroundColor: Colors.accent, alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
               <Text style={{ color: "#fff", fontWeight: "800", fontSize: 19 }}>Ko</Text>
             </View>
-            <Text style={{ fontSize: 23, fontWeight: "900", color: Colors.ink }}>{isCourier ? "Verify your licence" : "Verify your identity"}</Text>
+            <Text style={{ fontSize: 23, fontWeight: "900", color: Colors.ink }}>{isCourier ? t("vfVerifyLicence") : t("vfVerifyIdentity")}</Text>
             <Text style={{ fontSize: 13, color: Colors.t2, marginTop: 5, marginBottom: 18 }}>
-              {isCourier ? "Couriers verify with a valid driver's licence." : "Choose a government ID. Passport, licence, or provincial ID."}
+              {isCourier ? t("vfCourierSub") : t("vfChooseIdSub")}
             </Text>
             {err ? <Text style={{ color: Colors.red, fontSize: 12.5, marginBottom: 10 }}>⚠️ {err}</Text> : null}
             {docs.map((d, i) => {
@@ -116,50 +118,50 @@ export default function Verify() {
                   style={{ flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1.5, borderRadius: 13, padding: 13, marginBottom: 9, backgroundColor: hot ? "#fdeef4" : "#fff", borderColor: hot ? Colors.accent : Colors.line }}>
                   <View style={{ width: 40, height: 40, borderRadius: 11, backgroundColor: Colors.cardAlt, alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 18 }}>{d.icon}</Text></View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: "800", color: hot ? Colors.accentDk : Colors.ink, fontSize: 14 }}>{d.label}</Text>
-                    <Text style={{ fontSize: 11, color: Colors.t3 }}>{d.sub}</Text>
+                    <Text style={{ fontWeight: "800", color: hot ? Colors.accentDk : Colors.ink, fontSize: 14 }}>{t(d.labelKey)}</Text>
+                    <Text style={{ fontSize: 11, color: Colors.t3 }}>{t(d.subKey)}</Text>
                   </View>
                   {docType === d.id && <Text style={{ color: Colors.accent, fontWeight: "800" }}>✓</Text>}
                 </Pressable>
               );
             })}
             <View style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: Colors.line, borderRadius: 11, padding: 11, marginTop: 4 }}>
-              <Text style={{ fontSize: 11, color: Colors.t2 }}>🔒 Powered by Stripe Identity · your document is encrypted.</Text>
+              <Text style={{ fontSize: 11, color: Colors.t2 }}>{t("vfStripeNote")}</Text>
             </View>
             <View style={{ flex: 1, minHeight: 18 }} />
-            <Primary label="Start verification →" disabled={!docType} loading={busy} onPress={startScan} />
+            <Primary label={t("vfStartScan")} disabled={!docType} loading={busy} onPress={startScan} />
           </>
         )}
 
         {step === "scanning" && (
           <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
             <ActivityIndicator color={Colors.accent} size="large" />
-            <Text style={{ fontSize: 16, fontWeight: "800", color: Colors.ink, marginTop: 16 }}>Checking your verification…</Text>
-            <Text style={{ fontSize: 12.5, color: Colors.t2, textAlign: "center", marginTop: 6, paddingHorizontal: 30 }}>Finish in the Stripe window, then come back here.</Text>
+            <Text style={{ fontSize: 16, fontWeight: "800", color: Colors.ink, marginTop: 16 }}>{t("vfChecking")}</Text>
+            <Text style={{ fontSize: 12.5, color: Colors.t2, textAlign: "center", marginTop: 6, paddingHorizontal: 30 }}>{t("vfFinishInStripe")}</Text>
           </View>
         )}
 
         {step === "confirmed" && (
           <>
             <Text style={{ fontSize: 52, textAlign: "center", marginTop: 24 }}>✅</Text>
-            <Text style={{ fontSize: 24, fontWeight: "900", color: Colors.ink, textAlign: "center", marginVertical: 8 }}>Identity confirmed</Text>
-            <Text style={{ fontSize: 13, color: Colors.t2, textAlign: "center", marginBottom: 20 }}>Your ID and face matched. Now activate your account.</Text>
-            {ok("ID verified")}{ok("Face match passed")}
+            <Text style={{ fontSize: 24, fontWeight: "900", color: Colors.ink, textAlign: "center", marginVertical: 8 }}>{t("vfConfirmed")}</Text>
+            <Text style={{ fontSize: 13, color: Colors.t2, textAlign: "center", marginBottom: 20 }}>{t("vfConfirmedSub")}</Text>
+            {ok(t("vfIdVerified"))}{ok(t("vfFaceMatch"))}
             <View style={{ backgroundColor: "#fdf6e6", borderWidth: 1, borderColor: "#e8b54a88", borderRadius: 12, padding: 11, marginTop: 2 }}>
-              <Text style={{ fontSize: 11.5, color: "#8a6d2a" }}>ℹ️ If verification ever fails you're not charged — you only pay once verified.</Text>
+              <Text style={{ fontSize: 11.5, color: "#8a6d2a" }}>{t("vfNoChargeNote")}</Text>
             </View>
             <View style={{ flex: 1, minHeight: 18 }} />
-            <Primary label="Continue to payment →" onPress={toPayment} />
+            <Primary label={t("vfContinuePayment")} onPress={toPayment} />
           </>
         )}
 
         {step === "failed" && (
           <>
             <Text style={{ fontSize: 52, textAlign: "center", marginTop: 24 }}>⚠️</Text>
-            <Text style={{ fontSize: 22, fontWeight: "900", color: Colors.ink, textAlign: "center", marginVertical: 8 }}>Couldn't verify</Text>
-            <Text style={{ fontSize: 13, color: Colors.t2, textAlign: "center", marginBottom: 20 }}>We couldn't confirm your identity — and you were <Text style={{ fontWeight: "800" }}>not charged</Text>. You can try again.</Text>
+            <Text style={{ fontSize: 22, fontWeight: "900", color: Colors.ink, textAlign: "center", marginVertical: 8 }}>{t("vfCouldntVerify")}</Text>
+            <Text style={{ fontSize: 13, color: Colors.t2, textAlign: "center", marginBottom: 20 }}>{t("vfFailedPre")}<Text style={{ fontWeight: "800" }}>{t("vfNotChargedBold")}</Text>{t("vfFailedPost")}</Text>
             <View style={{ flex: 1, minHeight: 18 }} />
-            <Primary label="Try again" onPress={() => { setStep("doc_select"); setDocType(isCourier ? "dl" : null); setErr(""); }} />
+            <Primary label={t("vfTryAgain")} onPress={() => { setStep("doc_select"); setDocType(isCourier ? "dl" : null); setErr(""); }} />
           </>
         )}
       </ScrollView>

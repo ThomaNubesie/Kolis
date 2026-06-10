@@ -150,6 +150,30 @@ export const STRINGS = {
     rcptKeepReceipt: "Keep your receipt",
     rcptEmail: "📧 Email", rcptSave: "📥 Save", rcptBoth: "✓ Both",
     rcptStartUsing: "Start using Kolis →",
+    // courier — tabs
+    tabProposals: "Proposals", tabCarrying: "Carrying", tabEarnings: "Earnings",
+    // courier — proposals
+    proposals: "Proposals", proposalsSub: "Parcels heading your way. Accept to carry.",
+    noProposals: "No parcels proposed right now.", noProposalsSub: "We'll notify you when one matches your route.",
+    proposalHub: "Pick up at the hub", proposalDoor: "Pick up at the door",
+    pickupAt: "Pickup", forCity: "to {city}", parcelSize: "Parcel", accept: "Accept",
+    accepting: "Accepting…", acceptParcel: "Accept · +C${amount}",
+    acceptedTitle: "Parcel accepted", acceptedBody: "It's in your Carrying list. Head to the pickup.",
+    proposalGone: "That parcel was just taken by another courier.",
+    payoutBadge: "+C${amount}", refresh: "Refresh",
+    // courier — carrying
+    carrying: "Carrying", carryingSub: "Deliver with the recipient's 4-digit code.",
+    noneCarrying: "Nothing to carry yet.", forDest: "to", recipientMasked: "Recipient details revealed at pickup",
+    enterDeliveryCode: "Enter delivery code", markDelivered: "Mark delivered",
+    delivering: "Delivering…", delivered: "Delivered — payout released 🎉",
+    badCode: "That code doesn't match. Ask the recipient again.", released: "released on delivery",
+    pickupHub: "Pickup hub", pickupDoor: "Pickup address",
+    // courier — earnings
+    earnings: "Earnings", earningsSub: "Your Kolis courier payouts.", pending: "Pending", paid: "Paid",
+    interacEmail: "Interac e-Transfer email", savePayout: "Save", saved: "Saved ✓",
+    payoutHint: "Payouts are sent by Interac e-Transfer to this email after delivery.",
+    contractorNote: "You're an independent contractor. A T4A (or local equivalent) is issued at year-end.",
+    totalDelivered: "Delivered parcels",
   },
   fr: {
     continue: "Continuer", cancel: "Annuler", back: "Retour", done: "Terminé",
@@ -287,6 +311,30 @@ export const STRINGS = {
     rcptKeepReceipt: "Conservez votre reçu",
     rcptEmail: "📧 Courriel", rcptSave: "📥 Enregistrer", rcptBoth: "✓ Les deux",
     rcptStartUsing: "Commencer à utiliser Kolis →",
+    // courier — tabs
+    tabProposals: "Propositions", tabCarrying: "En cours", tabEarnings: "Revenus",
+    // courier — proposals
+    proposals: "Propositions", proposalsSub: "Des colis sur votre route. Acceptez pour transporter.",
+    noProposals: "Aucun colis proposé pour le moment.", noProposalsSub: "Nous vous préviendrons dès qu'un colis correspond à votre trajet.",
+    proposalHub: "Ramassage au hub", proposalDoor: "Ramassage à domicile",
+    pickupAt: "Ramassage", forCity: "vers {city}", parcelSize: "Colis", accept: "Accepter",
+    accepting: "Acceptation…", acceptParcel: "Accepter · +C${amount}",
+    acceptedTitle: "Colis accepté", acceptedBody: "Il est dans votre liste « En cours ». Rendez-vous au ramassage.",
+    proposalGone: "Ce colis vient d'être pris par un autre coursier.",
+    payoutBadge: "+C${amount}", refresh: "Actualiser",
+    // courier — carrying
+    carrying: "En cours", carryingSub: "Livrez avec le code à 4 chiffres du destinataire.",
+    noneCarrying: "Rien à transporter pour l'instant.", forDest: "vers", recipientMasked: "Coordonnées du destinataire révélées au ramassage",
+    enterDeliveryCode: "Saisir le code de livraison", markDelivered: "Marquer comme livré",
+    delivering: "Livraison…", delivered: "Livré — paiement versé 🎉",
+    badCode: "Ce code ne correspond pas. Redemandez au destinataire.", released: "versé à la livraison",
+    pickupHub: "Hub de ramassage", pickupDoor: "Adresse de ramassage",
+    // courier — earnings
+    earnings: "Revenus", earningsSub: "Vos paiements de coursier Kolis.", pending: "En attente", paid: "Payé",
+    interacEmail: "Courriel Interac Virement", savePayout: "Enregistrer", saved: "Enregistré ✓",
+    payoutHint: "Les paiements sont envoyés par Virement Interac à ce courriel après la livraison.",
+    contractorNote: "Vous êtes un travailleur autonome. Un T4A (ou l'équivalent local) est émis en fin d'année.",
+    totalDelivered: "Colis livrés",
   },
 };
 

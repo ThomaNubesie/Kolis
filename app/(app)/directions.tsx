@@ -72,6 +72,8 @@ export default function Directions() {
       if (res.error.code !== "Canceled") Alert.alert(t("payment"), res.error.message || t("paymentError"));
       return;
     }
+    // Paid + dropped at hub → propose to Kolis-member drivers heading to the city.
+    ParcelsAPI.notifyDrivers(parcel.id);
     router.replace({ pathname: "/(app)/request", params: { id: parcel.id, to: p.to ?? "", drop: "hub", where: p.hubName ?? "" } });
   };
 

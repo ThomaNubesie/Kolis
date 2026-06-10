@@ -46,7 +46,7 @@ export default function Confirm() {
       return; // parcel stays pending/unpaid; sender can retry
     }
     // Authorized & held — funds captured on delivery. Ping queued drivers.
-    if (drop === "zone") ParcelsAPI.notifyDrivers(parcel.id);
+    if (drop === "door") ParcelsAPI.notifyDrivers(parcel.id);
     router.replace({ pathname: "/(app)/request", params: { id: parcel.id, to: p.to ?? "", drop, where: p.hubName || p.zoneName || "" } });
   };
 

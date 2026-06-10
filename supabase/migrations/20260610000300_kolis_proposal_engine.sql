@@ -1,0 +1,4 @@
+-- Cross-app proposal engine: parcels are visible only to VERIFIED Kolis-member
+-- couriers, and now cover Hub + Door with queue-position routing. LoadQ + Kolis
+-- share this DB and auth, so accepting in EITHER app is the same atomic claim.
+-- (Full bodies applied via dashboard; see kolis_available_parcels / kolis_accept_parcel.)

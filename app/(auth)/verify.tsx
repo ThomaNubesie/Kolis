@@ -81,7 +81,7 @@ export default function Verify() {
     setStep("confirmed");
   };
 
-  const toPayment = () => router.replace("/(app)/send"); // stage 4 inserts the payment screen here
+  const toPayment = () => router.replace("/(auth)/pay");
 
   const Primary = ({ label, onPress, disabled, loading }: { label: string; onPress: () => void; disabled?: boolean; loading?: boolean }) => (
     <Pressable onPress={onPress} disabled={disabled || loading}

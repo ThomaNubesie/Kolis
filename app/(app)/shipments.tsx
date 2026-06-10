@@ -5,12 +5,24 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { ParcelsAPI, Parcel } from "../../services/parcels";
+import { DeliveryReceiptModal, DeliveryReceiptData } from "../../components/DeliveryReceiptModal";
 
 export default function Shipments() {
   const { t } = useStrings();
   const router = useRouter();
   const [parcels, setParcels] = useState<Parcel[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [receipt, setReceipt] = useState<DeliveryReceiptData | null>(null);
+
+  const openReceipt = async (id: string) => {
+    const r = await ParcelsAPI.receipt(id).catch(() => null);
+    if (!r) return;
+    setReceipt({
+      receiptId: r.code, fromCity: r.from_city, toCity: r.to_city, size: r.size,
+      dropoffType: r.dropoff_type, amountLabel: t("totalPaid"), amountCents: r.price_cents,
+      dateISO: r.delivered_at || r.created_at,
+    });
+  };
 
   const load = useCallback(() => {
     ParcelsAPI.listMine().then(({ parcels }) => setParcels(parcels));
@@ -36,6 +48,11 @@ export default function Shipments() {
         </View>
         <Text style={{ fontSize: 11.5, fontWeight: "800", color: p.status === "delivered" ? Colors.green : Colors.accent }}>{statusLabel[p.status] ?? p.status}</Text>
       </View>
+      {p.status === "delivered" && (
+        <Pressable onPress={() => openReceipt(p.id)} style={{ marginTop: 10, alignSelf: "flex-start", borderWidth: 1.5, borderColor: Colors.line, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+          <Text style={{ fontSize: 11.5, fontWeight: "700", color: Colors.t2 }}>🧾 {t("viewReceipt")}</Text>
+        </Pressable>
+      )}
     </Pressable>
   );
 
@@ -50,6 +67,7 @@ export default function Shipments() {
         {done.length > 0 && <Text style={{ fontSize: 11, fontWeight: "800", color: Colors.t3, textTransform: "uppercase", marginTop: 12, marginBottom: 8 }}>{t("deliveredSec")}</Text>}
         {done.map((p) => <Item key={p.id} p={p} />)}
       </ScrollView>
+      <DeliveryReceiptModal visible={!!receipt} data={receipt} onClose={() => setReceipt(null)} />
     </SafeAreaView>
   );
 }

@@ -31,6 +31,21 @@ export type Parcel = {
   created_at: string;
 };
 
+// Delivery receipt (role-walled by kolis_parcel_receipt — sender sees price).
+export type SenderReceipt = {
+  id: string;
+  code: string;
+  from_city: string;
+  to_city: string;
+  size: string;
+  dropoff_type: string;
+  status: string;
+  delivered_at: string | null;
+  created_at: string;
+  role: "sender";
+  price_cents: number;
+};
+
 function genCode() {
   const n = Math.floor(1000 + Math.random() * 9000);
   return `KL-${n}`;
@@ -44,6 +59,7 @@ export const ParcelsAPI = {
     to_city: string;
     pickup_zone?: string | null;
     pickup_hub?: string | null;
+    pickup_addr?: string | null;
     price: number;
     preferred_driver_id?: string | null;
   }) {
@@ -67,6 +83,7 @@ export const ParcelsAPI = {
         to_region: regionCode(input.to_city),
         pickup_zone: input.pickup_zone ?? null,
         pickup_hub: input.pickup_hub ?? null,
+        pickup_addr: input.pickup_addr ?? null,
         price_cents: Math.round(input.price * 100),
         driver_payout_cents: driverPayoutCents(Math.round(input.price * 100), input.dropoff_type),
         preferred_driver_id: preferred,
@@ -88,6 +105,12 @@ export const ParcelsAPI = {
   async get(id: string) {
     const { data, error } = await supabase.from("kolis_parcels").select("*").eq("id", id).single();
     return { parcel: (data as Parcel) ?? null, error: error?.message };
+  },
+
+  // Role-walled receipt — sender branch returns the price paid, never the payout.
+  async receipt(id: string): Promise<SenderReceipt | null> {
+    const { data } = await supabase.rpc("kolis_parcel_receipt", { p_id: id });
+    return (data as SenderReceipt) ?? null;
   },
 
   // Admin: parcels dropped at a hub, awaiting dispatch.

@@ -47,11 +47,11 @@ Deno.serve(async (req) => {
       if (!isDriver && !isAdmin) return json({ error: "forbidden" }, 403);
       if (String(code) !== String(parcel.delivery_code)) return json({ error: "bad_code" }, 400);
       await stripe.paymentIntents.capture(parcel.stripe_payment_intent_id);
-      await admin.from("kolis_parcels").update({ status: "delivered" }).eq("id", parcel.id);
+      await admin.from("kolis_parcels").update({ status: "delivered", delivered_at: new Date().toISOString() }).eq("id", parcel.id);
     } else if (action === "capture") {
       if (!isAdmin) return json({ error: "forbidden" }, 403);
       await stripe.paymentIntents.capture(parcel.stripe_payment_intent_id);
-      await admin.from("kolis_parcels").update({ status: "delivered" }).eq("id", parcel.id);
+      await admin.from("kolis_parcels").update({ status: "delivered", delivered_at: new Date().toISOString() }).eq("id", parcel.id);
     } else if (action === "cancel") {
       if (!isAdmin && parcel.sender_id !== user.id) return json({ error: "forbidden" }, 403);
       await stripe.paymentIntents.cancel(parcel.stripe_payment_intent_id);

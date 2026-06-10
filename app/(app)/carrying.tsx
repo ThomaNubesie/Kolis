@@ -8,6 +8,7 @@ import { useFocusEffect } from "expo-router";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { CourierAPI, CourierParcel } from "../../services/courier";
+import { DeliveryReceiptModal, DeliveryReceiptData } from "../../components/DeliveryReceiptModal";
 
 const SIZE_EMOJI: Record<string, string> = { envelope: "✉️", small: "📦", large: "🧳" };
 
@@ -17,6 +18,7 @@ export default function Carrying() {
   const [loading, setLoading] = useState(true);
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<DeliveryReceiptData | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -32,7 +34,17 @@ export default function Carrying() {
     setBusyId(null);
     if (!ok) { Alert.alert("Kolis", error === "bad_code" ? t("badCode") : (error || t("badCode"))); return; }
     setCodes((c) => ({ ...c, [p.id]: "" }));
-    Alert.alert("Kolis", t("delivered"));
+    // Walled receipt: courier branch returns payout only.
+    const r = await CourierAPI.receipt(p.id).catch(() => null);
+    if (r) {
+      setReceipt({
+        receiptId: r.code, fromCity: r.from_city, toCity: r.to_city, size: r.size,
+        dropoffType: r.dropoff_type, amountLabel: t("yourPayout"), amountCents: r.payout_cents,
+        dateISO: r.delivered_at || r.created_at,
+      });
+    } else {
+      Alert.alert("Kolis", t("delivered"));
+    }
     load();
   };
 
@@ -57,7 +69,7 @@ export default function Carrying() {
 
         {list.map((p) => {
           const isHub = p.dropoff_type === "hub";
-          const where = isHub ? (p.pickup_hub || "") : (p.pickup_addr || "");
+          const where = isHub ? (p.pickup_hub_name || "") : (p.pickup_addr || "");
           return (
             <View key={p.id} style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 16, padding: 15, marginBottom: 14, backgroundColor: "#fff", shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 }}>
@@ -84,6 +96,7 @@ export default function Carrying() {
           );
         })}
       </ScrollView>
+      <DeliveryReceiptModal visible={!!receipt} data={receipt} onClose={() => setReceipt(null)} />
     </SafeAreaView>
   );
 }

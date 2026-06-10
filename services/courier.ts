@@ -3,19 +3,35 @@
 // LoadQ is the same atomic claim.
 import { supabase } from "./supabase";
 
+// Courier-facing shape — NO sender price field exists here by construction.
 export type CourierParcel = {
   id: string;
   code: string;
   size: string;
+  from_city: string;
   to_city: string;
   to_region?: string | null;
   dropoff_type: string;
   pickup_zone: string | null;
-  pickup_hub: string | null;
-  pickup_addr: string | null;
-  price_cents: number;
+  pickup_hub_name: string | null;
+  pickup_addr?: string | null; // present only in carrying (post-accept), not proposals
   driver_payout_cents: number | null;
   status?: string;
+};
+
+// Delivery receipt (role-walled server-side by kolis_parcel_receipt).
+export type CourierReceipt = {
+  id: string;
+  code: string;
+  from_city: string;
+  to_city: string;
+  size: string;
+  dropoff_type: string;
+  status: string;
+  delivered_at: string | null;
+  created_at: string;
+  role: "courier";
+  payout_cents: number;
 };
 
 export const CourierAPI = {
@@ -31,13 +47,16 @@ export const CourierAPI = {
     return data === true;
   },
 
+  // Carried parcels via the walled RPC (hub name resolved, payout only).
   async carrying(): Promise<CourierParcel[]> {
-    const { data } = await supabase
-      .from("kolis_parcels")
-      .select("id, code, size, to_city, to_region, dropoff_type, pickup_zone, pickup_hub, pickup_addr, price_cents, driver_payout_cents, status")
-      .in("status", ["matched", "picked_up", "in_transit"])
-      .order("created_at", { ascending: true });
+    const { data } = await supabase.rpc("kolis_carrying");
     return (data ?? []) as CourierParcel[];
+  },
+
+  // Role-appropriate receipt — courier branch returns payout only, never price.
+  async receipt(id: string): Promise<CourierReceipt | null> {
+    const { data } = await supabase.rpc("kolis_parcel_receipt", { p_id: id });
+    return (data as CourierReceipt) ?? null;
   },
 
   // Earnings split paid vs pending (cents). NOTE: never exposes the sender's price.

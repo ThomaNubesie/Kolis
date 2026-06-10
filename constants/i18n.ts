@@ -174,6 +174,11 @@ export const STRINGS = {
     payoutHint: "Payouts are sent by Interac e-Transfer to this email after delivery.",
     contractorNote: "You're an independent contractor. A T4A (or local equivalent) is issued at year-end.",
     totalDelivered: "Delivered parcels",
+    // receipts (delivery)
+    yourPayout: "Your payout", totalPaid: "Total paid", viewReceipt: "View receipt", deliveredOn: "Delivered {date}",
+    // door pickup address
+    pickupAddress: "Pickup address", pickupAddressPh: "Street, unit, city",
+    pickupAddressHint: "The courier picks the parcel up here. Shared only once a courier accepts.",
   },
   fr: {
     continue: "Continuer", cancel: "Annuler", back: "Retour", done: "Terminé",
@@ -335,6 +340,11 @@ export const STRINGS = {
     payoutHint: "Les paiements sont envoyés par Virement Interac à ce courriel après la livraison.",
     contractorNote: "Vous êtes un travailleur autonome. Un T4A (ou l'équivalent local) est émis en fin d'année.",
     totalDelivered: "Colis livrés",
+    // receipts (delivery)
+    yourPayout: "Votre paiement", totalPaid: "Total payé", viewReceipt: "Voir le reçu", deliveredOn: "Livré le {date}",
+    // door pickup address
+    pickupAddress: "Adresse de ramassage", pickupAddressPh: "Rue, unité, ville",
+    pickupAddressHint: "Le coursier récupère le colis ici. Partagé seulement après l'acceptation d'un coursier.",
   },
 };
 

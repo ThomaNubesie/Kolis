@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { View, Text, Pressable, ScrollView, TextInput } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
@@ -19,6 +19,7 @@ export default function Send() {
   const [to, setTo] = useState("Montréal");
   const [hubRegions, setHubRegions] = useState<Set<string>>(new Set());
   const [selHub, setSelHub] = useState<NearbyChoice | null>(null);
+  const [addr, setAddr] = useState(""); // door pickup address
   const [modal, setModal] = useState(false); // hub picker
 
   useEffect(() => {
@@ -50,7 +51,7 @@ export default function Send() {
       });
     } else {
       // Door-to-door: review & pay, then the parcel is proposed to drivers.
-      router.push({ pathname: "/(app)/confirm", params: { drop: "door", size, from, to, price: String(cmp.price) } });
+      router.push({ pathname: "/(app)/confirm", params: { drop: "door", size, from, to, price: String(cmp.price), pickup_addr: addr.trim() } });
     }
   };
 
@@ -66,6 +67,7 @@ export default function Send() {
   ];
 
   const isHub = drop === "hub";
+  const doorReady = drop !== "door" || addr.trim().length > 3;
   const ctaLabel = isHub ? (selHub ? t("directionsToHub") : t("chooseHub")) : t("continue");
 
   return (
@@ -100,6 +102,15 @@ export default function Send() {
             </View>
             <Text style={{ color: Colors.accent, fontWeight: "800", fontSize: 12 }}>{t("change")}</Text>
           </Pressable>
+        ) : drop === "door" ? (
+          <View style={{ marginBottom: 14 }}>
+            <Mono>{t("pickupAddress")}</Mono>
+            <TextInput
+              value={addr} onChangeText={setAddr} placeholder={t("pickupAddressPh")} placeholderTextColor={Colors.t3}
+              style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 13, padding: 12, fontSize: 14, color: Colors.ink, backgroundColor: "#fff" }}
+            />
+            <Text style={{ fontSize: 10.5, color: Colors.t3, marginTop: 5, lineHeight: 14 }}>{t("pickupAddressHint")}</Text>
+          </View>
         ) : (
           <Text style={{ fontSize: 11, color: Colors.t3, marginBottom: 14, lineHeight: 15 }}>{t("modeHint3")}</Text>
         )}
@@ -128,7 +139,7 @@ export default function Send() {
         </View>
         <Text style={{ fontSize: 11.5, color: Colors.t2, marginBottom: 16 }}>⏱ {t("daysFaster", { days: cmp.courierDays })}</Text>
 
-        <Pressable onPress={go} style={{ backgroundColor: isHub && selHub ? Colors.ink : Colors.accent, borderRadius: 13, padding: 16, alignItems: "center" }}>
+        <Pressable onPress={go} disabled={!doorReady} style={{ backgroundColor: isHub && selHub ? Colors.ink : Colors.accent, borderRadius: 13, padding: 16, alignItems: "center", opacity: doorReady ? 1 : 0.5 }}>
           <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{isHub && selHub ? "🧭 " : ""}{ctaLabel}</Text>
           {isHub && selHub ? <Text style={{ color: "#fff", opacity: 0.85, fontSize: 10.5, fontWeight: "600", marginTop: 2 }}>{t("payOnArrival")}</Text> : null}
         </Pressable>

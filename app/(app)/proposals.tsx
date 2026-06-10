@@ -52,7 +52,7 @@ export default function Proposals() {
 
         {list.map((p) => {
           const isHub = p.dropoff_type === "hub";
-          const where = isHub ? (p.pickup_hub || t("proposalHub")) : (p.pickup_addr || t("proposalDoor"));
+          const where = isHub ? (p.pickup_hub_name || t("proposalHub")) : `${t("proposalDoor")} · ${p.from_city}`;
           return (
             <View key={p.id} style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 16, padding: 15, marginBottom: 12, backgroundColor: "#fff", shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>

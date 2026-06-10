@@ -9,7 +9,7 @@ export default function Index() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) router.replace("/(app)/send");
-      else router.replace("/(auth)/language");
+      else router.replace("/(auth)/onboarding");
     });
   }, []);
   return (

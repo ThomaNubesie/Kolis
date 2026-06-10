@@ -2,8 +2,9 @@
 // welcome → language → country → name → contact (email + phone, sequential
 // verify) → summary. Role / identity-verify / payment come in later stages.
 // (Theme step from CX is omitted — Kolis is a single light theme.)
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Alert } from "react-native";
+import * as Localization from "expo-localization";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -41,6 +42,14 @@ export default function Onboarding() {
   const cty = countryByCode(country);
   const rule = PHONE_RULES[country] || PHONE_RULES.CA;
   const e164 = `${cty.dial}${phone.replace(/\D/g, "")}`;
+
+  // Auto-select the user's country from their device region (they can change it).
+  useEffect(() => {
+    try {
+      const region = Localization.getLocales?.()[0]?.regionCode;
+      if (region && COUNTRIES.some((c) => c.code === region)) setCountry(region);
+    } catch {}
+  }, []);
 
   const Header = ({ title, sub }: { title: string; sub?: string }) => (
     <View style={{ marginBottom: 18 }}>

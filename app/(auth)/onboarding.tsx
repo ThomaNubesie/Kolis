@@ -114,8 +114,8 @@ export default function Onboarding() {
       await setLang(lang);
     } catch {}
     setBusy(false);
-    // Identity verify → payment come next (later stages). For now, into the app.
-    router.replace("/(app)/send");
+    // Next: identity verification → payment.
+    router.replace("/(auth)/verify");
   };
 
   // ── WELCOME ────────────────────────────────────────────────────────────────

@@ -50,7 +50,8 @@
           "merchantIdentifier": "merchant.ca.kolis.app",
           "enableGooglePay": false
         }
-      ]
+      ],
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true

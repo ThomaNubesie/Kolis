@@ -21,6 +21,8 @@ export default function Directions() {
   const p = useLocalSearchParams<{ size: string; from: string; to: string; price: string; pickup_hub: string; hubName: string; hubAddr: string; form?: string }>();
   const price = Number(p.price ?? 0);
   const form = p.form ? JSON.parse(p.form) : {};
+  const premium = form?.insured && form?.declared_value ? Number(form.declared_value) * 0.05 : 0;
+  const total = price + premium;
 
   const [hub, setHub] = useState<Hub | null>(null);
   const [distance, setDistance] = useState<number | null>(null);
@@ -104,8 +106,8 @@ export default function Directions() {
       <View style={{ padding: 16, paddingBottom: 26 }}>
         <View style={{ backgroundColor: "#fff", borderRadius: 16, padding: 14, shadowColor: "#000", shadowOpacity: 0.1, shadowRadius: 16, shadowOffset: { width: 0, height: 6 } }}>
           <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 12 }}>
-            <Text style={{ fontSize: 13, color: Colors.t2 }}>{t("payAtHubNote")}</Text>
-            <Text style={{ fontSize: 13, fontWeight: "800", color: Colors.ink }}>C${price.toFixed(2)}</Text>
+            <Text style={{ fontSize: 13, color: Colors.t2 }}>{t("payAtHubNote")}{premium > 0 ? ` · +C$${premium.toFixed(2)} ${t("insuranceSection").toLowerCase()}` : ""}</Text>
+            <Text style={{ fontSize: 13, fontWeight: "800", color: Colors.ink }}>C${total.toFixed(2)}</Text>
           </View>
           <Pressable onPress={openMaps} style={{ backgroundColor: Colors.ink, borderRadius: 12, padding: 14, alignItems: "center", marginBottom: 9 }}>
             <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>🧭 {t("openInMaps")}</Text>
@@ -125,10 +127,10 @@ export default function Directions() {
             <Text style={{ fontSize: 12, color: Colors.t2, textAlign: "center", marginTop: 4, marginBottom: 16, lineHeight: 17 }}>{t("payToDrop", { hub: p.hubName ?? "" })}</Text>
             <View style={{ alignSelf: "stretch", flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: Colors.line, paddingTop: 12, marginBottom: 14 }}>
               <Text style={{ fontWeight: "800", color: Colors.ink }}>{t("payNow")}</Text>
-              <Text style={{ fontWeight: "800", color: Colors.ink }}>C${price.toFixed(2)}</Text>
+              <Text style={{ fontWeight: "800", color: Colors.ink }}>C${total.toFixed(2)}</Text>
             </View>
             <Pressable onPress={pay} disabled={busy} style={{ alignSelf: "stretch", backgroundColor: Colors.accent, borderRadius: 13, padding: 15, alignItems: "center" }}>
-              {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{t("payAndDrop", { amount: price })}</Text>}
+              {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{t("payAndDrop", { amount: total.toFixed(2) })}</Text>}
             </Pressable>
             {!busy && (
               <Pressable onPress={() => setArrived(false)} style={{ padding: 10, marginTop: 4 }}>

@@ -18,6 +18,8 @@ export default function Confirm() {
   const price = Number(p.price ?? 0);
   const drop = (p.drop as DropType) ?? "zone";
   const form = p.form ? JSON.parse(p.form) : {};
+  const premium = form?.insured && form?.declared_value ? Number(form.declared_value) * 0.05 : 0;
+  const total = price + premium;
 
   const request = async () => {
     setBusy(true);
@@ -81,17 +83,25 @@ export default function Confirm() {
         <Card><Text style={{ fontWeight: "700", color: Colors.ink }}>💳 Visa •••• 4242</Text></Card>
         <Card><Text style={{ fontWeight: "700", color: Colors.t2 }}>＋ {t("addCard")}</Text></Card>
 
-        <View style={{ backgroundColor: Colors.ink, borderRadius: 15, padding: 15, flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 6, marginBottom: 10 }}>
-          <View>
-            <Text style={{ fontSize: 10, color: "#fff", opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.6 }}>{t("totalEscrow")}</Text>
-            <Text style={{ fontSize: 24, fontWeight: "800", color: "#ff7eb0" }}>C${price.toFixed(2)}</Text>
+        <View style={{ backgroundColor: Colors.ink, borderRadius: 15, padding: 15, marginTop: 6, marginBottom: 10 }}>
+          {premium > 0 && (
+            <View style={{ marginBottom: 8 }}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between" }}><Text style={{ color: "#fff", opacity: 0.75, fontSize: 12 }}>{t("estimatedPrice")}</Text><Text style={{ color: "#fff", opacity: 0.75, fontSize: 12 }}>C${price.toFixed(2)}</Text></View>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 3 }}><Text style={{ color: "#fff", opacity: 0.75, fontSize: 12 }}>{t("insuranceSection")}</Text><Text style={{ color: "#fff", opacity: 0.75, fontSize: 12 }}>+C${premium.toFixed(2)}</Text></View>
+            </View>
+          )}
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <View>
+              <Text style={{ fontSize: 10, color: "#fff", opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.6 }}>{t("totalEscrow")}</Text>
+              <Text style={{ fontSize: 24, fontWeight: "800", color: "#ff7eb0" }}>C${total.toFixed(2)}</Text>
+            </View>
+            <Text style={{ fontSize: 11, color: "#fff", opacity: 0.75, maxWidth: 120, textAlign: "right" }}>{t("releasedOnDelivery")}</Text>
           </View>
-          <Text style={{ fontSize: 11, color: "#fff", opacity: 0.75, maxWidth: 120, textAlign: "right" }}>{t("releasedOnDelivery")}</Text>
         </View>
         <Text style={{ fontSize: 11.5, color: Colors.t2, marginBottom: 14 }}>🔒 {t("chargedWhenDispatched")}</Text>
 
         <Pressable onPress={request} disabled={busy} style={{ backgroundColor: Colors.accent, borderRadius: 13, padding: 16, alignItems: "center", opacity: busy ? 0.7 : 1 }}>
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{t("holdRequest", { amount: price })}</Text>}
+          {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{t("holdRequest", { amount: total.toFixed(2) })}</Text>}
         </Pressable>
       </ScrollView>
     </SafeAreaView>

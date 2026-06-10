@@ -35,6 +35,9 @@ export default function Details() {
   }, []);
 
   const valNum = Number(value.replace(/[^0-9.]/g, ""));
+  const shipPrice = Number(p.price ?? 0);
+  const premium = insured && valNum > 0 ? valNum * 0.05 : 0;
+  const total = shipPrice + premium;
   const ready =
     first.trim() && last.trim() && addr.trim().length > 3 &&
     phone.trim().length >= 6 && contents.trim().length > 1 &&
@@ -120,6 +123,16 @@ export default function Details() {
           <Text style={{ fontSize: 11.5, color: insured ? "#178a5e" : Colors.red, marginBottom: 4, lineHeight: 16 }}>
             {insured ? "🛡️ " + t("insureAddNote") : "⚠️ " + t("insureDeclineNote")}
           </Text>
+        )}
+        {premium > 0 && (
+          <View style={{ backgroundColor: Colors.ink, borderRadius: 12, padding: 12, marginTop: 6 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+              <Text style={{ color: "#fff", opacity: 0.8, fontSize: 12 }}>{t("insurePremiumLine", { amount: premium.toFixed(2) })}</Text>
+            </View>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 4 }}>
+              <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>{t("payTotalLine", { amount: total.toFixed(2) })}</Text>
+            </View>
+          </View>
         )}
 
         {/* Agreement */}

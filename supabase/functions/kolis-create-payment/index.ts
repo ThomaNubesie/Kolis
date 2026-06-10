@@ -38,21 +38,24 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE);
     const { data: parcel } = await admin
       .from("kolis_parcels")
-      .select("id, sender_id, price_cents, code, stripe_payment_intent_id")
+      .select("id, sender_id, price_cents, insurance_premium_cents, code, stripe_payment_intent_id")
       .eq("id", parcel_id)
       .single();
     if (!parcel || parcel.sender_id !== user.id) return json({ error: "not found" }, 404);
+
+    // Total charged = shipping + insurance premium (premium is company revenue).
+    const amount = (parcel.price_cents ?? 0) + (parcel.insurance_premium_cents ?? 0);
 
     let intent;
     if (parcel.stripe_payment_intent_id) {
       intent = await stripe.paymentIntents.retrieve(parcel.stripe_payment_intent_id);
     } else {
       intent = await stripe.paymentIntents.create({
-        amount: parcel.price_cents,
+        amount,
         currency: "cad",
         capture_method: "manual",
         description: `Kolis parcel ${parcel.code}`,
-        metadata: { product: "kolis", parcel_id: parcel.id, code: parcel.code, sender_id: user.id },
+        metadata: { product: "kolis", parcel_id: parcel.id, code: parcel.code, sender_id: user.id, insurance_premium_cents: String(parcel.insurance_premium_cents ?? 0) },
       });
       await admin.from("kolis_parcels").update({ stripe_payment_intent_id: intent.id }).eq("id", parcel.id);
     }

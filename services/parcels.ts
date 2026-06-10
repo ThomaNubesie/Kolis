@@ -44,6 +44,8 @@ export type SenderReceipt = {
   created_at: string;
   role: "sender";
   price_cents: number;
+  insurance_premium_cents: number;
+  insured: boolean;
 };
 
 function genCode() {
@@ -105,6 +107,8 @@ export const ParcelsAPI = {
         contents_description: input.contents_description ?? null,
         declared_value_cents: input.declared_value != null ? Math.round(input.declared_value * 100) : null,
         insured: input.insured ?? false,
+        // 5% of declared value, charged on top of shipping when insured.
+        insurance_premium_cents: input.insured && input.declared_value ? Math.round(input.declared_value * 100 * 0.05) : 0,
         terms_accepted_at: input.terms_accepted ? new Date().toISOString() : null,
       })
       .select()

@@ -19,7 +19,8 @@ export default function Shipments() {
     if (!r) return;
     setReceipt({
       receiptId: r.code, fromCity: r.from_city, toCity: r.to_city, size: r.size,
-      dropoffType: r.dropoff_type, amountLabel: t("totalPaid"), amountCents: r.price_cents,
+      dropoffType: r.dropoff_type, amountLabel: t("totalPaid"),
+      amountCents: r.price_cents + (r.insurance_premium_cents || 0),
       dateISO: r.delivered_at || r.created_at,
     });
   };

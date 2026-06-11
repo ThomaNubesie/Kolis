@@ -11,15 +11,23 @@
     "preview": {
       "distribution": "internal",
       "node": "20.19.4",
-      "ios": { "simulator": false },
-      "android": { "buildType": "apk" }
+      "ios": {
+        "simulator": false
+      },
+      "android": {
+        "buildType": "apk"
+      }
     },
     "production": {
       "distribution": "store",
       "node": "20.19.4",
       "autoIncrement": true,
-      "ios": { "image": "latest" },
-      "android": { "buildType": "app-bundle" }
+      "ios": {
+        "image": "latest"
+      },
+      "android": {
+        "buildType": "app-bundle"
+      }
     }
   },
   "submit": {
@@ -28,6 +36,11 @@
         "appleId": "shaloderick@yahoo.com",
         "appleTeamId": "7SFCZ8VTQ8",
         "ascAppId": "6778120565"
+      },
+      "android": {
+        "serviceAccountKeyPath": "./google-play-key.json",
+        "track": "internal",
+        "releaseStatus": "draft"
       }
     }
   }

@@ -9,3 +9,6 @@ web-build/
 ios/
 android/
 expo-env.d.ts
+
+# Google Play service account (never commit)
+google-play-key.json

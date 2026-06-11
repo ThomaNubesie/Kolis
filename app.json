@@ -47,7 +47,6 @@
       [
         "@stripe/stripe-react-native",
         {
-          "merchantIdentifier": "merchant.ca.kolis.app",
           "enableGooglePay": false
         }
       ],

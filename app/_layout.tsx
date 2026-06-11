@@ -24,8 +24,10 @@ export default function RootLayout() {
     );
   }
 
+  // No Apple Pay (card entry only); merchantIdentifier omitted so the binary
+  // doesn't signal Apple Pay intent — see App Store Guideline 2.1 / PassKit note.
   return (
-    <StripeProvider publishableKey={STRIPE_PK} merchantIdentifier="merchant.ca.kolis.app">
+    <StripeProvider publishableKey={STRIPE_PK}>
       <SafeAreaProvider>
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: Colors.bg } }}>

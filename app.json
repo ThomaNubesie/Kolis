@@ -16,6 +16,9 @@
       "supportsTablet": false,
       "bundleIdentifier": "ca.kolis.app",
       "buildNumber": "1",
+      "entitlements": {
+        "aps-environment": "production"
+      },
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSPhotoLibraryUsageDescription": "Kolis needs access to your photos so you can add a photo of your parcel.",
@@ -51,7 +54,8 @@
         }
       ],
       "expo-web-browser",
-      "expo-localization"
+      "expo-localization",
+      "expo-notifications"
     ],
     "experiments": {
       "typedRoutes": true

@@ -31,6 +31,13 @@ export default function Proposals() {
     load();
   };
 
+  const decline = async (p: CourierParcel) => {
+    setBusyId(p.id);
+    await CourierAPI.decline(p.id);
+    setBusyId(null);
+    load();
+  };
+
   const payout = (p: CourierParcel) => Math.round((p.driver_payout_cents ?? 0) / 100);
 
   return (
@@ -73,9 +80,21 @@ export default function Proposals() {
                 <Text style={{ fontSize: 13, color: Colors.ink, fontWeight: "600", marginTop: 2 }}>{where}</Text>
               </View>
 
-              <Pressable onPress={() => accept(p)} disabled={busyId === p.id} style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: "center", opacity: busyId === p.id ? 0.7 : 1 }}>
-                {busyId === p.id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{t("acceptParcel", { amount: payout(p) })}</Text>}
-              </Pressable>
+              {p.is_request && (
+                <View style={{ backgroundColor: "rgba(255,107,0,0.10)", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 10 }}>
+                  <Text style={{ fontSize: 11.5, color: "#B85700", fontWeight: "700" }}>📣 {t("requestedForYou")}</Text>
+                </View>
+              )}
+              <View style={{ flexDirection: "row", gap: 10 }}>
+                {p.is_request && (
+                  <Pressable onPress={() => decline(p)} disabled={busyId === p.id} style={{ flex: 1, backgroundColor: "#fff", borderWidth: 1.5, borderColor: Colors.line, borderRadius: 12, padding: 14, alignItems: "center", opacity: busyId === p.id ? 0.7 : 1 }}>
+                    <Text style={{ color: Colors.t2, fontWeight: "800", fontSize: 14 }}>{t("declineParcel")}</Text>
+                  </Pressable>
+                )}
+                <Pressable onPress={() => accept(p)} disabled={busyId === p.id} style={{ flex: p.is_request ? 1.4 : 1, backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: "center", opacity: busyId === p.id ? 0.7 : 1 }}>
+                  {busyId === p.id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{t("acceptParcel", { amount: payout(p) })}</Text>}
+                </Pressable>
+              </View>
             </View>
           );
         })}

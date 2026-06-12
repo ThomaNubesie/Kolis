@@ -21,7 +21,12 @@ export const api = {
   parcels: (filter = "all", search: string | null = null) => r<any[]>("kolis_admin_parcels", { p_filter: filter, p_search: search }),
   parcel: (id: string) => r<any>("kolis_admin_parcel", { p_id: id }),
   candidates: (id: string) => r<any[]>("kolis_admin_candidates", { p_id: id }),
-  assign: (id: string, driver: string) => r("kolis_admin_assign", { p_id: id, p_driver: driver }),
+  async assign(id: string, driver: string) {
+    const res = await r("kolis_admin_assign", { p_id: id, p_driver: driver });
+    // Notify the driver they have a delivery request to accept/decline.
+    supabase.functions.invoke("kolis-notify", { body: { parcel_id: id, event: "assigned" } }).catch(() => {});
+    return res;
+  },
   changeDriver: (id: string, driver: string) => r("kolis_admin_change_driver", { p_id: id, p_driver: driver }),
   unassign: (id: string) => r("kolis_admin_unassign", { p_id: id }),
   reroute: (id: string, toCity: string, toRegion: string) => r("kolis_admin_reroute", { p_id: id, p_to_city: toCity, p_to_region: toRegion }),

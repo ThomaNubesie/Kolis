@@ -113,6 +113,14 @@ export const ParcelsAPI = {
       })
       .select()
       .single();
+    // Notify eligible drivers (or the preferred driver, if the sender picked
+    // one) that there's a delivery to claim. Fire-and-forget.
+    if (data && !error) {
+      const ev = (data as any).preferred_driver_id ? "assigned" : "offered";
+      supabase.functions
+        .invoke("kolis-notify", { body: { parcel_id: (data as any).id, event: ev } })
+        .catch(() => {});
+    }
     return { parcel: (data as Parcel) ?? null, error: error?.message };
   },
 

@@ -6,12 +6,24 @@ import { View, Text } from "react-native";
 import { StripeProvider } from "@stripe/stripe-react-native";
 import { initLang } from "../hooks/useStrings";
 import { Colors } from "../constants/colors";
+import { supabase } from "../services/supabase";
+import { PushAPI } from "../services/push";
 
 const STRIPE_PK = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 
 export default function RootLayout() {
   const [ready, setReady] = useState(false);
   useEffect(() => { initLang().then(() => setReady(true)); }, []);
+
+  // Register for push once signed in, and on every auth change, so the
+  // kolis-notify Edge Function can reach this courier with delivery requests.
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => { if (data.user) PushAPI.register(); });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      if (session?.user) PushAPI.register();
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
 
   if (!ready) {
     return (

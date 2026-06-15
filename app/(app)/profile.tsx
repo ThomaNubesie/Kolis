@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { View, Text, Pressable, Alert, Linking, ScrollView } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { AuthAPI } from "../../services/auth";
@@ -31,6 +32,12 @@ export default function Profile() {
   const signOut = async () => {
     await AuthAPI.signOut();
     router.replace("/(auth)/language");
+  };
+
+  // Existing unverified members can re-enter the Stripe Identity flow any time.
+  const startVerify = async () => {
+    if (prof?.role) await AsyncStorage.setItem("userRole", prof.role);
+    router.push("/(auth)/verify");
   };
 
   const changeRole = () => {
@@ -91,6 +98,23 @@ export default function Profile() {
             {prof?.is_founding && prof?.founding_number ? <Pill tone="gold">{t("foundingNo", { n: prof.founding_number })}</Pill> : null}
           </View>
         </View>
+
+        {/* Verify CTA — only while unverified. States what they're missing. */}
+        {prof && !prof.identity_verified ? (
+          <Pressable onPress={startVerify} style={{ backgroundColor: "#fdeef4", borderWidth: 1, borderColor: Colors.accent, borderRadius: 16, padding: 15, marginBottom: 14 }}>
+            <Text style={{ fontWeight: "900", color: Colors.accentDk, fontSize: 15 }}>
+              {lang === "fr" ? "Vérifiez votre identité" : "Verify your identity"}
+            </Text>
+            <Text style={{ color: Colors.t2, fontSize: 12.5, marginTop: 4, lineHeight: 18 }}>
+              {lang === "fr"
+                ? "Activez votre compte pour accepter des livraisons et réclamer votre place de fondateur gratuite (100 premiers par rôle) avant qu'elle ne disparaisse."
+                : "Unlock your account to accept deliveries and claim your free founding spot (first 100 per role) before it's gone."}
+            </Text>
+            <View style={{ alignSelf: "flex-start", backgroundColor: Colors.accent, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8, marginTop: 11 }}>
+              <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>{lang === "fr" ? "Vérifier maintenant →" : "Verify now →"}</Text>
+            </View>
+          </Pressable>
+        ) : null}
 
         {/* Rows */}
         <View style={{ backgroundColor: "#fff", borderRadius: 16, paddingHorizontal: 15, borderWidth: 1, borderColor: Colors.line }}>

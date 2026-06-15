@@ -18,8 +18,10 @@ export default function Team() {
   const load = useCallback(() => { api.team().then(setTeam).catch(() => {}); api.keys().then(setKeys).catch(() => {}); }, []);
   useEffect(() => { load(); }, [load]);
 
-  const sendInvite = async () => { if (!email.trim()) return; try { const r: any = await api.invite(email.trim(), role); setInvite(false); setEmail(""); alert(r?.emailed ? "Invite emailed." : "Invite created, but the email didn't send."); load(); } catch (e: any) { alert(e?.message); } };
+  const sendInvite = async () => { if (!email.trim()) return; try { const r: any = await api.invite(email.trim(), role); setInvite(false); setEmail(""); alert(r?.emailed ? "Invite emailed." : "Invite created, but email failed: " + (r?.error || "unknown")); load(); } catch (e: any) { alert(e?.message); } };
   const remove = async (m: any) => { if (!m.user_id || !confirm(`Remove ${m.name || m.email}?`)) return; try { await api.removeStaff(m.user_id); load(); } catch (e: any) { alert(e?.message); } };
+  const resend = async (m: any) => { try { const r: any = await api.invite(m.email, m.role); alert(r?.emailed ? "Invite re-sent." : "Re-created, but email failed: " + (r?.error || "unknown")); load(); } catch (e: any) { alert(e?.message); } };
+  const cancelInvite = async (m: any) => { if (!confirm(`Delete the pending invite for ${m.email}?`)) return; try { await api.cancelInvite(m.email); load(); } catch (e: any) { alert(e?.message); } };
   const createKey = async () => { if (!keyName.trim()) return; try { const r = await api.createKey(keyName.trim(), ["read_parcels"]); setKeyModal(false); setKeyName(""); setNewKey(r.key); load(); } catch (e: any) { alert(e?.message); } };
   const revoke = async (k: any) => { if (!confirm(`Revoke ${k.name}?`)) return; try { await api.revokeKey(k.id); load(); } catch {} };
 
@@ -37,7 +39,16 @@ export default function Team() {
               <td><b>{m.name || m.email}</b>{m.pending ? <span className="pill pgrey" style={{ marginLeft: 6 }}>pending</span> : null}</td>
               <td>{m.email}</td>
               <td><span className={"pill " + roleTone(m.role)}>{m.role}</span></td>
-              <td>{m.user_id && m.role !== "owner" ? <button className="btn ghost" onClick={() => remove(m)}>Remove</button> : null}</td>
+              <td>
+                {m.pending ? (
+                  <div className="row" style={{ gap: 6 }}>
+                    <button className="btn ghost" onClick={() => resend(m)}>Resend</button>
+                    <button className="btn ghost" onClick={() => cancelInvite(m)}>Delete</button>
+                  </div>
+                ) : m.user_id && m.role !== "owner" ? (
+                  <button className="btn ghost" onClick={() => remove(m)}>Remove</button>
+                ) : null}
+              </td>
             </tr>
           ))}
         </tbody>

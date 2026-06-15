@@ -49,7 +49,11 @@ export default function OrgDetail() {
   const setStatus = async (s: string) => { try { await api.setOrgStatus(id, s); flash(s); load(); } catch (e) { fail(e); } };
   const inviteByEmail = async () => {
     if (!inviteEmail.trim()) return;
-    try { await api.orgInviteEmail(id, inviteEmail.trim(), inviteRole); setInviteEmail(""); flash("Invite emailed — they'll appear here once they sign in with that email."); } catch (e) { fail(e); }
+    try {
+      const res: any = await api.orgInviteEmail(id, inviteEmail.trim(), inviteRole);
+      setInviteEmail("");
+      flash(res?.emailed ? "Invite emailed — they'll appear here once they sign in with that email." : "Invite created, but the email didn't send. Check the provider.");
+    } catch (e) { fail(e); }
   };
   const addByPhone = async () => {
     if (!invitePhone.trim()) return;

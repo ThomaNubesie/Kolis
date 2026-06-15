@@ -57,7 +57,13 @@ export const api = {
     r("kolis_admin_set_org_limits", { p_org: id, p_credit_limit_cents: a.credit_limit_cents ?? null, p_discount: a.discount ?? null, p_net_terms: a.net_terms ?? null, p_platform_fee: a.platform_fee ?? null }),
   setOrgKyb: (id: string, status: string) => r("kolis_admin_set_kyb", { p_org: id, p_status: status }),
   setOrgStatus: (id: string, status: string) => r("kolis_admin_set_org_status", { p_org: id, p_status: status }),
-  orgInviteEmail: (id: string, email: string, role: string) => r<string>("kolis_admin_org_invite", { p_org: id, p_email: email, p_role: role }),
+  async orgInviteEmail(id: string, email: string, role: string) {
+    // Creates the invite AND emails it (the RPC alone never notified anyone).
+    const { data, error } = await supabase.functions.invoke("kolis-org-invite", { body: { org_id: id, email, role } });
+    if (error) throw error;
+    if ((data as any)?.error) throw new Error((data as any).error);
+    return data;
+  },
   orgAddByPhone: (id: string, phone: string, role: string) => r<any>("kolis_admin_org_add_member_by_phone", { p_org: id, p_phone: phone, p_role: role }),
   orgRemoveMember: (id: string, user: string) => r("kolis_admin_org_remove_member", { p_org: id, p_user: user }),
 };
@@ -94,7 +100,12 @@ export const org = {
   invoices: (o: string) => r<any[]>("kolis_org_invoices", { p_org: o }),
   invoice: (o: string, id: string) => r<any>("kolis_org_invoice", { p_org: o, p_id: id }),
   team: (o: string) => r<{ members: any[]; invites: any[] }>("kolis_org_team", { p_org: o }),
-  invite: (o: string, email: string, role: string) => r<string>("kolis_org_invite_member", { p_org: o, p_email: email, p_role: role }),
+  async invite(o: string, email: string, role: string) {
+    const { data, error } = await supabase.functions.invoke("kolis-org-invite", { body: { org_id: o, email, role } });
+    if (error) throw error;
+    if ((data as any)?.error) throw new Error((data as any).error);
+    return data;
+  },
   setRole: (o: string, user: string, role: string) => r("kolis_org_set_role", { p_org: o, p_user: user, p_role: role }),
   removeMember: (o: string, user: string) => r("kolis_org_remove_member", { p_org: o, p_user: user }),
   // carrier

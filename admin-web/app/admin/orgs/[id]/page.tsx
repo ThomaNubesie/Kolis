@@ -13,7 +13,9 @@ export default function OrgDetail() {
   const [members, setMembers] = useState<any[]>([]);
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
-  // editable limits
+  // editable profile + limits
+  const [name, setName] = useState("");
+  const [billing, setBilling] = useState("");
   const [credit, setCredit] = useState("");
   const [discount, setDiscount] = useState("");
   const [net, setNet] = useState("");
@@ -25,7 +27,7 @@ export default function OrgDetail() {
   const load = async () => {
     const o = (await api.org(id).catch(() => []))?.[0] ?? null;
     setOrg(o);
-    if (o) { setCredit(dollars(o.credit_limit_cents)); setDiscount(String(Math.round((o.discount_rate || 0) * 100))); setNet(String(o.net_terms_days)); }
+    if (o) { setName(o.name ?? ""); setBilling(o.billing_email ?? ""); setCredit(dollars(o.credit_limit_cents)); setDiscount(String(Math.round((o.discount_rate || 0) * 100))); setNet(String(o.net_terms_days)); }
     setMembers(await api.orgMembers(id).catch(() => []));
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
@@ -33,6 +35,10 @@ export default function OrgDetail() {
   const flash = (m: string) => { setMsg(m); setErr(""); setTimeout(() => setMsg(""), 2500); };
   const fail = (e: any) => setErr(e?.message || "Failed.");
 
+  const saveProfile = async () => {
+    if (!name.trim()) { setErr("Name can't be empty."); return; }
+    try { await api.setOrgProfile(id, { name: name.trim(), billing_email: billing.trim() }); flash("Saved."); load(); } catch (e) { fail(e); }
+  };
   const saveLimits = async () => {
     try {
       await api.setOrgLimits(id, { credit_limit_cents: Math.round((Number(credit) || 0) * 100), discount: (Number(discount) || 0) / 100, net_terms: Number(net) || 30 });
@@ -68,6 +74,16 @@ export default function OrgDetail() {
       {err ? <div className="warn">{err}</div> : null}
 
       <div className="cols">
+        {/* Business details (editable name + billing email) */}
+        <div className="card" style={{ flex: 1, minWidth: 280 }}>
+          <div className="mono">Business details</div>
+          <div className="mono">Name</div>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Business name" />
+          <div className="mono" style={{ marginTop: 10 }}>Billing email</div>
+          <input className="input" value={billing} onChange={(e) => setBilling(e.target.value)} placeholder="billing@company.com" />
+          <button className="btn" style={{ marginTop: 10 }} onClick={saveProfile}>Save</button>
+        </div>
+
         {/* Limits & terms */}
         <div className="card" style={{ flex: 1, minWidth: 280 }}>
           <div className="mono">Credit & terms</div>

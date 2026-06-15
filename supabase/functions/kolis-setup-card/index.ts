@@ -1,5 +1,5 @@
 // Card-on-file backstop for net-terms orgs: creates a Stripe SetupIntent so the
-// org can save a card (charged only if an invoice goes overdue). Owner/admin only.
+// org can save a card (charged only if an invoice goes overdue). Owner only.
 //
 // SAFETY INTERLOCK: TEST key (sk_test_…) unless KOLIS_BILLING_LIVE=true.
 // Env: STRIPE_TEST_SECRET_KEY|STRIPE_SECRET_KEY, KOLIS_BILLING_LIVE,
@@ -34,7 +34,7 @@ Deno.serve(async (req) => {
     const { org_id } = await req.json();
     if (!org_id) return json({ error: "org_id required" }, 400);
     const { data: role } = await userClient.rpc("kolis_org_role", { p_org: org_id });
-    if (role !== "owner" && role !== "admin") return json({ error: "forbidden" }, 403);
+    if (role !== "owner") return json({ error: "forbidden" }, 403); // billing/card is owner-only
 
     const s = resolveStripe();
     if ("skip" in s) return json({ ok: false, skipped: s.skip });

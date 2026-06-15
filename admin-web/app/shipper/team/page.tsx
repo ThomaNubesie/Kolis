@@ -7,7 +7,8 @@ const ROLES = ["owner", "admin", "finance", "shipper"];
 
 export default function Team() {
   const { active } = useOrg();
-  const canManage = active.role === "owner" || active.role === "admin";
+  const canManage = active.role === "owner" || active.role === "admin"; // invite + change roles
+  const isOwner = active.role === "owner"; // remove member is owner-only
   const [data, setData] = useState<{ members: any[]; invites: any[] }>({ members: [], invites: [] });
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("shipper");
@@ -45,7 +46,7 @@ export default function Team() {
         </div>
       )}
       <table>
-        <thead><tr><th>Name</th><th>Email</th><th>Role</th>{canManage && <th></th>}</tr></thead>
+        <thead><tr><th>Name</th><th>Email</th><th>Role</th>{isOwner && <th></th>}</tr></thead>
         <tbody>
           {data.members.map((m) => (
             <tr key={m.user_id}>
@@ -55,11 +56,11 @@ export default function Team() {
                   {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
                 </select>
               ) : <span className="pill pmag">{m.role}</span>}</td>
-              {canManage && <td><button className="btn ghost" onClick={() => remove(m.user_id)}>Remove</button></td>}
+              {isOwner && <td><button className="btn ghost" onClick={() => remove(m.user_id)}>Remove</button></td>}
             </tr>
           ))}
           {data.invites.map((i) => (
-            <tr key={i.email}><td style={{ color: "var(--t3)" }}>—</td><td>{i.email}</td><td><span className="pill pgold">invited · {i.role}</span></td>{canManage && <td></td>}</tr>
+            <tr key={i.email}><td style={{ color: "var(--t3)" }}>—</td><td>{i.email}</td><td><span className="pill pgold">invited · {i.role}</span></td>{isOwner && <td></td>}</tr>
           ))}
         </tbody>
       </table>

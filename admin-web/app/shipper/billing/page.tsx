@@ -50,7 +50,9 @@ export default function Billing() {
       <div className="card" style={{ maxWidth: 520 }}>
         <div className="mono">Card on file (backstop)</div>
         <div className="sub" style={{ margin: "0 0 10px" }}>Charged only if an invoice goes overdue. Primary billing is the monthly invoice.</div>
-        <button className="btn" disabled={busy} onClick={addCard}>{busy ? "…" : "Add card on file"}</button>
+        {active.role === "owner"
+          ? <button className="btn" disabled={busy} onClick={addCard}>{busy ? "…" : "Add card on file"}</button>
+          : <div className="sub">Only the account owner can manage billing.</div>}
         {msg ? <div className="sub" style={{ marginTop: 10 }}>{msg}</div> : null}
       </div>
     </>

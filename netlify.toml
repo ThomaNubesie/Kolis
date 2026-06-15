@@ -1,0 +1,12 @@
+# Hosts the Kolis admin / enterprise (shipper + carrier) / developer web app.
+# It's a Next.js 14 app living in admin-web/, so the build runs from there and
+# the Next.js runtime plugin handles SSR + routing.
+[build]
+  base = "admin-web"
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

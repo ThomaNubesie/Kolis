@@ -20,6 +20,7 @@ export default function Members() {
   const toggle = async (m: any) => { if (!confirm(`${m.suspended ? "Reinstate" : "Suspend"} ${m.full_name || m.email}?`)) return; try { await api.suspend(m.id, !m.suspended); load(); } catch (e: any) { alert(e?.message); } };
   const nudgeAll = async () => { if (!confirm("Send a verification reminder to all unverified members with the app installed?")) return; try { const r = await api.nudgeUnverified(); alert(r.nudged ? `Reminder sent to ${r.nudged} member(s).` : "No unverified members have notifications enabled."); } catch (e: any) { alert(e?.message); } };
   const nudgeOne = async (m: any) => { try { const r = await api.nudgeUnverified(m.id); alert(r.nudged ? "Reminder sent." : "This member doesn't have notifications enabled."); } catch (e: any) { alert(e?.message); } };
+  const resendSignup = async (m: any) => { try { const r = await api.resendSignup(m.id); alert(r.sent ? `Signup email sent to ${r.email}.` : "Couldn't send the email: " + ((r as any)?.error || "unknown")); } catch (e: any) { alert(e?.message); } };
 
   return (
     <>
@@ -34,7 +35,7 @@ export default function Members() {
         <>
           <div className="sub" style={{ marginBottom: 8 }}>Accounts that started a signup but haven&apos;t finished onboarding — no member profile yet. (LoadQ drivers excluded.)</div>
           <table>
-            <thead><tr><th>Email</th><th>Phone</th><th>Signed up</th><th>Last seen</th><th>Confirmed</th></tr></thead>
+            <thead><tr><th>Email</th><th>Phone</th><th>Signed up</th><th>Last seen</th><th>Confirmed</th><th></th></tr></thead>
             <tbody>
               {pending.map((m) => (
                 <tr key={m.id}>
@@ -43,9 +44,10 @@ export default function Members() {
                   <td>{day(m.created_at)}</td>
                   <td>{day(m.last_sign_in_at)}</td>
                   <td>{m.confirmed ? <span className="pill pg">yes</span> : <span className="pill pgrey">no</span>}</td>
+                  <td>{m.email ? <button className="btn ghost" onClick={() => resendSignup(m)}>Resend email</button> : null}</td>
                 </tr>
               ))}
-              {pending.length === 0 && <tr><td colSpan={5} style={{ color: "var(--t3)" }}>No incomplete signups 🎉</td></tr>}
+              {pending.length === 0 && <tr><td colSpan={6} style={{ color: "var(--t3)" }}>No incomplete signups 🎉</td></tr>}
             </tbody>
           </table>
         </>

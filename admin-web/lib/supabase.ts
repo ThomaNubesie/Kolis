@@ -38,6 +38,12 @@ export const api = {
     if ((data as any)?.error) throw new Error((data as any).error);
     return data as { ok: boolean; nudged: number };
   },
+  async resendSignup(user: string) {
+    const { data, error } = await supabase.functions.invoke("kolis-resend-signup", { body: { user_id: user } });
+    if (error) throw error;
+    if ((data as any)?.error) throw new Error((data as any).error);
+    return data as { ok: boolean; sent: boolean; email?: string };
+  },
   suspend: (id: string, s: boolean) => r("kolis_admin_suspend", { p_id: id, p_suspended: s }),
   claims: (status = "open") => r<any[]>("kolis_admin_claims", { p_status: status }),
   denyClaim: (id: string) => r("kolis_deny_claim", { p_id: id, p_note: null }),

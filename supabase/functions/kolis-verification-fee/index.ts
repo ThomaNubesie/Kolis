@@ -65,12 +65,14 @@ Deno.serve(async (req) => {
     }
 
     if (action === "activate_free") {
-      if (prof?.verification_fee_paid) return json({ ok: true, founding_number: prof.founding_number });
-      const { data: n, error } = await admin.rpc("kolis_claim_founding", { p_role: role });
-      if (error) return json({ error: error.message }, 500);
-      if (n === null || n === undefined) return json({ founding: false }); // cap reached — must pay
-      await admin.from("kolis_profiles").update({ verification_fee_paid: true, is_founding: true, founding_number: n }).eq("id", user.id);
-      return json({ ok: true, founding_number: n });
+      // Founding = free, but identity must be verified first. The RPC claims the
+      // per-role slot and stamps the profile atomically (verify-gated server-side).
+      const { data: res, error } = await userClient.rpc("kolis_activate_founding");
+      if (error) {
+        if (String(error.message).includes("verify_identity_first")) return json({ error: "Verify your identity first." }, 400);
+        return json({ error: error.message }, 500);
+      }
+      return json(res); // { ok, founding_number } | { founding: false } when the cap is reached
     }
 
     if (action === "create_intent") {

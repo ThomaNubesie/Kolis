@@ -31,6 +31,7 @@ export const api = {
   unassign: (id: string) => r("kolis_admin_unassign", { p_id: id }),
   reroute: (id: string, toCity: string, toRegion: string) => r("kolis_admin_reroute", { p_id: id, p_to_city: toCity, p_to_region: toRegion }),
   members: (filter = "all", search: string | null = null) => r<any[]>("kolis_admin_members", { p_filter: filter, p_search: search }),
+  pendingMembers: () => r<any[]>("kolis_admin_pending_members"),
   suspend: (id: string, s: boolean) => r("kolis_admin_suspend", { p_id: id, p_suspended: s }),
   claims: (status = "open") => r<any[]>("kolis_admin_claims", { p_status: status }),
   denyClaim: (id: string) => r("kolis_deny_claim", { p_id: id, p_note: null }),

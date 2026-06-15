@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 import Constants from "expo-constants";
+import { router } from "expo-router";
 import { supabase } from "./supabase";
 
 // Expo push notifications for Kolis. The token is stored on the signed-in
@@ -7,6 +8,7 @@ import { supabase } from "./supabase";
 // delivery requests ("a parcel was assigned to you / is available") server-side.
 
 let _handlerSet = false;
+let _listenersSet = false;
 
 async function ensureHandler() {
   if (_handlerSet) return;
@@ -25,8 +27,45 @@ async function ensureHandler() {
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
     });
+    // Parcel requests: a separate MAX-importance channel so they chime loudly,
+    // pop as a heads-up, and stay in the tray until the courier acts on them.
+    await Notifications.setNotificationChannelAsync("parcel-requests", {
+      name: "Delivery requests",
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 300, 200, 300],
+      sound: "default",
+      bypassDnd: false,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
   }
+  ensureListeners(Notifications);
   _handlerSet = true;
+}
+
+// Tap a parcel request → open the requests screen and clear its sticky copy.
+// Receiving one in the foreground → keep an ongoing (sticky) notification so it
+// can't be swiped away until the courier opens it.
+function ensureListeners(Notifications: typeof import("expo-notifications")) {
+  if (_listenersSet) return;
+  _listenersSet = true;
+  try {
+    Notifications.addNotificationResponseReceivedListener((resp) => {
+      const data: any = resp?.notification?.request?.content?.data ?? {};
+      if (data.persistent && data.parcel_id) Notifications.dismissNotificationAsync(`req-${data.parcel_id}`).catch(() => {});
+      if (data.parcel_id) { try { router.push("/(app)/proposals"); } catch { /* ignore */ } }
+    });
+    Notifications.addNotificationReceivedListener(async (n) => {
+      const data: any = n?.request?.content?.data ?? {};
+      if (Platform.OS !== "android" || !data.persistent || !data.parcel_id) return;
+      try {
+        await Notifications.scheduleNotificationAsync({
+          identifier: `req-${data.parcel_id}`,
+          content: { title: n.request.content.title ?? "New delivery request", body: n.request.content.body ?? "", data, sticky: true, autoDismiss: false, sound: "default" },
+          trigger: null,
+        });
+      } catch { /* best-effort */ }
+    });
+  } catch { /* listeners are best-effort */ }
 }
 
 export const PushAPI = {

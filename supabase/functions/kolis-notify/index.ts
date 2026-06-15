@@ -18,7 +18,15 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-type PushMsg = { to: string; title: string; body: string; sound: "default"; data?: Record<string, unknown> };
+type PushMsg = {
+  to: string; title: string; body: string; sound: "default";
+  data?: Record<string, unknown>;
+  priority?: "high"; channelId?: string; interruptionLevel?: "time-sensitive";
+};
+
+// Parcel requests must chime loudly and stay until the courier acts on them:
+// high priority + a dedicated high-importance Android channel + iOS time-sensitive.
+const URGENT = { priority: "high" as const, channelId: "parcel-requests", interruptionLevel: "time-sensitive" as const };
 
 function bi(en: string, fr: string) { return `${en}\n${fr}`; }
 
@@ -43,7 +51,8 @@ async function recordAndQueue(
     .select("id");
   if (error || !ins || ins.length === 0) return;
   const token = await tokenFor(supabase, userId);
-  if (token) pushQueue.push({ to: token, title, body, sound: "default", data });
+  // persistent:true tells the app to keep an ongoing (sticky) notification until tapped.
+  if (token) pushQueue.push({ to: token, title, body, sound: "default", data: { ...data, persistent: true }, ...URGENT });
 }
 
 async function flushPush(pushQueue: PushMsg[]) {

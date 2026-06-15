@@ -18,6 +18,8 @@ export default function Members() {
   useEffect(() => { load("all", ""); }, []); // eslint-disable-line
 
   const toggle = async (m: any) => { if (!confirm(`${m.suspended ? "Reinstate" : "Suspend"} ${m.full_name || m.email}?`)) return; try { await api.suspend(m.id, !m.suspended); load(); } catch (e: any) { alert(e?.message); } };
+  const nudgeAll = async () => { if (!confirm("Send a verification reminder to all unverified members with the app installed?")) return; try { const r = await api.nudgeUnverified(); alert(r.nudged ? `Reminder sent to ${r.nudged} member(s).` : "No unverified members have notifications enabled."); } catch (e: any) { alert(e?.message); } };
+  const nudgeOne = async (m: any) => { try { const r = await api.nudgeUnverified(m.id); alert(r.nudged ? "Reminder sent." : "This member doesn't have notifications enabled."); } catch (e: any) { alert(e?.message); } };
 
   return (
     <>
@@ -25,6 +27,7 @@ export default function Members() {
       <div className="toolbar">
         {filter !== "pending" && <input className="search" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder="🔍 name, email…" />}
         {FILTERS.map(([f, l]) => <button key={f} className={"chip" + (filter === f ? " on" : "")} onClick={() => { setFilter(f); load(f, search); }}>{l}</button>)}
+        {filter !== "pending" && <button className="btn ghost" style={{ marginLeft: "auto" }} onClick={nudgeAll}>🔔 Nudge unverified</button>}
       </div>
 
       {filter === "pending" ? (
@@ -57,7 +60,12 @@ export default function Members() {
                 <td style={{ textTransform: "capitalize" }}>{m.role || "—"}</td>
                 <td>{m.identity_verified ? <span className="pill pg">verified</span> : <span className="pill pgrey">unverified</span>}{m.suspended ? <span className="pill pred" style={{ marginLeft: 5 }}>suspended</span> : null}</td>
                 <td>{m.is_founding && m.founding_number ? `#${m.founding_number}` : "—"}</td>
-                <td><button className="btn ghost" onClick={() => toggle(m)}>{m.suspended ? "Reinstate" : "Suspend"}</button></td>
+                <td>
+                  <div className="row" style={{ gap: 6 }}>
+                    {!m.identity_verified && <button className="btn ghost" onClick={() => nudgeOne(m)}>Remind</button>}
+                    <button className="btn ghost" onClick={() => toggle(m)}>{m.suspended ? "Reinstate" : "Suspend"}</button>
+                  </div>
+                </td>
               </tr>
             ))}
             {list.length === 0 && <tr><td colSpan={6} style={{ color: "var(--t3)" }}>No members.</td></tr>}

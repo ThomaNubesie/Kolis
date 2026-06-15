@@ -26,7 +26,7 @@ export default function Parcels() {
         <thead><tr><th>Code</th><th>Route</th><th>Size</th><th>Value / ins.</th><th>Paid</th><th>Driver</th><th>Status</th></tr></thead>
         <tbody>
           {list.map((p) => (
-            <tr key={p.id} className="clk" onClick={() => router.push(`/parcels/${p.id}`)}>
+            <tr key={p.id} className="clk" onClick={() => router.push(`/admin/parcels/${p.id}`)}>
               <td>#{p.code}</td>
               <td>{p.from_city} → {p.to_city}</td>
               <td style={{ textTransform: "capitalize" }}>{p.size}</td>

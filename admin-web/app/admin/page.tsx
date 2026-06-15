@@ -38,7 +38,7 @@ export default function Overview() {
         <thead><tr><th>Parcel</th><th>Route</th><th>Status</th><th></th></tr></thead>
         <tbody>
           {attention.map((p) => (
-            <tr key={p.id} className="clk" onClick={() => router.push(`/parcels/${p.id}`)}>
+            <tr key={p.id} className="clk" onClick={() => router.push(`/admin/parcels/${p.id}`)}>
               <td>#{p.code}</td>
               <td>{p.from_city} → {p.to_city}</td>
               <td><span className={"pill " + (p.has_open_claim ? "pred" : "pmag")}>{p.has_open_claim ? "Claim" : "Awaiting"}</span></td>

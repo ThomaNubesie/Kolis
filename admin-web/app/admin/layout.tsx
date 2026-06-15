@@ -5,11 +5,11 @@ import Link from "next/link";
 import { supabase, api } from "@/lib/supabase";
 
 const NAV = [
-  { href: "/", icon: "📊", label: "Overview" },
-  { href: "/parcels", icon: "📦", label: "Parcels" },
-  { href: "/claims", icon: "🛡️", label: "Claims" },
-  { href: "/members", icon: "👥", label: "Members" },
-  { href: "/team", icon: "🔑", label: "Team & access", owner: true },
+  { href: "/admin", icon: "📊", label: "Overview" },
+  { href: "/admin/parcels", icon: "📦", label: "Parcels" },
+  { href: "/admin/claims", icon: "🛡️", label: "Claims" },
+  { href: "/admin/members", icon: "👥", label: "Members" },
+  { href: "/admin/team", icon: "🔑", label: "Team & access", owner: true },
 ];
 
 export default function DashLayout({ children }: { children: React.ReactNode }) {
@@ -31,7 +31,7 @@ export default function DashLayout({ children }: { children: React.ReactNode }) 
 
   if (role === undefined) return <div className="center">Loading…</div>;
 
-  const isActive = (href: string) => href === "/" ? path === "/" : path.startsWith(href);
+  const isActive = (href: string) => href === "/admin" ? path === "/admin" : path.startsWith(href);
 
   return (
     <div className="app">

@@ -21,7 +21,7 @@ export default function Login() {
     // Staff → admin console. Otherwise route to whichever business portal the
     // account belongs to (accepting any pending org invites first).
     const { data: staff } = await supabase.rpc("kolis_is_staff");
-    if (staff) { router.replace("/"); return true; }
+    if (staff) { router.replace("/admin"); return true; }
     try { await supabase.rpc("kolis_accept_org_invite"); } catch {}
     const { data: orgs } = await supabase.rpc("kolis_my_orgs");
     const list = (orgs ?? []) as { type: string }[];

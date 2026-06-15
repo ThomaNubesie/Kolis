@@ -4,12 +4,14 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase, api } from "@/lib/supabase";
 
+// `cap` = the capability a section requires; `owner` = owner-only (Team & access).
 const NAV = [
   { href: "/admin", icon: "📊", label: "Overview" },
-  { href: "/admin/orgs", icon: "🏢", label: "Organizations" },
-  { href: "/admin/parcels", icon: "📦", label: "Parcels" },
-  { href: "/admin/claims", icon: "🛡️", label: "Claims" },
-  { href: "/admin/members", icon: "👥", label: "Members" },
+  { href: "/admin/orgs", icon: "🏢", label: "Organizations", cap: "orgs" },
+  { href: "/admin/revenue", icon: "💰", label: "Revenue", cap: "revenue" },
+  { href: "/admin/parcels", icon: "📦", label: "Parcels", cap: "parcels" },
+  { href: "/admin/claims", icon: "🛡️", label: "Claims", cap: "claims" },
+  { href: "/admin/members", icon: "👥", label: "Members", cap: "members" },
   { href: "/admin/team", icon: "🔑", label: "Team & access", owner: true },
 ];
 
@@ -17,18 +19,25 @@ export default function DashLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const path = usePathname();
   const [role, setRole] = useState<string | null | undefined>(undefined);
+  const [caps, setCaps] = useState<string[]>([]);
+
+  const allowed = (n: { cap?: string; owner?: boolean }) =>
+    (!n.cap && !n.owner) || (n.owner ? role === "owner" : caps.includes(n.cap!));
 
   useEffect(() => {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.replace("/login"); return; }
       try {
-        const r = await api.role();
+        const [r, c] = await Promise.all([api.role(), api.caps().catch(() => [] as string[])]);
         if (!r) { await supabase.auth.signOut(); router.replace("/login"); return; }
-        setRole(r);
+        setRole(r); setCaps(c || []);
+        // Defense in depth: bounce a staffer who deep-links into a section they lack.
+        const hit = NAV.find((n) => n.href !== "/admin" && path.startsWith(n.href));
+        if (hit && !(hit.owner ? r === "owner" : (c || []).includes(hit.cap!))) { router.replace("/admin"); return; }
       } catch { router.replace("/login"); }
     })();
-  }, [router]);
+  }, [router, path]);
 
   if (role === undefined) return <div className="center">Loading…</div>;
 
@@ -38,7 +47,7 @@ export default function DashLayout({ children }: { children: React.ReactNode }) 
     <div className="app">
       <aside className="side">
         <div className="brand">Kolis · Admin</div>
-        {NAV.filter((n) => !n.owner || role === "owner").map((n) => (
+        {NAV.filter(allowed).map((n) => (
           <Link key={n.href} href={n.href} className={"nav" + (isActive(n.href) ? " on" : "")}>
             <span>{n.icon}</span>{n.label}
           </Link>

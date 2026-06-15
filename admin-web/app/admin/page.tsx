@@ -28,8 +28,8 @@ export default function Overview() {
         <Tile l="In transit" n={String(ov?.in_transit ?? 0)} />
         <Tile l="Awaiting driver" n={String(ov?.awaiting ?? 0)} tone="var(--accent)" />
         <Tile l="Delivered today" n={String(ov?.delivered_today ?? 0)} tone="#178a5e" />
-        <Tile l="Revenue today" n={c$(ov?.revenue_today_cents)} />
-        <Tile l="Pending payouts" n={c$(ov?.pending_payout_cents)} />
+        {ov?.revenue_today_cents != null && <Tile l="Revenue today" n={c$(ov?.revenue_today_cents)} />}
+        {ov?.pending_payout_cents != null && <Tile l="Pending payouts" n={c$(ov?.pending_payout_cents)} />}
         <Tile l="Open claims" n={String(ov?.open_claims ?? 0)} tone={ov?.open_claims ? "var(--red)" : undefined} />
       </div>
 

@@ -35,9 +35,16 @@ export const api = {
   claims: (status = "open") => r<any[]>("kolis_admin_claims", { p_status: status }),
   denyClaim: (id: string) => r("kolis_deny_claim", { p_id: id, p_note: null }),
   team: () => r<any[]>("kolis_admin_team"),
-  async invite(email: string, role: string) {
+  caps: () => r<string[]>("kolis_admin_caps"),
+  allCaps: () => r<string[]>("kolis_admin_all_caps"),
+  setCaps: (user: string, caps: string[]) => r("kolis_admin_set_caps", { p_user: user, p_caps: caps }),
+  revenue: (from?: string, to?: string) => {
+    const a: any = {}; if (from) a.p_from = from; if (to) a.p_to = to;
+    return r<any>("kolis_admin_revenue", a);
+  },
+  async invite(email: string, role: string, caps: string[] = []) {
     // Staff invite — creates it AND emails the person (the RPC never notified anyone).
-    const { data, error } = await supabase.functions.invoke("kolis-org-invite", { body: { email, role } });
+    const { data, error } = await supabase.functions.invoke("kolis-org-invite", { body: { email, role, caps } });
     if (error) throw error;
     if ((data as any)?.error) throw new Error((data as any).error);
     return data;

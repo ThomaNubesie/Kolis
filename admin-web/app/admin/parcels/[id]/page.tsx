@@ -30,9 +30,17 @@ export default function ParcelDetail() {
 
   const KV = ({ k, v }: { k: string; v: string }) => <div className="kv"><span className="k">{k}</span><span className="v">{v}</span></div>;
 
+  const openCands = async () => setCands(await api.candidates(id));
   const pickDriver = (d: any) => { setCands(null); run(() => p.driver_id ? api.changeDriver(id, d.driver_id) : api.assign(id, d.driver_id), p.driver_id ? "Driver changed" : "Assigned"); };
   const doReroute = () => { setReroute(false); run(() => api.reroute(id, city, regionFor(city)), "Rerouted"); };
-  const doCancel = () => { if (confirm("Refund the sender and cancel this parcel?")) run(async () => { await api.refund({ parcel_id: id, action: "cancel", method: "card" }); }, "Cancelled & refunded"); };
+  // Cancel + refund → return to the parcels list (the parcel is now closed).
+  const doCancel = () => {
+    if (!confirm("Refund the sender and cancel this parcel?")) return;
+    setBusy(true);
+    api.refund({ parcel_id: id, action: "cancel", method: "card" })
+      .then(() => router.push("/admin/parcels"))
+      .catch((e: any) => { alert(e?.message || "Error"); setBusy(false); });
+  };
 
   return (
     <>
@@ -61,11 +69,25 @@ export default function ParcelDetail() {
           {canOps && (
             <div className="card"><div className="mono">Dispatch & route</div>
               <div className="row" style={{ flexWrap: "wrap" }}>
-                <button className="btn blue" disabled={busy} onClick={async () => setCands(await api.candidates(id))}>{p.driver_id ? "Change driver" : "Assign driver"}</button>
-                {p.driver_id && <button className="btn ghost" disabled={busy} onClick={() => run(() => api.unassign(id), "Unassigned")}>Unassign</button>}
+                {p.driver_id ? (
+                  <>
+                    <button className="btn green" disabled>✓ Accepted · {p.driver_name || "driver"}</button>
+                    <button className="btn blue" disabled={busy} onClick={openCands}>Change</button>
+                    <button className="btn ghost" disabled={busy} onClick={() => run(() => api.unassign(id), "Unassigned")}>Unassign</button>
+                  </>
+                ) : p.preferred_driver_id ? (
+                  <>
+                    <button className="btn blue" disabled={busy} onClick={openCands}>Assigned · {p.preferred_driver_name || "driver"}</button>
+                    <button className="btn ghost" disabled={busy} onClick={() => run(() => api.unassign(id), "Request cancelled")}>Cancel request</button>
+                  </>
+                ) : (
+                  <button className="btn blue" disabled={busy} onClick={openCands}>Assign driver</button>
+                )}
                 <button className="btn ghost" disabled={busy} onClick={() => setReroute(true)}>Reroute</button>
               </div>
-              <div className="warn">Reroute changes the destination; couriers + sender are re-notified, the code stays valid.</div>
+              {p.preferred_driver_id && !p.driver_id
+                ? <div className="sub" style={{ marginTop: 8 }}>⏳ Request sent — awaiting {p.preferred_driver_name || "the driver"} to accept.</div>
+                : <div className="warn">Reroute changes the destination; couriers + sender are re-notified, the code stays valid.</div>}
             </div>
           )}
           {canMoney && <button className="btn red" disabled={busy} onClick={doCancel}>Cancel & refund</button>}

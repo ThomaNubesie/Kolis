@@ -46,8 +46,11 @@ export default function Onboarding() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
-        setPhoneOk(true);
-        if (session.user.phone) setPhone(session.user.phone);
+        // Only skip/lock phone verification when the session ACTUALLY has a
+        // verified phone. An email-only or partial session (e.g. an existing
+        // LoadQ login) must leave the phone field editable so the user can
+        // still verify — otherwise the field freezes with a stale value.
+        if (session.user.phone) { setPhoneOk(true); setPhone(session.user.phone); }
         setStep("country");
       }
     });

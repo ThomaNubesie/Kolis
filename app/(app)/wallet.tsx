@@ -9,6 +9,16 @@ import { useStrings } from "../../hooks/useStrings";
 import { CourierAPI } from "../../services/courier";
 import { ProfileAPI, KolisProfile } from "../../services/profile";
 
+// Module-scope so children (incl. the Interac email TextInput) keep a stable
+// identity across renders. Defined inside the screen, Card remounted every
+// keystroke → the keyboard dismissed after one character.
+const Mono = ({ children }: { children: string }) => (
+  <Text style={{ fontSize: 10.5, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 7, marginTop: 14, fontWeight: "700" }}>{children}</Text>
+);
+const Card = ({ children }: { children: React.ReactNode }) => (
+  <View style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 14, padding: 14, backgroundColor: "#fff" }}>{children}</View>
+);
+
 export default function Wallet() {
   const { t } = useStrings();
   const router = useRouter();
@@ -32,13 +42,6 @@ export default function Wallet() {
     setSaving(false);
     if (!error) { setSavedFlash(true); setTimeout(() => setSavedFlash(false), 1600); }
   };
-
-  const Mono = ({ children }: { children: string }) => (
-    <Text style={{ fontSize: 10.5, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 7, marginTop: 14, fontWeight: "700" }}>{children}</Text>
-  );
-  const Card = ({ children }: { children: React.ReactNode }) => (
-    <View style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 14, padding: 14, backgroundColor: "#fff" }}>{children}</View>
-  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["top"]}>

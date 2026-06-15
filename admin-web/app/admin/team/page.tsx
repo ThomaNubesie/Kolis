@@ -18,7 +18,7 @@ export default function Team() {
   const load = useCallback(() => { api.team().then(setTeam).catch(() => {}); api.keys().then(setKeys).catch(() => {}); }, []);
   useEffect(() => { load(); }, [load]);
 
-  const sendInvite = async () => { if (!email.trim()) return; try { const r = await api.invite(email.trim(), role); setInvite(false); setEmail(""); alert(r === "granted" ? "Access granted" : "Invite saved (pending sign-in)"); load(); } catch (e: any) { alert(e?.message); } };
+  const sendInvite = async () => { if (!email.trim()) return; try { const r: any = await api.invite(email.trim(), role); setInvite(false); setEmail(""); alert(r?.emailed ? "Invite emailed." : "Invite created, but the email didn't send."); load(); } catch (e: any) { alert(e?.message); } };
   const remove = async (m: any) => { if (!m.user_id || !confirm(`Remove ${m.name || m.email}?`)) return; try { await api.removeStaff(m.user_id); load(); } catch (e: any) { alert(e?.message); } };
   const createKey = async () => { if (!keyName.trim()) return; try { const r = await api.createKey(keyName.trim(), ["read_parcels"]); setKeyModal(false); setKeyName(""); setNewKey(r.key); load(); } catch (e: any) { alert(e?.message); } };
   const revoke = async (k: any) => { if (!confirm(`Revoke ${k.name}?`)) return; try { await api.revokeKey(k.id); load(); } catch {} };

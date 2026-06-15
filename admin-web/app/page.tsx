@@ -11,6 +11,7 @@ export default function Home() {
     (async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { router.replace("/login"); return; }
+      try { await supabase.rpc("kolis_claim_admin_invite"); } catch { /* claim a pending staff invite */ }
       const { data: staff } = await supabase.rpc("kolis_is_staff");
       if (staff) { router.replace("/admin"); return; }
       try { await supabase.rpc("kolis_accept_org_invite"); } catch { /* ignore */ }

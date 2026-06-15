@@ -20,6 +20,7 @@ export default function Login() {
   const afterAuth = async () => {
     // Staff → admin console. Otherwise the business portal they belong to
     // (accepting any pending email/profile invites first).
+    try { await supabase.rpc("kolis_claim_admin_invite"); } catch { /* claim a pending staff invite */ }
     const { data: staff } = await supabase.rpc("kolis_is_staff");
     if (staff) { router.replace("/admin"); return; }
     try { await supabase.rpc("kolis_accept_org_invite"); } catch { /* ignore */ }

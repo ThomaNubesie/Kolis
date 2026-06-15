@@ -25,7 +25,7 @@ export const HubsAPI = {
     return (data ?? []) as Hub[];
   },
   // admin (gated by RLS: public.drivers.is_admin)
-  async create(input: { city: string; name: string; address?: string; hours?: string }) {
+  async create(input: { city: string; name: string; address?: string; hours?: string; latitude?: number; longitude?: number }) {
     const { data, error } = await supabase.from("kolis_hubs").insert(input).select().single();
     return { hub: (data as Hub) ?? null, error: error?.message };
   },

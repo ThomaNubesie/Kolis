@@ -1,6 +1,8 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "./supabase";
 import { SizeKey, DropType, driverPayoutCents } from "../constants/pricing";
 import { regionCode } from "../constants/geo";
+import { ACTIVE_ORG_KEY } from "./orgs";
 
 export type ParcelStatus =
   | "requested"        // pending — waiting for a match
@@ -125,10 +127,11 @@ export const ParcelsAPI = {
   },
 
   async listMine() {
-    const { data, error } = await supabase
-      .from("kolis_parcels")
-      .select("*")
-      .order("created_at", { ascending: false });
+    // Org-aware: when an org is the active context, return that org's shipments
+    // (server-side scoped by kolis_my_shipments via kolis_org_role); otherwise
+    // the caller's personal parcels (sender, not attached to any org).
+    const activeOrgId = await AsyncStorage.getItem(ACTIVE_ORG_KEY);
+    const { data, error } = await supabase.rpc("kolis_my_shipments", { p_org: activeOrgId });
     return { parcels: (data ?? []) as Parcel[], error: error?.message };
   },
 

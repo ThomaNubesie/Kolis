@@ -8,12 +8,17 @@ import { Colors } from "../constants/colors";
 const KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 type Suggestion = { description: string; place_id: string };
 
+export type PlacePick = { description: string; formatted_address: string; lat: number; lng: number };
+
 export function AddressAutocomplete({
-  label, value, onChange, placeholder, required, country,
+  label, value, onChange, onPlace, placeholder, required, country,
 }: {
   label?: string;
   value: string;
   onChange: (v: string) => void;
+  // When provided, picking a suggestion also resolves its coordinates via Place
+  // Details (geometry) and calls back — used to geocode hubs/addresses.
+  onPlace?: (place: PlacePick) => void;
   placeholder?: string;
   required?: boolean;
   country?: string; // optional ISO code to bias results (e.g. "ca")
@@ -43,7 +48,19 @@ export function AddressAutocomplete({
     return () => clearTimeout(id);
   }, [value, country]);
 
-  const pick = (s: Suggestion) => { skipNext.current = true; onChange(s.description); setSugs([]); setOpen(false); };
+  const pick = async (s: Suggestion) => {
+    skipNext.current = true;
+    onChange(s.description);
+    setSugs([]); setOpen(false);
+    if (onPlace && KEY) {
+      try {
+        const r = await fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${s.place_id}&fields=geometry,formatted_address&key=${KEY}`);
+        const j = await r.json();
+        const loc = j?.result?.geometry?.location;
+        if (loc) onPlace({ description: s.description, formatted_address: j.result.formatted_address ?? s.description, lat: loc.lat, lng: loc.lng });
+      } catch { /* keep the typed text; coords stay unset */ }
+    }
+  };
 
   return (
     <View style={{ marginBottom: 10 }}>

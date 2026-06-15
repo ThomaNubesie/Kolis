@@ -18,9 +18,16 @@ export default function Login() {
   const e164 = (p: string) => { const d = p.replace(/[^\d+]/g, ""); return d.startsWith("+") ? d : "+1" + d.replace(/\D/g, ""); };
 
   const afterAuth = async () => {
+    // Staff → admin console. Otherwise route to whichever business portal the
+    // account belongs to (accepting any pending org invites first).
     const { data: staff } = await supabase.rpc("kolis_is_staff");
-    if (!staff) { setErr("This account has no admin access."); await supabase.auth.signOut(); return false; }
-    router.replace("/"); return true;
+    if (staff) { router.replace("/"); return true; }
+    try { await supabase.rpc("kolis_accept_org_invite"); } catch {}
+    const { data: orgs } = await supabase.rpc("kolis_my_orgs");
+    const list = (orgs ?? []) as { type: string }[];
+    if (list.some((o) => o.type === "shipper" || o.type === "both")) { router.replace("/shipper"); return true; }
+    if (list.some((o) => o.type === "carrier")) { router.replace("/carrier"); return true; }
+    setErr("This account has no console access."); await supabase.auth.signOut(); return false;
   };
 
   const signInEmail = async () => {

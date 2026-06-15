@@ -38,13 +38,14 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return json({ error: "unauthorized" }, 401);
 
-    const { org_id, email, role } = await req.json();
+    const { org_id, email, role, caps } = await req.json();
     const e = String(email || "").toLowerCase().trim();
     if (!EMAIL_RE.test(e) || !role) return json({ error: "a valid email and role are required" }, 400);
 
     // ── Staff invite (no org_id): to the admin console ──
     if (!org_id) {
-      const { error: sErr } = await userClient.rpc("kolis_admin_invite", { p_email: e, p_role: role });
+      const p_caps = Array.isArray(caps) ? caps : [];
+      const { error: sErr } = await userClient.rpc("kolis_admin_invite", { p_email: e, p_role: role, p_caps });
       if (sErr) return json({ error: sErr.message }, 400);
       const m = await sendMail(e,
         "You've been given access to the Kolis admin console",

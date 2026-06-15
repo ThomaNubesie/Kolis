@@ -5,23 +5,28 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { KolisRole } from "../../services/profile";
+import { OrgsAPI, MyOrg } from "../../services/orgs";
 
 const Icon = ({ e }: { e: string }) => <Text style={{ fontSize: 18 }}>{e}</Text>;
 
 export default function AppLayout() {
   const { t } = useStrings();
   const [role, setRole] = useState<KolisRole>("sender");
+  const [orgs, setOrgs] = useState<MyOrg[]>([]);
 
   useEffect(() => {
     AsyncStorage.getItem("userRole").then((r) => {
       if (r === "sender" || r === "courier" || r === "both") setRole(r);
     });
+    // Org membership drives the business-mode tabs.
+    OrgsAPI.myOrgs().then(setOrgs).catch(() => {});
   }, []);
 
   // Role drives which tabs are visible (href: null hides a screen from the bar).
-  const sends = role === "sender" || role === "both";   // Send a parcel
+  const sends = role === "sender" || role === "both";   // Send a parcel + track Shipments
   const carries = role === "courier" || role === "both"; // courier surfaces
-  const senderOnly = role === "sender";                  // dedicated Shipments tab
+  const hasOrgs = orgs.length > 0;                                            // Business tab
+  const hasFleet = orgs.some((o) => o.type === "carrier" || o.type === "both"); // Fleet tab
 
   return (
     <Tabs
@@ -34,11 +39,14 @@ export default function AppLayout() {
     >
       {/* Sender */}
       <Tabs.Screen name="send" options={{ title: t("tabSend"), href: sends ? undefined : null, tabBarIcon: () => <Icon e="📦" /> }} />
-      <Tabs.Screen name="shipments" options={{ title: t("tabShipments"), href: senderOnly ? undefined : null, tabBarIcon: () => <Icon e="🚚" /> }} />
+      <Tabs.Screen name="shipments" options={{ title: t("tabShipments"), href: sends ? undefined : null, tabBarIcon: () => <Icon e="🚚" /> }} />
       {/* Courier */}
       <Tabs.Screen name="proposals" options={{ title: t("tabProposals"), href: carries ? undefined : null, tabBarIcon: () => <Icon e="📨" /> }} />
       <Tabs.Screen name="carrying" options={{ title: t("tabCarrying"), href: carries ? undefined : null, tabBarIcon: () => <Icon e="🚚" /> }} />
       <Tabs.Screen name="earnings" options={{ title: t("tabEarnings"), href: carries ? undefined : null, tabBarIcon: () => <Icon e="💵" /> }} />
+      {/* Business (org members only) */}
+      <Tabs.Screen name="business" options={{ title: "Business", href: hasOrgs ? undefined : null, tabBarIcon: () => <Icon e="🏢" /> }} />
+      <Tabs.Screen name="fleet" options={{ title: "Fleet", href: hasFleet ? undefined : null, tabBarIcon: () => <Icon e="🛻" /> }} />
       {/* Shared */}
       <Tabs.Screen name="profile" options={{ title: t("tabProfile"), tabBarIcon: () => <Icon e="👤" /> }} />
       {/* Non-tab screens (pushed full-screen, hidden from the tab bar) */}

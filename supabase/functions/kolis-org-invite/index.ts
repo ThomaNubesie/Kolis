@@ -13,14 +13,17 @@ const FROM = Deno.env.get("KOLIS_FROM_EMAIL") || "no-reply@kolis.ca";
 const PORTAL = Deno.env.get("KOLIS_PORTAL_URL") || "https://business.kolis.ca";
 const ADMIN_PORTAL = Deno.env.get("KOLIS_ADMIN_URL") || "https://admin.kolis.ca";
 
-async function sendMail(to: string, subject: string, text: string, html: string): Promise<boolean> {
-  if (!RESEND) return false;
+async function sendMail(to: string, subject: string, text: string, html: string): Promise<{ ok: boolean; detail?: string }> {
+  if (!RESEND) return { ok: false, detail: "RESEND_API_KEY not set" };
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${RESEND}`, "Content-Type": "application/json" },
     body: JSON.stringify({ from: FROM, to, subject, text, html }),
   });
-  return res.ok;
+  if (res.ok) return { ok: true };
+  const detail = `from=${FROM} · ${res.status} ${await res.text()}`;
+  console.error("[kolis-org-invite] resend failed:", detail);
+  return { ok: false, detail };
 }
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
@@ -43,7 +46,7 @@ Deno.serve(async (req) => {
     if (!org_id) {
       const { error: sErr } = await userClient.rpc("kolis_admin_invite", { p_email: e, p_role: role });
       if (sErr) return json({ error: sErr.message }, 400);
-      const emailed = await sendMail(e,
+      const m = await sendMail(e,
         "You've been given access to the Kolis admin console",
         `You've been granted ${role} access to the Kolis admin console.\n\nSign in at ${ADMIN_PORTAL} using this email address (${e}). We'll email you a 6-digit code — no password needed.`,
         `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px">
@@ -53,7 +56,7 @@ Deno.serve(async (req) => {
           <p><a href="${ADMIN_PORTAL}" style="display:inline-block;background:#E11D6B;color:#fff;text-decoration:none;padding:11px 18px;border-radius:10px;font-weight:700">Open the admin console →</a></p>
           <p style="color:#6B6675;font-size:13px">We'll email you a 6-digit code to sign in — no password needed.</p>
         </div>`);
-      return json({ ok: true, emailed });
+      return json({ ok: true, emailed: m.ok, error: m.detail });
     }
 
     // Authorize: staff, or owner/admin of this org. Reuse the gated RPC to create

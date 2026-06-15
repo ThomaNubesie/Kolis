@@ -43,6 +43,7 @@ export const api = {
     return data;
   },
   removeStaff: (user: string) => r("kolis_admin_remove_staff", { p_user: user }),
+  cancelInvite: (email: string) => r("kolis_admin_cancel_invite", { p_email: email }),
   keys: () => r<any[]>("kolis_admin_keys"),
   createKey: (name: string, scopes: string[]) => r<any>("kolis_admin_create_key", { p_name: name, p_scopes: scopes }),
   revokeKey: (id: string) => r("kolis_admin_revoke_key", { p_id: id }),

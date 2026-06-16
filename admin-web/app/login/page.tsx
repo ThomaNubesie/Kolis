@@ -2,11 +2,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { useLang, LangToggle } from "@/lib/i18n";
 
 // Passwordless sign-in. Email code (businesses + staff) or phone code (Kolis
 // members). A 6-digit code is emailed/texted; no passwords.
 export default function Login() {
   const router = useRouter();
+  const { t } = useLang();
   const [mode, setMode] = useState<"email" | "phone">("email");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -28,7 +30,7 @@ export default function Login() {
     const list = (orgs ?? []) as { type: string }[];
     if (list.some((o) => o.type === "shipper" || o.type === "both")) { router.replace("/shipper"); return; }
     if (list.some((o) => o.type === "carrier")) { router.replace("/carrier"); return; }
-    setErr("This account isn't a member of any business yet. Ask your administrator for an invite.");
+    setErr(t("This account isn't a member of any business yet. Ask your administrator for an invite.", "Ce compte n'est encore membre d'aucune entreprise. Demandez une invitation à votre administrateur."));
     await supabase.auth.signOut();
   };
 
@@ -57,36 +59,37 @@ export default function Login() {
     <div className="center">
       <div className="card" style={{ width: 360, padding: 26 }}>
         <div style={{ fontWeight: 900, fontSize: 22, color: "var(--accent)" }}>Kolis</div>
-        <div className="sub" style={{ marginTop: 2 }}>Sign in to your console</div>
+        <div style={{ marginTop: 8 }}><LangToggle /></div>
+        <div className="sub" style={{ marginTop: 2 }}>{t("Sign in to your console", "Connectez-vous à votre console")}</div>
 
         <div className="row" style={{ marginBottom: 14, marginTop: 6 }}>
-          <button className={"chip" + (mode === "email" ? " on" : "")} onClick={() => switchMode("email")}>Email</button>
-          <button className={"chip" + (mode === "phone" ? " on" : "")} onClick={() => switchMode("phone")}>Phone</button>
+          <button className={"chip" + (mode === "email" ? " on" : "")} onClick={() => switchMode("email")}>{t("Email", "Courriel")}</button>
+          <button className={"chip" + (mode === "phone" ? " on" : "")} onClick={() => switchMode("phone")}>{t("Phone", "Téléphone")}</button>
         </div>
 
         {!sent ? (
           <>
             {mode === "email" ? (
               <>
-                <div className="mono">Work email</div>
+                <div className="mono">{t("Work email", "Courriel professionnel")}</div>
                 <input className="input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" autoComplete="email" onKeyDown={(e) => e.key === "Enter" && send()} />
               </>
             ) : (
               <>
-                <div className="mono">Phone number</div>
+                <div className="mono">{t("Phone number", "Numéro de téléphone")}</div>
                 <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 613 555 0192" inputMode="tel" onKeyDown={(e) => e.key === "Enter" && send()} />
               </>
             )}
             <button className="btn" style={{ width: "100%", marginTop: 12 }} disabled={busy} onClick={send}>
-              {busy ? "Sending…" : mode === "email" ? "Email me a code" : "Text me a code"}
+              {busy ? t("Sending…", "Envoi…") : mode === "email" ? t("Email me a code", "Envoyez-moi un code par courriel") : t("Text me a code", "Envoyez-moi un code par texto")}
             </button>
           </>
         ) : (
           <>
-            <div className="mono">6-digit code sent to {mode === "email" ? email.trim() : phone}</div>
+            <div className="mono">{t(`6-digit code sent to ${mode === "email" ? email.trim() : phone}`, `Code à 6 chiffres envoyé à ${mode === "email" ? email.trim() : phone}`)}</div>
             <input className="input" value={code} onChange={(e) => setCode(e.target.value)} placeholder="••••••" inputMode="numeric" onKeyDown={(e) => e.key === "Enter" && verify()} />
-            <button className="btn" style={{ width: "100%", marginTop: 12 }} disabled={busy} onClick={verify}>{busy ? "Verifying…" : "Verify & sign in"}</button>
-            <button className="btn ghost" style={{ width: "100%", marginTop: 8 }} onClick={() => { setSent(false); setCode(""); setErr(""); }}>← Back</button>
+            <button className="btn" style={{ width: "100%", marginTop: 12 }} disabled={busy} onClick={verify}>{busy ? t("Verifying…", "Vérification…") : t("Verify & sign in", "Vérifier et se connecter")}</button>
+            <button className="btn ghost" style={{ width: "100%", marginTop: 8 }} onClick={() => { setSent(false); setCode(""); setErr(""); }}>{t("← Back", "← Retour")}</button>
           </>
         )}
         {err ? <div style={{ color: "var(--red)", fontSize: 12.5, marginTop: 10 }}>{err}</div> : null}

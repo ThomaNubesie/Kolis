@@ -110,6 +110,10 @@ export const org = {
   acceptInvites: () => r<number>("kolis_accept_org_invite"),
   // shipper
   overview: (o: string) => r<any>("kolis_org_overview", { p_org: o }),
+  analytics: (o: string, from?: string, to?: string) => {
+    const a: any = { p_org: o }; if (from) a.p_from = from; if (to) a.p_to = to;
+    return r<any>("kolis_org_analytics", a);
+  },
   shipments: (o: string, filter = "all", search: string | null = null) =>
     r<any[]>("kolis_org_shipments", { p_org: o, p_filter: filter, p_search: search }),
   // args use p_-prefixed keys matching kolis_org_create_shipment

@@ -32,7 +32,23 @@ export default function Team() {
   const toggle = (list: string[], set: (v: string[]) => void, k: string) => set(list.includes(k) ? list.filter((x) => x !== k) : [...list, k]);
   const capSummary = (m: any) => m.role === "owner" ? "Full access" : ((m.caps || []).length ? (m.caps as string[]).map((c) => CAPS.find((x) => x.key === c)?.label || c).join(", ") : "No sections");
 
-  const sendInvite = async () => { if (!email.trim()) return; try { const r: any = await api.invite(email.trim(), role, caps); setInvite(false); setEmail(""); setCaps([]); alert(r?.emailed ? "Invite emailed." : "Invite created, but email failed: " + (r?.error || "unknown")); load(); } catch (e: any) { alert(e?.message); } };
+  const sendInvite = async () => {
+    // Accept one or many emails — comma, space, semicolon, or newline separated.
+    const emails = Array.from(new Set(email.split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean)));
+    if (!emails.length) return;
+    const results = await Promise.all(emails.map(async (e) => {
+      try { const r: any = await api.invite(e, role, caps); return { e, ok: true, emailed: !!r?.emailed, err: r?.error }; }
+      catch (err: any) { return { e, ok: false, emailed: false, err: err?.message }; }
+    }));
+    setInvite(false); setEmail(""); setCaps([]); load();
+    const emailed = results.filter((r) => r.emailed).length;
+    const failed = results.filter((r) => !r.ok);
+    let msg = `${emailed}/${emails.length} invite(s) emailed.`;
+    const madeNotSent = results.filter((r) => r.ok && !r.emailed);
+    if (madeNotSent.length) msg += ` ${madeNotSent.length} created but email failed.`;
+    if (failed.length) msg += `\nFailed: ${failed.map((f) => f.e).join(", ")}`;
+    alert(msg);
+  };
   const remove = async (m: any) => { if (!m.user_id || !confirm(`Remove ${m.name || m.email}?`)) return; try { await api.removeStaff(m.user_id); load(); } catch (e: any) { alert(e?.message); } };
   const resend = async (m: any) => { try { const r: any = await api.invite(m.email, m.role, m.caps || []); alert(r?.emailed ? "Invite re-sent." : "Re-created, but email failed: " + (r?.error || "unknown")); load(); } catch (e: any) { alert(e?.message); } };
   const cancelInvite = async (m: any) => { if (!confirm(`Delete the pending invite for ${m.email}?`)) return; try { await api.cancelInvite(m.email); load(); } catch (e: any) { alert(e?.message); } };
@@ -96,7 +112,8 @@ export default function Team() {
       {invite && (
         <div className="modalbg" onClick={() => setInvite(false)}><div className="modal" onClick={(e) => e.stopPropagation()}>
           <h3 style={{ marginTop: 0 }}>Invite staff</h3>
-          <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@kolis.ca" />
+          <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@kolis.ca, other@kolis.ca" />
+          <div className="sub" style={{ marginTop: 4, fontSize: 12 }}>Tip: invite several at once — separate emails with a comma.</div>
           <div className="mono" style={{ marginTop: 12 }}>Title</div>
           <div>{ROLES.map((r) => <button key={r} className={"chip" + (role === r ? " on" : "")} style={{ marginRight: 6, marginBottom: 6, textTransform: "capitalize" }} onClick={() => setRole(r)}>{r}</button>)}</div>
           <div className="mono" style={{ marginTop: 12 }}>Access — pick the sections they can use</div>

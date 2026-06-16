@@ -19,11 +19,18 @@ export default function Team() {
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [active.org_id]);
 
   const invite = async () => {
-    if (!email.trim()) return;
+    // One or many emails — comma, space, semicolon, or newline separated.
+    const emails = Array.from(new Set(email.split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean)));
+    if (!emails.length) return;
     setBusy(true); setErr("");
-    try { await org.invite(active.org_id, email.trim(), role); setEmail(""); load(); }
-    catch (e: any) { setErr(e?.message || "Invite failed."); }
+    const results = await Promise.all(emails.map(async (e) => {
+      try { await org.invite(active.org_id, e, role); return { e, ok: true }; }
+      catch (err: any) { return { e, ok: false, err: err?.message }; }
+    }));
     setBusy(false);
+    const failed = results.filter((r) => !r.ok);
+    setErr(failed.length ? `Couldn't invite: ${failed.map((f) => f.e).join(", ")}` : "");
+    setEmail(""); load();
   };
   const changeRole = async (user: string, r: string) => { try { await org.setRole(active.org_id, user, r); load(); } catch (e: any) { setErr(e?.message || "Failed."); } };
   const remove = async (user: string) => { if (!confirm("Remove this member?")) return; try { await org.removeMember(active.org_id, user); load(); } catch (e: any) { setErr(e?.message || "Failed."); } };
@@ -36,7 +43,7 @@ export default function Team() {
         <div className="card" style={{ maxWidth: 560 }}>
           <p className="mono">Invite member</p>
           <div className="row">
-            <input className="input" placeholder="name@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <input className="input" placeholder="name@company.com, other@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
             <select className="input" style={{ width: 130 }} value={role} onChange={(e) => setRole(e.target.value)}>
               {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>

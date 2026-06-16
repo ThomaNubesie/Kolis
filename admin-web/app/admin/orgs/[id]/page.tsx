@@ -48,12 +48,18 @@ export default function OrgDetail() {
   const setKyb = async (s: string) => { try { await api.setOrgKyb(id, s); flash("KYB " + s); load(); } catch (e) { fail(e); } };
   const setStatus = async (s: string) => { try { await api.setOrgStatus(id, s); flash(s); load(); } catch (e) { fail(e); } };
   const inviteByEmail = async () => {
-    if (!inviteEmail.trim()) return;
-    try {
-      const res: any = await api.orgInviteEmail(id, inviteEmail.trim(), inviteRole);
-      setInviteEmail("");
-      flash(res?.emailed ? "Invite emailed — they'll appear here once they sign in with that email." : "Invite created, but the email didn't send. Check the provider.");
-    } catch (e) { fail(e); }
+    // One or many emails — comma, space, semicolon, or newline separated.
+    const emails = Array.from(new Set(inviteEmail.split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean)));
+    if (!emails.length) return;
+    const results = await Promise.all(emails.map(async (e) => {
+      try { const r: any = await api.orgInviteEmail(id, e, inviteRole); return { e, ok: true, emailed: !!r?.emailed }; }
+      catch (err: any) { return { e, ok: false, emailed: false, err: err?.message }; }
+    }));
+    setInviteEmail("");
+    const emailed = results.filter((r) => r.emailed).length;
+    const failed = results.filter((r) => !r.ok);
+    if (failed.length) setErr(`Couldn't invite: ${failed.map((f) => f.e).join(", ")}`);
+    else flash(`${emailed}/${emails.length} invite(s) emailed — they'll appear once they sign in with that email.`);
   };
   const addByPhone = async () => {
     if (!invitePhone.trim()) return;
@@ -121,7 +127,7 @@ export default function OrgDetail() {
         <div className="row" style={{ gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
           <div style={{ flex: 2, minWidth: 200 }}>
             <div className="mono">Invite by email (they sign in with this email)</div>
-            <input className="input" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="owner@company.com" />
+            <input className="input" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="owner@company.com, other@company.com" />
           </div>
           <select className="input" style={{ width: 130 }} value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
             {["owner", "admin", "finance", "shipper", "dispatcher", "driver"].map((rr) => <option key={rr} value={rr}>{rr}</option>)}

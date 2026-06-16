@@ -10,6 +10,7 @@ const NAV = [
   { href: "/shipper/create", icon: "➕", label: "New shipment", fr: "Nouvel envoi" },
   { href: "/shipper/import", icon: "⬆️", label: "Bulk import", fr: "Import en lot" },
   { href: "/shipper/shipments", icon: "📦", label: "Shipments", fr: "Envois" },
+  { href: "/shipper/analytics", icon: "📈", label: "Analytics", fr: "Statistiques" },
   { href: "/shipper/invoices", icon: "🧾", label: "Invoices", fr: "Factures" },
   { href: "/shipper/billing", icon: "💳", label: "Billing", fr: "Facturation" },
   { href: "/shipper/team", icon: "👥", label: "Team & seats", fr: "Équipe et sièges" },

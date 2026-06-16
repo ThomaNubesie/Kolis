@@ -8,6 +8,7 @@ import { useLang, LangToggle } from "@/lib/i18n";
 const NAV = [
   { href: "/developer", icon: "🔑", label: "API keys", fr: "Clés API" },
   { href: "/developer/webhooks", icon: "🪝", label: "Webhooks", fr: "Webhooks" },
+  { href: "/developer/shopify", icon: "🛍️", label: "Shopify", fr: "Shopify" },
   { href: "/developer/docs", icon: "📘", label: "Docs", fr: "Documentation" },
 ];
 

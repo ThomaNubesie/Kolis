@@ -1,4 +1,5 @@
 import "./globals.css";
+import { LangProvider } from "@/lib/i18n";
 
 export const metadata = {
   metadataBase: new URL("https://business.kolis.ca"),
@@ -9,7 +10,7 @@ export const metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body><LangProvider>{children}</LangProvider></body>
     </html>
   );
 }

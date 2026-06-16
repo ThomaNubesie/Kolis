@@ -2,11 +2,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/supabase";
+import { useLang } from "@/lib/i18n";
 
 const c$ = (c?: number) => `C$${Math.round((c ?? 0) / 100)}`;
 
 export default function Overview() {
   const router = useRouter();
+  const { t } = useLang();
   const [ov, setOv] = useState<any>(null);
   const [attention, setAttention] = useState<any[]>([]);
 
@@ -22,30 +24,30 @@ export default function Overview() {
 
   return (
     <>
-      <h1>Overview</h1>
-      <div className="sub">Today · all cities</div>
+      <h1>{t("Overview", "Aperçu")}</h1>
+      <div className="sub">{t("Today · all cities", "Aujourd’hui · toutes les villes")}</div>
       <div className="tiles">
-        <Tile l="In transit" n={String(ov?.in_transit ?? 0)} />
-        <Tile l="Awaiting driver" n={String(ov?.awaiting ?? 0)} tone="var(--accent)" />
-        <Tile l="Delivered today" n={String(ov?.delivered_today ?? 0)} tone="#178a5e" />
-        {ov?.revenue_today_cents != null && <Tile l="Revenue today" n={c$(ov?.revenue_today_cents)} />}
-        {ov?.pending_payout_cents != null && <Tile l="Pending payouts" n={c$(ov?.pending_payout_cents)} />}
-        <Tile l="Open claims" n={String(ov?.open_claims ?? 0)} tone={ov?.open_claims ? "var(--red)" : undefined} />
+        <Tile l={t("In transit", "En transit")} n={String(ov?.in_transit ?? 0)} />
+        <Tile l={t("Awaiting driver", "En attente d’un chauffeur")} n={String(ov?.awaiting ?? 0)} tone="var(--accent)" />
+        <Tile l={t("Delivered today", "Livrés aujourd’hui")} n={String(ov?.delivered_today ?? 0)} tone="#178a5e" />
+        {ov?.revenue_today_cents != null && <Tile l={t("Revenue today", "Revenus du jour")} n={c$(ov?.revenue_today_cents)} />}
+        {ov?.pending_payout_cents != null && <Tile l={t("Pending payouts", "Versements en attente")} n={c$(ov?.pending_payout_cents)} />}
+        <Tile l={t("Open claims", "Réclamations ouvertes")} n={String(ov?.open_claims ?? 0)} tone={ov?.open_claims ? "var(--red)" : undefined} />
       </div>
 
-      <div className="mono">Needs attention</div>
+      <div className="mono">{t("Needs attention", "À traiter")}</div>
       <table>
-        <thead><tr><th>Parcel</th><th>Route</th><th>Status</th><th></th></tr></thead>
+        <thead><tr><th>{t("Parcel", "Colis")}</th><th>{t("Route", "Trajet")}</th><th>{t("Status", "Statut")}</th><th></th></tr></thead>
         <tbody>
           {attention.map((p) => (
             <tr key={p.id} className="clk" onClick={() => router.push(`/admin/parcels/${p.id}`)}>
               <td>#{p.code}</td>
               <td>{p.from_city} → {p.to_city}</td>
-              <td><span className={"pill " + (p.has_open_claim ? "pred" : "pmag")}>{p.has_open_claim ? "Claim" : "Awaiting"}</span></td>
+              <td><span className={"pill " + (p.has_open_claim ? "pred" : "pmag")}>{p.has_open_claim ? t("Claim", "Réclamation") : t("Awaiting", "En attente")}</span></td>
               <td>›</td>
             </tr>
           ))}
-          {attention.length === 0 && <tr><td colSpan={4} style={{ color: "var(--t3)" }}>Nothing needs attention 🎉</td></tr>}
+          {attention.length === 0 && <tr><td colSpan={4} style={{ color: "var(--t3)" }}>{t("Nothing needs attention 🎉", "Rien à traiter 🎉")}</td></tr>}
         </tbody>
       </table>
     </>

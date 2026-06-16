@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
+import { useLang } from "@/lib/i18n";
 
 // Minimal CSV parser (handles quoted fields + commas). Header row required.
 function parseCsv(text: string): Record<string, string>[] {
@@ -26,6 +27,7 @@ function parseCsv(text: string): Record<string, string>[] {
 
 export default function BulkImport() {
   const { active } = useOrg();
+  const { t } = useLang();
   const [rows, setRows] = useState<Record<string, string>[]>([]);
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<any[] | null>(null);
@@ -34,7 +36,7 @@ export default function BulkImport() {
   const onFile = async (file: File) => {
     setErr(""); setResults(null);
     try { setRows(parseCsv(await file.text())); }
-    catch { setErr("Could not read that CSV."); }
+    catch { setErr(t("Could not read that CSV.", "Impossible de lire ce fichier CSV.")); }
   };
 
   const submit = async () => {
@@ -50,7 +52,7 @@ export default function BulkImport() {
       declared_value_cents: r.declared_value_cents,
     }));
     try { setResults(await org.bulkCreate(active.org_id, payload)); }
-    catch (e: any) { setErr(e?.message || "Import failed."); }
+    catch (e: any) { setErr(e?.message || t("Import failed.", "Échec de l’import.")); }
     setBusy(false);
   };
 
@@ -59,22 +61,22 @@ export default function BulkImport() {
 
   return (
     <>
-      <h1>Bulk import</h1>
-      <div className="sub">Upload a CSV to create many shipments at once. Columns: <code>to_name, to_phone, to_city, to_address, size, declared_value_cents</code> (+ optional <code>client_ref, from_city, dropoff_type</code>).</div>
+      <h1>{t("Bulk import", "Import en lot")}</h1>
+      <div className="sub">{t("Upload a CSV to create many shipments at once. Columns:", "Téléversez un CSV pour créer plusieurs envois à la fois. Colonnes :")} <code>to_name, to_phone, to_city, to_address, size, declared_value_cents</code> {t("(+ optional", "(+ optionnel")} <code>client_ref, from_city, dropoff_type</code>).</div>
       <div className="card" style={{ maxWidth: 620 }}>
         <input type="file" accept=".csv,text/csv" onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
-        {rows.length > 0 && <div className="sub" style={{ marginTop: 10 }}>{rows.length} row(s) parsed.</div>}
+        {rows.length > 0 && <div className="sub" style={{ marginTop: 10 }}>{t(`${rows.length} row(s) parsed.`, `${rows.length} ligne(s) analysée(s).`)}</div>}
         {err ? <div style={{ color: "var(--red)", fontSize: 12.5, marginTop: 10 }}>{err}</div> : null}
         {rows.length > 0 && !results && (
-          <button className="btn" style={{ marginTop: 12 }} disabled={busy} onClick={submit}>{busy ? "Importing…" : `Import ${rows.length} shipments`}</button>
+          <button className="btn" style={{ marginTop: 12 }} disabled={busy} onClick={submit}>{busy ? t("Importing…", "Import en cours…") : t(`Import ${rows.length} shipments`, `Importer ${rows.length} envois`)}</button>
         )}
       </div>
       {results && (
         <div className="card" style={{ maxWidth: 620 }}>
-          <b>{ok} created</b>{failed.length ? <span className="pill pred" style={{ marginLeft: 8 }}>{failed.length} failed</span> : null}
+          <b>{t(`${ok} created`, `${ok} créés`)}</b>{failed.length ? <span className="pill pred" style={{ marginLeft: 8 }}>{t(`${failed.length} failed`, `${failed.length} échoués`)}</span> : null}
           {failed.length > 0 && (
             <table style={{ marginTop: 10 }}>
-              <thead><tr><th>Row</th><th>Error</th></tr></thead>
+              <thead><tr><th>{t("Row", "Ligne")}</th><th>{t("Error", "Erreur")}</th></tr></thead>
               <tbody>{failed.map((r) => <tr key={r.index}><td>{r.index}</td><td style={{ color: "var(--red)" }}>{r.error}</td></tr>)}</tbody>
             </table>
           )}

@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
+import { useLang } from "@/lib/i18n";
 
 const money = (c: number) => "$" + ((c || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const STATUS: Record<string, string> = {
@@ -11,6 +12,7 @@ const STATUS: Record<string, string> = {
 
 export default function Shipments() {
   const { active } = useOrg();
+  const { t } = useLang();
   const [rows, setRows] = useState<any[]>([]);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -20,18 +22,18 @@ export default function Shipments() {
 
   return (
     <>
-      <h1>Shipments</h1>
-      <div className="sub">{active.name} · org-wide</div>
+      <h1>{t("Shipments", "Envois")}</h1>
+      <div className="sub">{active.name} · {t("org-wide", "à l’échelle de l’organisation")}</div>
       <div className="toolbar">
         {["all", "active", "delivered"].map((f) => (
-          <button key={f} className={"chip" + (filter === f ? " on" : "")} onClick={() => setFilter(f)}>{f}</button>
+          <button key={f} className={"chip" + (filter === f ? " on" : "")} onClick={() => setFilter(f)}>{f === "all" ? t("all", "tous") : f === "active" ? t("active", "actifs") : t("delivered", "livrés")}</button>
         ))}
-        <input className="search" placeholder="Search code, city, recipient…" value={search}
+        <input className="search" placeholder={t("Search code, city, recipient…", "Rechercher code, ville, destinataire…")} value={search}
           onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} />
-        <button className="btn ghost" onClick={load}>Search</button>
+        <button className="btn ghost" onClick={load}>{t("Search", "Rechercher")}</button>
       </div>
       <table>
-        <thead><tr><th>Code</th><th>Route</th><th>Recipient</th><th>Size</th><th>Status</th><th>Cost</th></tr></thead>
+        <thead><tr><th>{t("Code", "Code")}</th><th>{t("Route", "Trajet")}</th><th>{t("Recipient", "Destinataire")}</th><th>{t("Size", "Taille")}</th><th>{t("Status", "Statut")}</th><th>{t("Cost", "Coût")}</th></tr></thead>
         <tbody>
           {rows.map((p) => (
             <tr key={p.id}>
@@ -40,7 +42,7 @@ export default function Shipments() {
               <td>{money(p.price_cents)}</td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan={6} style={{ color: "var(--t3)" }}>No shipments.</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={6} style={{ color: "var(--t3)" }}>{t("No shipments.", "Aucun envoi.")}</td></tr>}
         </tbody>
       </table>
     </>

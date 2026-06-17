@@ -22,13 +22,25 @@ async function hmac(secret: string, msg: Uint8Array): Promise<ArrayBuffer> {
 const hex = (b: ArrayBuffer) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, "0")).join("");
 const b64 = (b: ArrayBuffer) => btoa(String.fromCharCode(...new Uint8Array(b)));
 const okShop = (s: string) => /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(s);
+const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, content-type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" };
+const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url);
   const path = url.pathname;
   const admin = createClient(SUPABASE_URL, SERVICE, { auth: { autoRefreshToken: false, persistSession: false } });
 
   try {
+    // ── Embedded app status (read by the in-Shopify UI) ──
+    if (path.endsWith("/status")) {
+      const shop = (url.searchParams.get("shop") || "").toLowerCase();
+      const { data: s } = await admin.from("kolis_shopify_shops").select("shop_name, org_id, uninstalled_at").eq("shop_domain", shop).maybeSingle();
+      if (!s) return json({ installed: false });
+      let orgName: string | null = null;
+      if (s.org_id) { const { data: o } = await admin.from("kolis_orgs").select("name").eq("id", s.org_id).maybeSingle(); orgName = o?.name ?? null; }
+      return json({ installed: !s.uninstalled_at, shop_name: s.shop_name, connected: !!s.org_id, org_name: orgName });
+    }
     // ── Step 1: install → redirect merchant to Shopify's consent screen ──
     if (path.endsWith("/install")) {
       const shop = (url.searchParams.get("shop") || "").toLowerCase();
@@ -66,6 +78,16 @@ Deno.serve(async (req) => {
       } catch { /* ignore */ }
 
       await admin.from("kolis_shopify_shops").upsert({ shop_domain: shop, access_token: token, scope: tok.scope, shop_name: shopName, shop_email: shopEmail, uninstalled_at: null }, { onConflict: "shop_domain" });
+
+      // auto-provision a Kolis org owned by the shop's email (best-effort)
+      try {
+        if (shopEmail) {
+          const c = await admin.auth.admin.createUser({ email: shopEmail, email_confirm: true });
+          let ownerId = c.data?.user?.id ?? null;
+          if (!ownerId) { const { data } = await admin.rpc("kolis_auth_user_by_email", { p_email: shopEmail }); ownerId = (data as string) ?? null; }
+          if (ownerId) await admin.rpc("kolis_shopify_provision", { p_shop: shop, p_name: shopName, p_owner_user: ownerId, p_email: shopEmail });
+        }
+      } catch { /* provisioning is best-effort; staff can link later */ }
 
       // auto-register: CarrierService (rate at checkout) + orders/create webhook
       const sh = (p: string, body: unknown) => fetch(`https://${shop}/admin/api/${API_VER}/${p}`, {

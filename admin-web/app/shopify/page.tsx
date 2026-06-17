@@ -18,18 +18,26 @@ function ShopifyApp() {
   const params = useSearchParams();
   const shop = (params.get("shop") || "").toLowerCase();
   const [st, setSt] = useState<any | undefined>(undefined);
+  const [diag, setDiag] = useState<string>("");
 
   useEffect(() => {
     if (!shop) { setSt(null); return; }
     let cancelled = false;
     (async () => {
-      // When embedded in Shopify admin, exchange the App Bridge session token for
-      // an (expiring) access token so the backend can provision + register.
       try {
-        for (let i = 0; i < 25 && !(window as any).shopify?.idToken; i++) await new Promise((r) => setTimeout(r, 150));
-        const idToken = await (window as any).shopify?.idToken?.();
-        if (idToken) await fetch(`${FUNCTIONS}/kolis-shopify-auth/exchange`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ shop, session_token: idToken }) });
-      } catch { /* not embedded / no App Bridge — fine */ }
+        // Shopify passes the session token as ?id_token= on embedded loads; fall back to App Bridge.
+        let token = params.get("id_token");
+        if (!token) {
+          for (let i = 0; i < 25 && !(window as any).shopify?.idToken; i++) await new Promise((r) => setTimeout(r, 150));
+          token = await (window as any).shopify?.idToken?.().catch(() => null);
+        }
+        if (!token) {
+          setDiag(`⚠ no token · params: host=${!!params.get("host")} id_token=${!!params.get("id_token")} embedded=${params.get("embedded") || "no"} appbridge=${!!(window as any).shopify}`);
+        } else {
+          const r = await fetch(`${FUNCTIONS}/kolis-shopify-auth/exchange`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ shop, session_token: token }) }).then((x) => x.json()).catch((e) => ({ error: String(e) }));
+          setDiag(r?.ok ? "✓ token exchanged + provisioned" : "⚠ exchange: " + JSON.stringify(r).slice(0, 220));
+        }
+      } catch (e) { setDiag("⚠ " + String(e).slice(0, 160)); }
       if (cancelled) return;
       fetch(`${FUNCTIONS}/kolis-shopify-auth/status?shop=${encodeURIComponent(shop)}`).then((r) => r.json()).then((d) => !cancelled && setSt(d)).catch(() => !cancelled && setSt(null));
     })();
@@ -86,6 +94,7 @@ function ShopifyApp() {
             </Card>
           </>
         )}
+        {diag ? <div style={{ textAlign: "center", color: "#9b97a6", fontSize: 11, marginTop: 8, wordBreak: "break-word" }}>{diag}</div> : null}
         <div style={{ textAlign: "center", color: "#9b97a6", fontSize: 12, marginTop: 8 }}>Powered by Kolis · Concord Express Co Inc.</div>
       </div>
     </div>

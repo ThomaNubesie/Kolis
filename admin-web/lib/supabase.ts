@@ -32,6 +32,8 @@ export const api = {
   reroute: (id: string, toCity: string, toRegion: string) => r("kolis_admin_reroute", { p_id: id, p_to_city: toCity, p_to_region: toRegion }),
   members: (filter = "all", search: string | null = null) => r<any[]>("kolis_admin_members", { p_filter: filter, p_search: search }),
   pendingMembers: () => r<any[]>("kolis_admin_pending_members"),
+  contactRequests: () => r<any[]>("kolis_admin_contact_requests"),
+  reviewContact: (id: string, approve: boolean) => r("kolis_admin_review_contact_request", { p_id: id, p_approve: approve }),
   async nudgeUnverified(user?: string) {
     const { data, error } = await supabase.functions.invoke("kolis-nudge-unverified", { body: user ? { user_id: user } : {} });
     if (error) throw error;

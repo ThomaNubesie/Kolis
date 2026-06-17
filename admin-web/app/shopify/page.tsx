@@ -1,6 +1,9 @@
 "use client";
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import Script from "next/script";
+
+const SHOPIFY_CLIENT_ID = "ed2ed976ca0ff4a209a75db345a0914c"; // public app key (App Bridge)
 
 // Embedded Shopify app screen (loads inside the Shopify admin iframe). Shows the
 // connection status + quick links. Links use target=_top to break out of the iframe.
@@ -18,7 +21,19 @@ function ShopifyApp() {
 
   useEffect(() => {
     if (!shop) { setSt(null); return; }
-    fetch(`${FUNCTIONS}/kolis-shopify-auth/status?shop=${encodeURIComponent(shop)}`).then((r) => r.json()).then(setSt).catch(() => setSt(null));
+    let cancelled = false;
+    (async () => {
+      // When embedded in Shopify admin, exchange the App Bridge session token for
+      // an (expiring) access token so the backend can provision + register.
+      try {
+        for (let i = 0; i < 25 && !(window as any).shopify?.idToken; i++) await new Promise((r) => setTimeout(r, 150));
+        const idToken = await (window as any).shopify?.idToken?.();
+        if (idToken) await fetch(`${FUNCTIONS}/kolis-shopify-auth/exchange`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ shop, session_token: idToken }) });
+      } catch { /* not embedded / no App Bridge — fine */ }
+      if (cancelled) return;
+      fetch(`${FUNCTIONS}/kolis-shopify-auth/status?shop=${encodeURIComponent(shop)}`).then((r) => r.json()).then((d) => !cancelled && setSt(d)).catch(() => !cancelled && setSt(null));
+    })();
+    return () => { cancelled = true; };
   }, [shop]);
 
   const Card = ({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) => (
@@ -30,6 +45,7 @@ function ShopifyApp() {
 
   return (
     <div style={{ minHeight: "100vh", background: "#F6F6F8", fontFamily: "-apple-system,Segoe UI,Roboto,sans-serif", color: "#1a1722" }}>
+      <Script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" data-api-key={SHOPIFY_CLIENT_ID} strategy="afterInteractive" />
       <div style={{ maxWidth: 720, margin: "0 auto", padding: "32px 22px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
           <div style={{ width: 40, height: 40, borderRadius: 11, background: "#E11D6B", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800 }}>Ko</div>

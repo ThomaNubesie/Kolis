@@ -25,6 +25,41 @@ const okShop = (s: string) => /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/i.test(s);
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, content-type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
+// Verify an App Bridge session token (HS256 JWT signed with the app secret).
+async function verifyJwt(token: string): Promise<any | null> {
+  try {
+    const [h, p, s] = token.split("."); if (!h || !p || !s) return null;
+    const sig = Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), (c) => c.charCodeAt(0));
+    const key = await crypto.subtle.importKey("raw", enc.encode(API_SECRET), { name: "HMAC", hash: "SHA-256" }, false, ["verify"]);
+    if (!(await crypto.subtle.verify("HMAC", key, sig, enc.encode(`${h}.${p}`)))) return null;
+    const payload = JSON.parse(atob(p.replace(/-/g, "+").replace(/_/g, "/")));
+    if (payload.exp && payload.exp < Date.now() / 1000) return null;
+    return payload;
+  } catch { return null; }
+}
+
+// Store the token, auto-provision the Kolis org (from shop.json email), and
+// register the CarrierService + orders webhook. Used after token exchange.
+async function provisionAndRegister(admin: any, shop: string, token: string) {
+  let shopName = shop, shopEmail: string | null = null;
+  try {
+    const s = await fetch(`https://${shop}/admin/api/${API_VER}/shop.json`, { headers: { "X-Shopify-Access-Token": token } }).then((r) => r.json());
+    shopName = s?.shop?.name || shop; shopEmail = s?.shop?.email || null;
+  } catch { /* ignore */ }
+  await admin.from("kolis_shopify_shops").upsert({ shop_domain: shop, access_token: token, shop_name: shopName, shop_email: shopEmail, uninstalled_at: null }, { onConflict: "shop_domain" });
+  try {
+    if (shopEmail) {
+      const c = await admin.auth.admin.createUser({ email: shopEmail, email_confirm: true });
+      let ownerId = c.data?.user?.id ?? null;
+      if (!ownerId) { const { data } = await admin.rpc("kolis_auth_user_by_email", { p_email: shopEmail }); ownerId = (data as string) ?? null; }
+      if (ownerId) await admin.rpc("kolis_shopify_provision", { p_shop: shop, p_name: shopName, p_owner_user: ownerId, p_email: shopEmail });
+    }
+  } catch { /* best-effort */ }
+  const sh = (p: string, body: unknown) => fetch(`https://${shop}/admin/api/${API_VER}/${p}`, { method: "POST", headers: { "X-Shopify-Access-Token": token, "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => null);
+  await sh("carrier_services.json", { carrier_service: { name: "Kolis Same-Day", callback_url: `${SHOPIFY_FN}/rates?shop=${shop}`, service_discovery: true } });
+  await sh("webhooks.json", { webhook: { topic: "orders/create", address: `${SHOPIFY_FN}/orders?shop=${shop}`, format: "json" } });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url);
@@ -32,6 +67,29 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE, { auth: { autoRefreshToken: false, persistSession: false } });
 
   try {
+    // ── Token exchange (modern, expiring tokens): embedded app posts its
+    //    App Bridge session token; we exchange it for an offline access token. ──
+    if (path.endsWith("/exchange")) {
+      const { shop, session_token } = await req.json().catch(() => ({}));
+      if (!okShop(shop || "") || !session_token) return json({ error: "bad request" }, 400);
+      const payload = await verifyJwt(session_token);
+      if (!payload) return json({ error: "invalid session token" }, 401);
+      if ((payload.dest || "").replace(/^https?:\/\//, "") !== shop) return json({ error: "shop mismatch" }, 401);
+      const r = await fetch(`https://${shop}/admin/oauth/access_token`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          client_id: API_KEY, client_secret: API_SECRET,
+          grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+          subject_token: session_token,
+          subject_token_type: "urn:ietf:params:oauth:token-type:id_token",
+          requested_token_type: "urn:shopify:params:oauth:token-type:offline-access-token",
+        }),
+      }).then((x) => x.json());
+      if (!r.access_token) return json({ error: "exchange failed", detail: r }, 502);
+      await provisionAndRegister(admin, shop, r.access_token);
+      return json({ ok: true });
+    }
+
     // ── Embedded app status (read by the in-Shopify UI) ──
     if (path.endsWith("/status")) {
       const shop = (url.searchParams.get("shop") || "").toLowerCase();

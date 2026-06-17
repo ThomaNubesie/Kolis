@@ -119,6 +119,7 @@ export default function Profile() {
         {/* Rows */}
         <View style={{ backgroundColor: "#fff", borderRadius: 16, paddingHorizontal: 15, borderWidth: 1, borderColor: Colors.line }}>
           <Row icon="🔁" label={t("roleLabel")} value={roleLabel(prof?.role)} onPress={changeRole} />
+          <Row icon="✉️" label={lang === "fr" ? "Coordonnées" : "Contact info"} value={prof?.email || (prof as any)?.phone || (lang === "fr" ? "Ajouter" : "Add")} onPress={() => router.push("/(app)/contact")} />
           <Row icon="💳" label={t("wallet")} onPress={() => router.push("/(app)/wallet")} />
           <Row icon="🔔" label={t("notifications")} onPress={() => router.push("/(app)/notifications")} />
           <Row icon="🌐" label={t("chooseLanguage")} value={lang === "en" ? "English" : "Français"} onPress={() => setLang(lang === "en" ? "fr" : "en")} />

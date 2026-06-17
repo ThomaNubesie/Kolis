@@ -36,4 +36,15 @@ export const ProfileAPI = {
     const { error } = await supabase.rpc("delete_kolis_account");
     return { error: error?.message };
   },
+
+  // Submit an email/phone add-or-change for admin approval (not applied until approved).
+  async requestContactUpdate(email: string | null, phone: string | null): Promise<{ error?: string }> {
+    const { error } = await supabase.rpc("kolis_request_contact_update", { p_email: email, p_phone: phone });
+    return { error: error?.message };
+  },
+  // The caller's latest request (to show "pending review").
+  async myContactRequest(): Promise<any | null> {
+    const { data } = await supabase.rpc("kolis_my_contact_request");
+    return data ?? null;
+  },
 };

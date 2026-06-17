@@ -85,6 +85,7 @@ Deno.serve(async (req) => {
           subject_token: session_token,
           subject_token_type: "urn:ietf:params:oauth:token-type:id_token",
           requested_token_type: "urn:shopify:params:oauth:token-type:offline-access-token",
+          expiring: "1", // required: new public apps must use expiring offline tokens
         }),
       }).then((x) => x.json());
       if (!r.access_token) return json({ error: "exchange failed", detail: r }, 502);

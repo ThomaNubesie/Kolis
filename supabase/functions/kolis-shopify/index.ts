@@ -27,14 +27,29 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
   try {
     const url = new URL(req.url);
-    const key = (url.searchParams.get("key") || req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") || "").trim();
-    if (!key.startsWith("kolis_")) return json({ error: "unauthorized" }, 401);
-
     const admin = createClient(SUPABASE_URL, SERVICE);
-    const { data: rec } = await admin.from("kolis_access_keys")
-      .select("id, key_hash, org_id, created_by, scopes, revoked_at").eq("prefix", key.slice(0, 16)).maybeSingle();
-    if (!rec || rec.revoked_at || !rec.org_id) return json({ error: "unauthorized" }, 401);
-    if ((await sha256Hex(key)) !== rec.key_hash) return json({ error: "unauthorized" }, 401);
+    const key = (url.searchParams.get("key") || req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "") || "").trim();
+    const shopParam = (url.searchParams.get("shop") || "").toLowerCase();
+
+    // Resolve the org + a sender, from either a manual API key OR an installed shop.
+    let orgId: string | null = null, senderId: string | null = null;
+    if (key.startsWith("kolis_")) {
+      const { data: rec } = await admin.from("kolis_access_keys")
+        .select("key_hash, org_id, created_by, revoked_at").eq("prefix", key.slice(0, 16)).maybeSingle();
+      if (!rec || rec.revoked_at || !rec.org_id) return json({ error: "unauthorized" }, 401);
+      if ((await sha256Hex(key)) !== rec.key_hash) return json({ error: "unauthorized" }, 401);
+      orgId = rec.org_id; senderId = rec.created_by;
+    } else if (shopParam) {
+      const { data: s } = await admin.from("kolis_shopify_shops").select("org_id").eq("shop_domain", shopParam).is("uninstalled_at", null).maybeSingle();
+      if (!s) return json({ error: "unauthorized" }, 401);
+      orgId = s.org_id;
+      if (orgId) {
+        const { data: m } = await admin.from("kolis_org_members").select("user_id").eq("org_id", orgId).eq("role", "owner").limit(1).maybeSingle();
+        senderId = m?.user_id ?? null;
+      }
+    } else {
+      return json({ error: "unauthorized" }, 401);
+    }
 
     const body = await req.json().catch(() => ({}));
     const isRates = url.pathname.endsWith("/rates") || !!body.rate;
@@ -56,6 +71,7 @@ Deno.serve(async (req) => {
     }
 
     // ── orders/create webhook → create a Kolis shipment ──
+    if (!orgId || !senderId) return json({ ok: true, skipped: "shop not linked to a Kolis org yet" });
     const order = body;
     const lines = order.shipping_lines || [];
     const chose = lines.some((l: any) => l.code === SERVICE_CODE || String(l.title || "").toLowerCase().includes("kolis"));
@@ -68,7 +84,7 @@ Deno.serve(async (req) => {
     const addr = [a.address1, a.address2, a.city, a.province, a.zip].filter(Boolean).join(", ") || null;
 
     const { data, error } = await admin.rpc("kolis_api_create_shipment", {
-      p_org: rec.org_id, p_sender: rec.created_by,
+      p_org: orgId, p_sender: senderId,
       p_dropoff_type: "door", p_size: "small",
       p_from_city: order?.origin?.city ?? "Ottawa",
       p_to_city: city,

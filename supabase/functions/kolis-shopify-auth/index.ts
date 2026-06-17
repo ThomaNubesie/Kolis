@@ -12,7 +12,7 @@ const SCOPES = "read_orders,write_orders,write_shipping";
 const BASE = "https://kzjptcpjpwlxfofzhyku.functions.supabase.co";
 const SHOPIFY_FN = `${BASE}/kolis-shopify`;     // rates + orders endpoints
 const CB = `${BASE}/kolis-shopify-auth/callback`;
-const API_VER = "2024-10";
+const API_VER = "2025-10"; // keep on a currently-supported Admin API version
 
 const enc = new TextEncoder();
 async function hmac(secret: string, msg: Uint8Array): Promise<ArrayBuffer> {

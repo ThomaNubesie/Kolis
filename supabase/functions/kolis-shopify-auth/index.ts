@@ -48,12 +48,14 @@ async function provisionAndRegister(admin: any, shop: string, token: string) {
   } catch { /* ignore */ }
   await admin.from("kolis_shopify_shops").upsert({ shop_domain: shop, access_token: token, shop_name: shopName, shop_email: shopEmail, uninstalled_at: null }, { onConflict: "shop_domain" });
   try {
+    let ownerId: string | null = null;
     if (shopEmail) {
       const c = await admin.auth.admin.createUser({ email: shopEmail, email_confirm: true });
-      let ownerId = c.data?.user?.id ?? null;
+      ownerId = c.data?.user?.id ?? null;
       if (!ownerId) { const { data } = await admin.rpc("kolis_auth_user_by_email", { p_email: shopEmail }); ownerId = (data as string) ?? null; }
-      if (ownerId) await admin.rpc("kolis_shopify_provision", { p_shop: shop, p_name: shopName, p_owner_user: ownerId, p_email: shopEmail });
     }
+    // always provision the org (owner attached only if we have an email)
+    await admin.rpc("kolis_shopify_provision", { p_shop: shop, p_name: shopName, p_owner_user: ownerId, p_email: shopEmail });
   } catch { /* best-effort */ }
   const sh = (p: string, body: unknown) => fetch(`https://${shop}/admin/api/${API_VER}/${p}`, { method: "POST", headers: { "X-Shopify-Access-Token": token, "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => null);
   await sh("carrier_services.json", { carrier_service: { name: "Kolis Same-Day", callback_url: `${SHOPIFY_FN}/rates?shop=${shop}`, service_discovery: true } });

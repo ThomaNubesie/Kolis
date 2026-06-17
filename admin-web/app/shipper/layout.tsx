@@ -1,7 +1,8 @@
 "use client";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { supabase, org } from "@/lib/supabase";
 import { OrgGate, useOrg } from "@/lib/org-context";
 import { useLang, LangToggle } from "@/lib/i18n";
 
@@ -14,6 +15,7 @@ const NAV = [
   { href: "/shipper/invoices", icon: "🧾", label: "Invoices", fr: "Factures" },
   { href: "/shipper/billing", icon: "💳", label: "Billing", fr: "Facturation" },
   { href: "/shipper/team", icon: "👥", label: "Team & seats", fr: "Équipe et sièges" },
+  { href: "/shipper/branding", icon: "🎨", label: "Branding", fr: "Image de marque" },
 ];
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -21,11 +23,13 @@ function Shell({ children }: { children: React.ReactNode }) {
   const path = usePathname();
   const { t, lang } = useLang();
   const { orgs, active, setActive } = useOrg();
+  const [brand, setBrand] = useState<any>(null);
+  useEffect(() => { org.branding(active.org_id).then(setBrand).catch(() => setBrand(null)); }, [active.org_id]);
   const isActive = (href: string) => (href === "/shipper" ? path === "/shipper" : path.startsWith(href));
   return (
-    <div className="app">
+    <div className="app" style={brand?.color ? ({ ["--accent" as any]: brand.color }) : undefined}>
       <aside className="side">
-        <div className="brand">Kolis · Business</div>
+        <div className="brand">{brand?.logo ? <img src={brand.logo} alt={brand.name || "logo"} style={{ maxHeight: 26, maxWidth: 150, objectFit: "contain" }} /> : (brand?.name || "Kolis · Business")}</div>
         {orgs.length > 1 ? (
           <select className="input" style={{ marginBottom: 10, fontSize: 12 }} value={active.org_id} onChange={(e) => setActive(e.target.value)}>
             {orgs.map((o) => <option key={o.org_id} value={o.org_id}>{o.name}</option>)}

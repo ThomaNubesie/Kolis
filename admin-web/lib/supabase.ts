@@ -116,6 +116,9 @@ export const org = {
     const a: any = { p_org: o }; if (from) a.p_from = from; if (to) a.p_to = to;
     return r<any>("kolis_org_analytics", a);
   },
+  branding: (o: string) => r<any>("kolis_org_branding", { p_org: o }),
+  setBranding: (o: string, b: { logo_url?: string | null; color?: string | null; name?: string | null; tracking?: boolean; emails?: boolean; powered_by?: boolean }) =>
+    r("kolis_org_set_branding", { p_org: o, p_logo_url: b.logo_url ?? null, p_color: b.color ?? null, p_name: b.name ?? null, p_tracking: b.tracking ?? true, p_emails: b.emails ?? true, p_powered_by: b.powered_by ?? true }),
   shipments: (o: string, filter = "all", search: string | null = null) =>
     r<any[]>("kolis_org_shipments", { p_org: o, p_filter: filter, p_search: search }),
   // args use p_-prefixed keys matching kolis_org_create_shipment

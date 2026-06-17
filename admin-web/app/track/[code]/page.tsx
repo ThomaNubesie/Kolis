@@ -30,11 +30,17 @@ export default function Track() {
 
   const day = (s?: string) => (s ? new Date(s).toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { month: "short", day: "numeric" }) : "");
 
+  // White-label: wear the business's brand when the parcel carries one.
+  const brand = (p && (p as any).brand) || null;
+  const accent = brand?.color || "#E11D6B";
+
   return (
     <div style={{ minHeight: "100vh", background: "#FAFAFC", display: "flex", justifyContent: "center" }}>
       <div style={{ width: "100%", maxWidth: 520, padding: "28px 20px 60px" }}>
         <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
-          <div style={{ fontWeight: 900, fontSize: 22, color: "#E11D6B" }}>Kolis</div>
+          {brand?.logo
+            ? <img src={brand.logo} alt={brand.name || "Kolis"} style={{ height: 30, maxWidth: 200, objectFit: "contain" }} />
+            : <div style={{ fontWeight: 900, fontSize: 22, color: accent }}>{brand?.name || "Kolis"}</div>}
           <LangToggle />
         </div>
 
@@ -61,7 +67,7 @@ export default function Track() {
                 <div className="card">
                   {steps.map((s, i) => {
                     const done = cur >= 0 && i < cur, active = i === cur;
-                    const color = done ? "#178a5e" : active ? "#E11D6B" : "#D7D7DE";
+                    const color = done ? "#178a5e" : active ? accent : "#D7D7DE";
                     return (
                       <div key={s} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
                         <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -70,13 +76,17 @@ export default function Track() {
                         </div>
                         <div style={{ paddingTop: 2 }}>
                           <div style={{ fontWeight: active || done ? 800 : 500, color: active || done ? "#1a1722" : "#9b97a6", fontSize: 15 }}>{label(s)}</div>
-                          {active ? <div style={{ color: "#E11D6B", fontSize: 12.5 }}>{t("In progress", "En cours")}</div> : null}
+                          {active ? <div style={{ color: accent, fontSize: 12.5 }}>{t("In progress", "En cours")}</div> : null}
                         </div>
                       </div>
                     );
                   })}
                 </div>
-                <div className="sub" style={{ textAlign: "center", marginTop: 20, fontSize: 12 }}>{t("Delivered by Kolis · Concord Express Co Inc.", "Livré par Kolis · Concord Express Co Inc.")}</div>
+                <div className="sub" style={{ textAlign: "center", marginTop: 20, fontSize: 12 }}>
+                  {brand
+                    ? `${t("Delivered by", "Livré par")} ${brand.name}${brand.powered_by ? " · powered by Kolis" : ""}`
+                    : t("Delivered by Kolis · Concord Express Co Inc.", "Livré par Kolis · Concord Express Co Inc.")}
+                </div>
               </>
             );
           })()}

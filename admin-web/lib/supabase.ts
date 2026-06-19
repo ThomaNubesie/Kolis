@@ -107,10 +107,10 @@ export const api = {
   prospectDownloaded: (id: string) => r("kolis_prospect_mark_downloaded", { p_id: id }),
   prospectContacted: (id: string) => r("kolis_prospect_mark_contacted", { p_id: id }),
   prospectStage: (id: string, stage: string) => r("kolis_prospect_set_stage", { p_id: id, p_stage: stage }),
-  async prospectAdvice(id: string) {
-    const { data, error } = await supabase.functions.invoke("kolis-prospect-advisor", { body: { id } });
+  async prospectAdvice(id: string, task?: string) {
+    const { data, error } = await supabase.functions.invoke("kolis-prospect-advisor", { body: { id, task } });
     if (error) throw error;
-    return data as { suggestions?: string; error?: string; message?: string };
+    return data as { suggestions?: string; error?: string; message?: string; task?: string };
   },
 };
 

@@ -47,11 +47,11 @@ export default function Profile() {
     } catch (e: any) { setErr(t("Download failed — status unchanged.", "Échec du téléchargement — statut inchangé.") + " " + e.message); }
   };
   const contacted = async () => { await api.prospectContacted(id); load(); };
-  const getAdvice = async () => {
-    setAiBusy(true); setAdvice("");
+  const getAdvice = async (task?: string) => {
+    setAiBusy(true); if (!task) setAdvice("");
     try {
-      const res = await api.prospectAdvice(id);
-      setAdvice(res.suggestions || res.message || res.error || t("No suggestion.", "Aucune suggestion."));
+      const res = await api.prospectAdvice(id, task);
+      setAdvice(res.suggestions || res.message || res.error || t("No output.", "Aucun résultat."));
     } catch (e: any) { setAdvice(e.message); }
     setAiBusy(false);
   };
@@ -133,10 +133,21 @@ export default function Profile() {
       {/* AI advisor */}
       <div className="tile" style={{ textAlign: "left", marginTop: 20, borderLeft: "3px solid #E11D6B" }}>
         <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-          <h3 style={{ margin: 0 }}>🤖 {t("AI — next steps to win this contract", "IA — prochaines étapes pour décrocher le contrat")}</h3>
-          <button className="btn" onClick={getAdvice} disabled={aiBusy}>{aiBusy ? t("Thinking…", "Réflexion…") : t("Suggest next steps", "Suggérer")}</button>
+          <h3 style={{ margin: 0 }}>🤖 {t("AI — win this contract", "IA — décrocher le contrat")}</h3>
+          <button className="btn" onClick={() => getAdvice()} disabled={aiBusy}>{aiBusy ? t("Working…", "En cours…") : t("Suggest next steps", "Suggérer")}</button>
         </div>
-        {advice && <div style={{ whiteSpace: "pre-wrap", marginTop: 12, fontSize: 14, lineHeight: 1.55 }}>{advice}</div>}
+        {advice && (
+          <>
+            <div style={{ whiteSpace: "pre-wrap", marginTop: 12, fontSize: 14, lineHeight: 1.55 }}>{advice}</div>
+            <div className="row" style={{ gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+              <span style={{ color: "#9b97a6", fontSize: 12, alignSelf: "center" }}>{t("Have the AI write it:", "Faire rédiger par l'IA :")}</span>
+              <button className="chip" onClick={() => getAdvice("micro_proposal")} disabled={aiBusy}>✍️ {t("Micro-proposal", "Micro-proposition")}</button>
+              <button className="chip" onClick={() => getAdvice("email")} disabled={aiBusy}>✉️ {t("Email", "Courriel")}</button>
+              <button className="chip" onClick={() => getAdvice("call_script")} disabled={aiBusy}>📞 {t("Call script", "Script d'appel")}</button>
+              <button className="chip" onClick={() => navigator.clipboard?.writeText(advice)}>📋 {t("Copy", "Copier")}</button>
+            </div>
+          </>
+        )}
       </div>
     </>
   );

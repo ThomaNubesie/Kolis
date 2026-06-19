@@ -7,6 +7,8 @@ export const metadata = {
   description: "Net-terms shipping for businesses, by Concord Express.",
 };
 
+export const viewport = { width: "device-width", initialScale: 1 };
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">

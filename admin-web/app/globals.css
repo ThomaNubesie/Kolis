@@ -40,3 +40,17 @@ tr.clk{cursor:pointer}tr.clk:hover td{background:#faf8f3}
 .modal{background:#fff;border-radius:16px;padding:20px;width:420px;max-width:92vw;max-height:88vh;overflow:auto}
 .center{min-height:100vh;display:flex;align-items:center;justify-content:center;flex-direction:column}
 .row{display:flex;gap:8px;align-items:center}
+
+/* ── Mobile: stack the sidebar into a top nav bar, full-width content, scrollable tables ── */
+@media (max-width: 760px){
+  .app{flex-direction:column}
+  .side{width:100%;height:auto;position:static;display:flex;flex-flow:row wrap;align-items:center;gap:4px;padding:10px 12px}
+  .side .brand{width:100%;padding:2px 6px 6px;font-size:16px}
+  .side .nav{width:auto;margin:0;padding:8px 11px}
+  .who{position:static;width:100%;margin-top:6px;padding-top:8px;border-top:1px solid rgba(255,255,255,.12)}
+  .main{flex:1;padding:16px 14px;max-width:100%}
+  .tile{min-width:calc(50% - 13px)}
+  table{display:block;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch}
+  .modal{width:92vw}
+  .search{max-width:none}
+}

@@ -15,6 +15,7 @@ const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: 
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  try {
   const authz = req.headers.get("Authorization") || "";
   // Verify the caller is staff using their own JWT.
   const asUser = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: authz } } });
@@ -23,7 +24,7 @@ Deno.serve(async (req) => {
 
   if (!ANTHROPIC) return json({ error: "not_configured", message: "AI advisor is not configured — add the ANTHROPIC_API_KEY secret." }, 200);
 
-  const { id } = await req.json().catch(() => ({}));
+  const { id, task } = await req.json().catch(() => ({}));
   if (!id) return json({ error: "missing id" }, 400);
 
   const admin = createClient(SUPABASE_URL, SERVICE);
@@ -75,4 +76,7 @@ ${JSON.stringify(ctx, null, 2)}`;
   if (r.status >= 300) return json({ error: "ai_error", detail: out }, 200);
   const text = (out.content?.[0]?.text) || "No output returned.";
   return json({ suggestions: text, task: task || "next_steps" });
+  } catch (e) {
+    return json({ error: "crash", detail: String((e as Error)?.message ?? e) }, 500);
+  }
 });

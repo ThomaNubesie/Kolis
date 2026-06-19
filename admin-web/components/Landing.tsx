@@ -57,7 +57,19 @@ const CSS = `
 .klb .final h2{color:#fff}.klb .final p{color:#cfc9d6;margin-bottom:26px}
 .klb .ft{padding:40px 0;color:#6B6675;font-size:14px;text-align:center;border-top:1px solid #ECECF2;margin-top:40px}
 .klb .ft a{color:#E11D6B;font-weight:600}
-@media(max-width:760px){.klb .hero{flex-direction:column}.klb .grid,.klb .steps{grid-template-columns:1fr}.klb .nl a:not(.b){display:none}.klb .hero h1{font-size:36px}}
+@media(max-width:760px){
+  .klb .nav{padding:14px 18px}
+  .klb .brandr{font-size:18px;gap:8px}
+  .klb .lg{width:34px;height:34px;font-size:15px}
+  .klb .nl{gap:0}
+  .klb .nl a:not(.b){display:none}
+  .klb .nl>div{display:none}            /* hide lang toggle on mobile so brand|Log in align cleanly */
+  .klb .b{padding:10px 16px;font-size:14px}
+  .klb .hero{flex-direction:column}
+  .klb .grid,.klb .steps{grid-template-columns:1fr}
+  .klb .hero h1{font-size:34px}
+  .klb .wrap{padding:0 18px}
+}
 `;
 
 export default function Landing() {
@@ -79,7 +91,7 @@ export default function Landing() {
       <div className="wrap">
         <div className="hero">
           <div className="l">
-            <span className="pill">● Ottawa · Gatineau · Montréal — {t("same-day", "le jour même")}</span>
+            <span className="pill">● Ottawa · Montréal · Québec — {t("same-day", "le jour même")}</span>
             <h1>{t("Same-day local delivery, ", "La livraison locale le jour même, ")}<span className="a">{t("built into your business.", "intégrée à votre entreprise.")}</span></h1>
             <p className="sub">{t(
               "Send parcels across the corridor with real local couriers — a dedicated dashboard, bulk import, live tracking, and one monthly invoice. No fleet to manage.",
@@ -95,7 +107,7 @@ export default function Landing() {
         </div>
       </div>
 
-      <div className="strip">{t("One network, already moving on your routes — ", "Un réseau déjà en mouvement sur vos routes — ")}<b>Ottawa · Gatineau · Montréal</b>{t(", every day.", ", chaque jour.")}</div>
+      <div className="strip">{t("Places we serve — ", "Villes desservies — ")}<b>Ottawa · Montréal · Québec · Chicoutimi · Brockville · Kingston · Toronto · Niagara</b></div>
 
       <section id="features"><div className="wrap">
         <div className="eb">{t("What you get", "Ce que vous obtenez")}</div>
@@ -141,7 +153,7 @@ export default function Landing() {
 
       <footer className="ft"><div className="wrap">
         {t("Kolis · Business — operated by ", "Kolis · Business — exploité par ")}<b>Concord Express Co Inc.</b><br />
-        <a href="https://kolis.ca">kolis.ca</a> · support@concordexpress.ca · (613) 862-2639 · Ottawa / Gatineau<br />
+        <a href="https://kolis.ca">kolis.ca</a> · <a href="https://www.concordexpress.ca">concordexpress.ca</a> · support@concordexpress.ca · (613) 862-2639 · Ottawa / Gatineau<br />
         <a href="/privacy">{t("Privacy", "Confidentialité")}</a> · <a href="/login">{t("Log in", "Connexion")}</a>
       </div></footer>
     </div>

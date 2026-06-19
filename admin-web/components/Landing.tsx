@@ -58,13 +58,13 @@ const CSS = `
 .klb .ft{padding:40px 0;color:#6B6675;font-size:14px;text-align:center;border-top:1px solid #ECECF2;margin-top:40px}
 .klb .ft a{color:#E11D6B;font-weight:600}
 @media(max-width:760px){
-  .klb .nav{padding:12px 16px}
-  .klb .brandr{font-size:17px;gap:7px}
+  .klb .nav{padding:12px 16px;gap:10px}
+  .klb .brandr{font-size:17px;gap:7px;flex:1 1 auto;min-width:0;overflow:hidden;white-space:nowrap}
   .klb .biz{display:none}               /* mobile: show just "Ko Kolis" so EN/FR + Log in fit */
-  .klb .lg{width:30px;height:30px;font-size:14px}
-  .klb .nl{gap:8px;flex-shrink:0}
+  .klb .lg{width:30px;height:30px;font-size:14px;flex:none}
+  .klb .nl{gap:8px;flex:0 0 auto}       /* pin the toggle + Log in group so it never gets pushed off */
   .klb .nl a:not(.b){display:none}      /* hide section links on mobile; keep EN/FR toggle + Log in */
-  .klb .b{padding:8px 13px;font-size:13px}
+  .klb .b{padding:8px 13px;font-size:13px;white-space:nowrap}
   .klb .hero{flex-direction:column}
   .klb .grid,.klb .steps{grid-template-columns:1fr}
   .klb .hero h1{font-size:34px}

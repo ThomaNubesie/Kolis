@@ -59,7 +59,8 @@ const CSS = `
 .klb .ft a{color:#E11D6B;font-weight:600}
 @media(max-width:760px){
   .klb .nav{padding:12px 16px}
-  .klb .brandr{font-size:16px;gap:7px}
+  .klb .brandr{font-size:17px;gap:7px}
+  .klb .biz{display:none}               /* mobile: show just "Ko Kolis" so EN/FR + Log in fit */
   .klb .lg{width:30px;height:30px;font-size:14px}
   .klb .nl{gap:8px;flex-shrink:0}
   .klb .nl a:not(.b){display:none}      /* hide section links on mobile; keep EN/FR toggle + Log in */
@@ -81,7 +82,7 @@ export default function Landing() {
     <div className="klb">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <nav className="nav">
-        <div className="brandr"><div className="lg">Ko</div>Kolis <span style={{ color: "#E11D6B" }}>· Business</span></div>
+        <div className="brandr"><div className="lg">Ko</div>Kolis <span className="biz" style={{ color: "#E11D6B" }}>· Business</span></div>
         <div className="nl">
           <a href="#features">{t("Features", "Caractéristiques")}</a>
           <a href="#how">{t("How it works", "Comment ça marche")}</a>

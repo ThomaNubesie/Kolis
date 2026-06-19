@@ -58,12 +58,12 @@ const CSS = `
 .klb .ft{padding:40px 0;color:#6B6675;font-size:14px;text-align:center;border-top:1px solid #ECECF2;margin-top:40px}
 .klb .ft a{color:#E11D6B;font-weight:600}
 @media(max-width:760px){
-  .klb .nav{padding:14px 18px}
-  .klb .brandr{font-size:18px;gap:8px}
-  .klb .lg{width:34px;height:34px;font-size:15px}
-  .klb .nl{gap:10px}
+  .klb .nav{padding:12px 16px}
+  .klb .brandr{font-size:16px;gap:7px}
+  .klb .lg{width:30px;height:30px;font-size:14px}
+  .klb .nl{gap:8px;flex-shrink:0}
   .klb .nl a:not(.b){display:none}      /* hide section links on mobile; keep EN/FR toggle + Log in */
-  .klb .b{padding:10px 16px;font-size:14px}
+  .klb .b{padding:8px 13px;font-size:13px}
   .klb .hero{flex-direction:column}
   .klb .grid,.klb .steps{grid-template-columns:1fr}
   .klb .hero h1{font-size:34px}

@@ -32,7 +32,20 @@ export default function Profile() {
   const d = (s: string | null) => (s ? new Date(s).toLocaleString() : "—");
   const save = async () => { await api.prospectUpdate(id, f); setEdit(false); load(); };
   const setStage = async (s: string) => { await api.prospectStage(id, s); load(); };
-  const download = async () => { if (p.letter_url) window.open(p.letter_url, "_blank"); await api.prospectDownloaded(id); load(); };
+  // Only mark "pending" once the PDF is actually fetched + saved (not on a click).
+  const download = async () => {
+    if (!p.letter_url) { setErr(t("No letter for this prospect yet.", "Aucune lettre pour ce prospect.")); return; }
+    try {
+      const res = await fetch(p.letter_url);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const blob = await res.blob();
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = u; a.download = `Kolis - ${p.business_name}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(u);
+      await api.prospectDownloaded(id); load();
+    } catch (e: any) { setErr(t("Download failed — status unchanged.", "Échec du téléchargement — statut inchangé.") + " " + e.message); }
+  };
   const contacted = async () => { await api.prospectContacted(id); load(); };
   const getAdvice = async () => {
     setAiBusy(true); setAdvice("");

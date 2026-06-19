@@ -69,7 +69,11 @@ const CSS = `
   .klb .grid,.klb .steps{grid-template-columns:1fr}
   .klb .hero h1{font-size:34px}
   .klb .wrap{padding:0 18px}
+  .klb section{padding:40px 0}
+  .klb .final{padding:34px 22px}
+  .klb .ft{margin-top:24px;padding:26px 0 30px}
 }
+.klb{overflow-x:hidden}
 `;
 
 export default function Landing() {

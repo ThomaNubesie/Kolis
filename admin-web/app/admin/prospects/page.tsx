@@ -37,9 +37,21 @@ export default function Prospects() {
     <span style={{ background: (STAGE_TONE[s] || "#6b7280") + "22", color: STAGE_TONE[s] || "#333", padding: "2px 9px", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>{(STAGE_LABEL[s] || [s, s])[lang === "fr" ? 1 : 0]}</span>
   );
 
+  // Fetch the actual PDF bytes and save the file; only flip to "pending" once the
+  // download truly succeeds (not on a mere click or a failed/blocked fetch).
   const download = async (p: P) => {
-    if (p.letter_url) window.open(p.letter_url, "_blank");
-    await api.prospectDownloaded(p.id); load();
+    if (!p.letter_url) { setErr(t("No letter for this prospect yet.", "Aucune lettre pour ce prospect.")); return; }
+    try {
+      const res = await fetch(p.letter_url);
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      const blob = await res.blob();
+      const u = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = u; a.download = `Kolis - ${p.business_name}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(u);
+      await api.prospectDownloaded(p.id); // mark pending ONLY after a real download
+      load();
+    } catch (e: any) { setErr(t("Download failed — status unchanged.", "Échec du téléchargement — statut inchangé.") + " " + e.message); }
   };
   const contacted = async (p: P) => { await api.prospectContacted(p.id); load(); };
 

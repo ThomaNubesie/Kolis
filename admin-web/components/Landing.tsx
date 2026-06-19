@@ -152,6 +152,7 @@ export default function Landing() {
       </div></div></section>
 
       <footer className="ft"><div className="wrap">
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}><LangToggle /></div>
         {t("Kolis · Business — operated by ", "Kolis · Business — exploité par ")}<b>Concord Express Co Inc.</b><br />
         <a href="https://kolis.ca">kolis.ca</a> · <a href="https://www.concordexpress.ca">concordexpress.ca</a> · support@concordexpress.ca · (613) 862-2639 · Ottawa / Gatineau<br />
         <a href="/privacy">{t("Privacy", "Confidentialité")}</a> · <a href="/login">{t("Log in", "Connexion")}</a>

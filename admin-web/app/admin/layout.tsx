@@ -13,7 +13,7 @@ const NAV = [
   { href: "/admin/parcels", icon: "📦", label: "Parcels", fr: "Colis", cap: "parcels" },
   { href: "/admin/claims", icon: "🛡️", label: "Claims", fr: "Réclamations", cap: "claims" },
   { href: "/admin/members", icon: "👥", label: "Members", fr: "Membres", cap: "members" },
-  { href: "/admin/outreach", icon: "✉️", label: "Outreach", fr: "Prospection", owner: true },
+  { href: "/admin/prospects", icon: "🎯", label: "Prospects", fr: "Prospects", owner: true },
   { href: "/admin/team", icon: "🔑", label: "Team & access", fr: "Équipe et accès", owner: true },
 ];
 

@@ -61,7 +61,55 @@ async function send(p: { from?: string; to: string; cc?: string; reply_to?: stri
   const payload: Record<string, unknown> = { from: p.from || FROM, to: [p.to], subject: p.subject, html: p.html };
   if (p.cc ?? CC) payload.cc = [p.cc ?? CC];
   payload.reply_to = p.reply_to || REPLY;
+  // One-click unsubscribe — strong inbox-placement signal for Gmail/Outlook.
+  payload.headers = {
+    "List-Unsubscribe": "<mailto:marketing@concordexpress.ca?subject=unsubscribe>",
+    "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+  };
   return await resend("/emails", { method: "POST", body: JSON.stringify(payload) });
+}
+
+function subjectFor(cat: string | null): string {
+  if (cat === "medical-lab") return "Kolis · Business — transport de spécimens le jour même / same-day specimen transport";
+  if (cat === "environmental-lab") return "Kolis · Business — ramassage d'échantillons le jour même / same-day sample pickup";
+  return "Kolis · Business — suivi / follow-up";
+}
+
+// Category-specific follow-up (sent ~2 business days after a prospect is marked
+// "Met"). Two tracked buttons (See / Book) so the profile shows which option
+// the prospect clicked.
+function categoryFollowupHtml(name: string, cat: string | null): string {
+  const body: Record<string, [string, string]> = {
+    "medical-lab": [
+      "Suite à notre proposition : Kolis peut transporter vos spécimens entre vos centres de prélèvement et votre laboratoire central — le jour même, plusieurs fois par jour, en appoint STAT / après-heures de votre service actuel. Suivi en temps réel, chaîne de possession et manipulation soignée, sensible à la température.",
+      "Following our proposal: Kolis can move your specimens from collection sites to your central lab — same-day, several times daily, as STAT / after-hours overflow to your current service. Real-time tracking, chain-of-custody, and careful temperature-aware handling.",
+    ],
+    "environmental-lab": [
+      "Suite à notre proposition : Kolis garantit le ramassage le jour même de vos échantillons (sol, eau, air, amiante) vers votre laboratoire — idéal pour les délais serrés des permis d'occupation et des certifications. Suivi en temps réel, du terrain au labo.",
+      "Following our proposal: Kolis guarantees same-day pickup of your samples (soil, water, air, asbestos) to your lab — ideal for the tight deadlines of occupancy permits and clearances. Real-time tracking from field to lab.",
+    ],
+    "auto-parts": [
+      "Un petit rappel : Kolis livre vos pièces le jour même sur le corridor Ottawa–Gatineau, sans flotte à gérer.",
+      "A quick reminder: Kolis delivers your parts same-day across the Ottawa–Gatineau corridor, with no fleet to manage.",
+    ],
+  };
+  const [fr, en] = body[cat ?? ""] || body["auto-parts"];
+  return `<!doctype html><html><body style="margin:0;background:#F1F0F4;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#1a1722">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 0"><tr><td align="center">
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:94%;background:#fff;border-radius:16px;overflow:hidden">
+  <tr><td style="background:#E11D6B;padding:18px 26px;font-size:19px;font-weight:800;color:#fff">Ko&nbsp; Kolis · Business</td></tr>
+  <tr><td style="padding:28px 30px 6px"><p style="margin:0 0 10px;font-size:15px"><b>Bonjour ${name},</b></p>
+    <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#3a3744">${fr}</p>
+    <p style="margin:0 0 14px;font-size:13.5px;line-height:1.6;color:#6B6675;font-style:italic">${en}</p></td></tr>
+  <tr><td align="center" style="padding:0 30px 6px"><img src="${GIF}" width="540" alt="Kolis · Business" style="width:100%;max-width:540px;border-radius:12px;border:1px solid #ECECF2"></td></tr>
+  <tr><td align="center" style="padding:18px 30px 6px">
+    <a href="https://business.kolis.ca/?ref=email" style="display:inline-block;background:#E11D6B;color:#fff;font-weight:700;font-size:15px;padding:13px 24px;border-radius:11px;text-decoration:none;margin:0 4px 8px">Voir Kolis · Business</a>
+    <a href="https://business.kolis.ca/?book=1" style="display:inline-block;background:#fff;color:#E11D6B;border:1.5px solid #E11D6B;font-weight:700;font-size:15px;padding:11px 24px;border-radius:11px;text-decoration:none;margin:0 4px 8px">Réserver 20 min / Book a call</a>
+    <div style="margin-top:8px;font-size:13px;color:#6B6675">(613) 862-2639 · marketing@concordexpress.ca</div></td></tr>
+  <tr><td style="padding:16px 30px 0"><hr style="border:none;border-top:1px solid #ECECF2;margin:0 0 12px">
+    <p style="margin:0;font-size:13px;color:#3a3744"><b>Thomas Derick Shalo</b> · Concord Express Co Inc.<br>(613) 862-2639 · marketing@concordexpress.ca</p></td></tr>
+  <tr><td style="padding:18px 30px 24px"><p style="margin:0;font-size:11px;color:#9b97a6;line-height:1.6">Kolis · Business est exploité par Concord Express Co Inc. · Pour ne plus recevoir ces messages, répondez « STOP ». / Reply “STOP” to opt out.</p></td></tr>
+  </table></td></tr></table></body></html>`;
 }
 
 Deno.serve(async (req) => {
@@ -115,6 +163,17 @@ Deno.serve(async (req) => {
           next_due_at: nextDue, status: touch >= 3 ? "done" : "active",
         }).eq("id", rec.id);
         out.push({ email: rec.email, touch, id: (r.body as any)?.id });
+      } else out.push({ email: rec.email, error: r.body });
+    }
+    // Prospect CRM: single follow-up ~2 business days after a prospect is marked "Met".
+    const { data: metDue } = await admin.from("concord_outreach").select("*")
+      .eq("stage", "met").not("email", "is", null).is("followup_sent_at", null)
+      .lte("followup_due_at", new Date().toISOString());
+    for (const rec of metDue ?? []) {
+      const r = await send({ to: rec.email, subject: subjectFor(rec.category), html: categoryFollowupHtml(rec.business_name, rec.category) });
+      if (r.status < 300) {
+        await admin.from("concord_outreach").update({ followup_sent_at: new Date().toISOString() }).eq("id", rec.id);
+        out.push({ email: rec.email, met_followup: true, id: (r.body as any)?.id });
       } else out.push({ email: rec.email, error: r.body });
     }
     return json({ sent: out.length, results: out });

@@ -95,6 +95,23 @@ export const api = {
   },
   orgAddByPhone: (id: string, phone: string, role: string) => r<any>("kolis_admin_org_add_member_by_phone", { p_org: id, p_phone: phone, p_role: role }),
   orgRemoveMember: (id: string, user: string) => r("kolis_admin_org_remove_member", { p_org: id, p_user: user }),
+
+  // ── Prospecting CRM ──
+  prospects: (filter: string | null = null) => r<any[]>("kolis_prospects_list", { p_filter: filter }),
+  prospect: (id: string) => r<any[]>("kolis_prospect_get", { p_id: id }),
+  prospectEvents: (id: string) => r<any[]>("kolis_prospect_events", { p_id: id }),
+  prospectAdd: (a: { name: string; category?: string; tier?: number | null; contact?: string; email?: string; phone?: string; address?: string; city?: string; summary?: string; turnover?: string }) =>
+    r<string>("kolis_prospect_add", { p_name: a.name, p_category: a.category ?? null, p_tier: a.tier ?? null, p_contact: a.contact ?? null, p_email: a.email ?? null, p_phone: a.phone ?? null, p_address: a.address ?? null, p_city: a.city ?? null, p_summary: a.summary ?? null, p_turnover: a.turnover ?? null }),
+  prospectUpdate: (id: string, a: { contact?: string; email?: string; phone?: string; address?: string; city?: string; notes?: string; summary?: string; turnover?: string; letter_url?: string }) =>
+    r("kolis_prospect_update", { p_id: id, p_contact: a.contact ?? null, p_email: a.email ?? null, p_phone: a.phone ?? null, p_address: a.address ?? null, p_city: a.city ?? null, p_notes: a.notes ?? null, p_summary: a.summary ?? null, p_turnover: a.turnover ?? null, p_letter_url: a.letter_url ?? null }),
+  prospectDownloaded: (id: string) => r("kolis_prospect_mark_downloaded", { p_id: id }),
+  prospectContacted: (id: string) => r("kolis_prospect_mark_contacted", { p_id: id }),
+  prospectStage: (id: string, stage: string) => r("kolis_prospect_set_stage", { p_id: id, p_stage: stage }),
+  async prospectAdvice(id: string) {
+    const { data, error } = await supabase.functions.invoke("kolis-prospect-advisor", { body: { id } });
+    if (error) throw error;
+    return data as { suggestions?: string; error?: string; message?: string };
+  },
 };
 
 // ── Kolis for Business — org-scoped RPCs (shipper + carrier portals) ──────────

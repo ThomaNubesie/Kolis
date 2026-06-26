@@ -1,8 +1,9 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useLang, LangToggle } from "@/lib/i18n";
+import { LiveTracking, useTracking } from "@/components/LiveTracking";
 
 // Public, no-auth branded tracking page. Reads kolis_track(code) (safe fields only).
 const STEPS_DOOR = ["requested", "matched", "picked_up", "in_transit", "delivered"];
@@ -10,12 +11,22 @@ const STEPS_HUB = ["requested", "received_at_hub", "dispatched", "in_transit", "
 
 export default function Track() {
   const { code } = useParams<{ code: string }>();
-  const { t, lang } = useLang();
+  const search = useSearchParams();
+  const { t, lang, setLang } = useLang();
   const [p, setP] = useState<any | undefined>(undefined);
+  const decoded = decodeURIComponent(code);
+  // Live driver position + ETA (separate safe RPC, refreshed every 45s).
+  const live = useTracking(decoded);
+
+  // Honor a ?lang=fr|en query param (e.g. links from emails/SMS).
+  useEffect(() => {
+    const q = search.get("lang");
+    if (q === "fr" || q === "en") setLang(q);
+  }, [search, setLang]);
 
   useEffect(() => {
-    supabase.rpc("kolis_track", { p_code: decodeURIComponent(code) }).then(({ data }) => setP(data ?? null));
-  }, [code]);
+    supabase.rpc("kolis_track", { p_code: decoded }).then(({ data }) => setP(data ?? null));
+  }, [decoded]);
 
   const label = (s: string) => ({
     requested: t("Requested", "Demandé"),
@@ -65,22 +76,26 @@ export default function Track() {
                 </div>
 
                 <div className="card">
-                  {steps.map((s, i) => {
-                    const done = cur >= 0 && i < cur, active = i === cur;
-                    const color = done ? "#178a5e" : active ? accent : "#D7D7DE";
-                    return (
-                      <div key={s} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                          <div style={{ width: 26, height: 26, borderRadius: 13, background: color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13 }}>{done ? "✓" : ""}</div>
-                          {i < steps.length - 1 ? <div style={{ width: 3, height: 34, background: i < cur ? "#178a5e" : "#E7E7EE" }} /> : null}
+                  {live ? (
+                    <LiveTracking data={live} accent={accent} t={t} />
+                  ) : (
+                    steps.map((s, i) => {
+                      const done = cur >= 0 && i < cur, active = i === cur;
+                      const color = done ? "#178a5e" : active ? accent : "#D7D7DE";
+                      return (
+                        <div key={s} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                            <div style={{ width: 26, height: 26, borderRadius: 13, background: color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13 }}>{done ? "✓" : ""}</div>
+                            {i < steps.length - 1 ? <div style={{ width: 3, height: 34, background: i < cur ? "#178a5e" : "#E7E7EE" }} /> : null}
+                          </div>
+                          <div style={{ paddingTop: 2 }}>
+                            <div style={{ fontWeight: active || done ? 800 : 500, color: active || done ? "#1a1722" : "#9b97a6", fontSize: 15 }}>{label(s)}</div>
+                            {active ? <div style={{ color: accent, fontSize: 12.5 }}>{t("In progress", "En cours")}</div> : null}
+                          </div>
                         </div>
-                        <div style={{ paddingTop: 2 }}>
-                          <div style={{ fontWeight: active || done ? 800 : 500, color: active || done ? "#1a1722" : "#9b97a6", fontSize: 15 }}>{label(s)}</div>
-                          {active ? <div style={{ color: accent, fontSize: 12.5 }}>{t("In progress", "En cours")}</div> : null}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  )}
                 </div>
                 <div className="sub" style={{ textAlign: "center", marginTop: 20, fontSize: 12 }}>
                   {brand

@@ -31,6 +31,9 @@ export function CityPicker({
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable onPress={() => setOpen(false)} style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.45)", justifyContent: "center", padding: 28 }}>
           <Pressable onPress={() => {}} style={{ backgroundColor: "#fff", borderRadius: 18, maxHeight: "70%", overflow: "hidden" }}>
+            <Pressable onPress={() => setOpen(false)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}>
+              <Text style={{ fontSize: 22, color: Colors.t3, fontWeight: "600" }}>✕</Text>
+            </Pressable>
             <Text style={{ fontSize: 13, fontWeight: "800", color: Colors.ink, padding: 15, paddingBottom: 8 }}>{label}</Text>
             <ScrollView>
               {options.map((c) => {

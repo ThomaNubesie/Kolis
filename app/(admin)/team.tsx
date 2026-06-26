@@ -83,6 +83,9 @@ export default function AdminTeam() {
       <Modal visible={invite} transparent animationType="fade" onRequestClose={() => setInvite(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
           <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
+            <Pressable onPress={() => setInvite(false)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
+              <Text style={{ fontSize: 22, color: Colors.t3, fontWeight: "600" }}>✕</Text>
+            </Pressable>
             <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink, marginBottom: 10 }}>Invite staff</Text>
             <TextInput value={email} onChangeText={setEmail} placeholder="name@kolis.ca" placeholderTextColor={Colors.t3} keyboardType="email-address" autoCapitalize="none" style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 11, padding: 11, fontSize: 14, color: Colors.ink, marginBottom: 10 }} />
             {ROLES.map((r) => (
@@ -103,6 +106,9 @@ export default function AdminTeam() {
       <Modal visible={keyModal} transparent animationType="fade" onRequestClose={() => setKeyModal(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
           <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
+            <Pressable onPress={() => setKeyModal(false)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
+              <Text style={{ fontSize: 22, color: Colors.t3, fontWeight: "600" }}>✕</Text>
+            </Pressable>
             <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink, marginBottom: 10 }}>New access key</Text>
             <TextInput value={keyName} onChangeText={setKeyName} placeholder="e.g. ops-integration" placeholderTextColor={Colors.t3} style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 11, padding: 11, fontSize: 14, color: Colors.ink, marginBottom: 10 }} />
             <Text style={{ fontSize: 11, color: Colors.t3, marginBottom: 12 }}>Scope: read parcels. The key is shown once on creation.</Text>
@@ -118,6 +124,9 @@ export default function AdminTeam() {
       <Modal visible={!!newKey} transparent animationType="fade" onRequestClose={() => setNewKey(null)}>
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.6)", justifyContent: "center", padding: 24 }}>
           <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
+            <Pressable onPress={() => setNewKey(null)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
+              <Text style={{ fontSize: 22, color: Colors.t3, fontWeight: "600" }}>✕</Text>
+            </Pressable>
             <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink, marginBottom: 4 }}>🔑 Copy your key now</Text>
             <Text style={{ fontSize: 12, color: Colors.t2, marginBottom: 12 }}>It won't be shown again.</Text>
             <Text selectable style={{ fontFamily: "Courier", fontSize: 12.5, color: Colors.ink, backgroundColor: Colors.bg, padding: 12, borderRadius: 10, marginBottom: 12 }}>{newKey}</Text>

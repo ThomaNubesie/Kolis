@@ -18,6 +18,7 @@ export type CourierParcel = {
   driver_payout_cents: number | null;
   status?: string;
   is_request?: boolean; // true = admin assigned this to me specifically (accept/decline)
+  accepted_via?: string | null; // 'loadq' | 'kolis' — which app owns live tracking
 };
 
 // Delivery receipt (role-walled server-side by kolis_parcel_receipt).
@@ -46,7 +47,7 @@ export const CourierAPI = {
 
   // Atomic accept (cross-app: same claim as the LoadQ card).
   async accept(id: string): Promise<boolean> {
-    const { data } = await supabase.rpc("kolis_accept_parcel", { p_id: id });
+    const { data } = await supabase.rpc("kolis_accept_parcel", { p_id: id, p_via: "kolis" });
     return data === true;
   },
 

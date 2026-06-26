@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/supabase";
 import { cityList, regionFor } from "@/lib/cities";
 import { useLang } from "@/lib/i18n";
+import { LiveTracking, useTracking } from "@/components/LiveTracking";
 
 const c$ = (c?: number | null) => `C$${((c ?? 0) / 100).toFixed(2)}`;
 
@@ -27,6 +28,9 @@ export default function ParcelDetail() {
   const canOps = role === "owner" || role === "admin" || role === "dispatcher";
   const canMoney = role === "owner" || role === "admin" || role === "finance";
   const run = async (fn: () => Promise<any>, msg = t("Done", "Terminé")) => { setBusy(true); try { await fn(); alert(msg); load(); } catch (e: any) { alert(e?.message || t("Error", "Erreur")); } setBusy(false); };
+
+  // Live driver position + ETA (safe RPC, same as the public track page), refreshed every 45s.
+  const live = useTracking(p?.code ?? null);
 
   if (!p) return <div>{t("Loading…", "Chargement…")}</div>;
 
@@ -97,6 +101,17 @@ export default function ParcelDetail() {
           )}
           {canMoney && <button className="btn red" disabled={busy} onClick={doCancel}>{t("Cancel & refund", "Annuler et rembourser")}</button>}
         </div>
+      </div>
+
+      <div className="card">
+        <div className="mono">{t("Live tracking", "Suivi en direct")}</div>
+        {live === undefined ? (
+          <div className="sub" style={{ margin: 0 }}>{t("Loading…", "Chargement…")}</div>
+        ) : live === null ? (
+          <div className="sub" style={{ margin: 0 }}>{t("No live tracking available for this parcel.", "Aucun suivi en direct disponible pour ce colis.")}</div>
+        ) : (
+          <LiveTracking data={live} t={t} />
+        )}
       </div>
 
       {cands !== null && (

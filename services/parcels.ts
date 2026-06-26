@@ -50,6 +50,24 @@ export type SenderReceipt = {
   insured: boolean;
 };
 
+// Live tracking snapshot from kolis_track_by_code — driver position + ETA.
+export type ParcelTracking = {
+  code: string;
+  status: ParcelStatus;
+  dropoff_type: DropType;
+  from_city: string;
+  to_city: string;
+  driver_first_name: string | null;
+  driver_lat: number | null;
+  driver_lng: number | null;
+  driver_updated_at: string | null;
+  dest_lat: number | null;
+  dest_lng: number | null;
+  distance_km: number | null;
+  eta_minutes: number | null;
+  stale: boolean;
+};
+
 function genCode() {
   const n = Math.floor(1000 + Math.random() * 9000);
   return `KL-${n}`;
@@ -138,6 +156,12 @@ export const ParcelsAPI = {
   async get(id: string) {
     const { data, error } = await supabase.from("kolis_parcels").select("*").eq("id", id).single();
     return { parcel: (data as Parcel) ?? null, error: error?.message };
+  },
+
+  // Live tracking — driver position + ETA for a parcel code (null if no such code).
+  async tracking(code: string): Promise<ParcelTracking | null> {
+    const { data } = await supabase.rpc("kolis_track_by_code", { p_code: code });
+    return (data as ParcelTracking) ?? null;
   },
 
   // Role-walled receipt — sender branch returns the price paid, never the payout.

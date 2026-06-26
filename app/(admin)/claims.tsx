@@ -72,6 +72,9 @@ export default function AdminClaims() {
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
           {active && (
             <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
+              <Pressable onPress={() => setActive(null)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
+                <Text style={{ fontSize: 22, color: Colors.t3, fontWeight: "600" }}>✕</Text>
+              </Pressable>
               <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink }}>Claim #{active.code}</Text>
               <Text style={{ fontSize: 12, color: Colors.t2, marginTop: 2, marginBottom: 10 }}>{active.type} · {active.from_city}→{active.to_city}</Text>
               <View style={{ backgroundColor: "#fff3da", borderWidth: 1, borderColor: "#e8cf8a", borderRadius: 10, padding: 10, marginBottom: 12 }}>

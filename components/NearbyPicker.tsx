@@ -101,6 +101,9 @@ export function NearbyPicker({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.45)", justifyContent: "flex-end" }}>
         <Pressable onPress={() => {}} style={{ backgroundColor: "#fff", borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 16, paddingBottom: 24, maxHeight: "82%" }}>
+          <Pressable onPress={onClose} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}>
+            <Text style={{ fontSize: 22, color: Colors.t3, fontWeight: "600" }}>✕</Text>
+          </Pressable>
           <View style={{ width: 38, height: 4, borderRadius: 2, backgroundColor: "#d8d3c7", alignSelf: "center", marginBottom: 12 }} />
           <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink }}>
             {mode === "hub" ? t("closestHubs") : t("closestZones")}

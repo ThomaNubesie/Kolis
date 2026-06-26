@@ -149,6 +149,9 @@ export default function Directions() {
       <Modal visible={arrived} transparent animationType="fade" onRequestClose={() => !busy && setArrived(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 26 }}>
           <View style={{ backgroundColor: "#fff", borderRadius: 20, padding: 20, alignItems: "center" }}>
+            <Pressable onPress={() => !busy && setArrived(false)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
+              <Text style={{ fontSize: 22, color: Colors.t3, fontWeight: "600" }}>✕</Text>
+            </Pressable>
             <Text style={{ fontSize: 30 }}>📍</Text>
             <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink, marginTop: 8 }}>{t("atTheHub")}</Text>
             <Text style={{ fontSize: 12, color: Colors.t2, textAlign: "center", marginTop: 4, marginBottom: 16, lineHeight: 17 }}>{t("payToDrop", { hub: p.hubName ?? "" })}</Text>

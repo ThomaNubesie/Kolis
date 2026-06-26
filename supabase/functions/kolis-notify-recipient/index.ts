@@ -73,7 +73,10 @@ Deno.serve(async (req) => {
               <div style="color:${bColor};font-size:34px;font-weight:800;letter-spacing:6px">${pin}</div>
               <div style="color:#6B6675;font-size:12px">Give this to your courier · Donnez-le à votre livreur</div>
             </div>` : ""}
-            <p><a href="${link}" style="display:inline-block;background:${bColor};color:#fff;text-decoration:none;padding:11px 18px;border-radius:10px;font-weight:700">Track your parcel →</a></p>
+            <div style="text-align:center;margin:20px 0">
+              <a href="${link}" style="display:inline-block;background:${bColor};color:#fff;text-decoration:none;padding:13px 26px;border-radius:10px;font-weight:700">Track your parcel · Suivez votre colis</a>
+              <div style="margin-top:10px;font-size:12px;color:#9b97a6"><a href="${link}?lang=en" style="color:${bColor};text-decoration:none;font-weight:700">EN</a> &nbsp;·&nbsp; <a href="${link}?lang=fr" style="color:${bColor};text-decoration:none;font-weight:700">FR</a></div>
+            </div>
             <p style="color:#6B6675;font-size:13px">${frLine.replace(new RegExp(`\\s*Votre code de livraison est ${pin}.*$`), "")}</p>
             ${bName !== "Kolis" ? `<p style="color:#9b97a6;font-size:11px;margin-top:16px">${bName}${bPowered ? " · powered by Kolis" : ""}</p>` : ""}
           </div>`,
@@ -83,7 +86,12 @@ Deno.serve(async (req) => {
     }
 
     if (p.recipient_phone && TW_SID && TW_TOKEN && TW_FROM) {
-      const body = new URLSearchParams({ To: p.recipient_phone, From: TW_FROM, Body: `${enLine} ${link}` });
+      let to = String(p.recipient_phone).replace(/[^\d+]/g, "");
+      if (!to.startsWith("+")) to = to.length === 10 ? "+1" + to : "+" + to;
+      const body = new URLSearchParams({ To: to, Body: `${enLine} ${link}` });
+      // KOLIS_TWILIO_FROM may be a Messaging Service SID (MG…) or a from-number.
+      if (TW_FROM.startsWith("MG")) body.set("MessagingServiceSid", TW_FROM);
+      else body.set("From", TW_FROM);
       const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TW_SID}/Messages.json`, {
         method: "POST",
         headers: { Authorization: "Basic " + btoa(`${TW_SID}:${TW_TOKEN}`), "Content-Type": "application/x-www-form-urlencoded" },

@@ -6,6 +6,7 @@ import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { KolisRole } from "../../services/profile";
 import { OrgsAPI, MyOrg } from "../../services/orgs";
+import { useDeliveryTracking } from "../../hooks/useDeliveryTracking";
 
 const Icon = ({ e }: { e: string }) => <Text style={{ fontSize: 18 }}>{e}</Text>;
 
@@ -13,6 +14,9 @@ export default function AppLayout() {
   const { t } = useStrings();
   const [role, setRole] = useState<KolisRole>("sender");
   const [orgs, setOrgs] = useState<MyOrg[]>([]);
+
+  // Background location while carrying a Kolis-accepted parcel; stops when idle.
+  useDeliveryTracking();
 
   useEffect(() => {
     AsyncStorage.getItem("userRole").then((r) => {

@@ -119,6 +119,9 @@ export default function AdminParcel() {
       <Modal visible={drivers !== null} transparent animationType="slide" onRequestClose={() => setDrivers(null)}>
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "flex-end" }}>
           <View style={{ backgroundColor: Colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 18, maxHeight: "75%" }}>
+            <Pressable onPress={() => setDrivers(null)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}>
+              <Text style={{ fontSize: 22, color: Colors.t3, fontWeight: "600" }}>✕</Text>
+            </Pressable>
             <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink, marginBottom: 10 }}>Pick a courier → {p.to_city}</Text>
             <ScrollView>
               {(drivers ?? []).length === 0 && <Text style={{ color: Colors.t3, textAlign: "center", marginVertical: 20 }}>No candidates heading there.</Text>}
@@ -141,6 +144,9 @@ export default function AdminParcel() {
       <Modal visible={reroute} transparent animationType="fade" onRequestClose={() => setReroute(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
           <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
+            <Pressable onPress={() => setReroute(false)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}>
+              <Text style={{ fontSize: 22, color: Colors.t3, fontWeight: "600" }}>✕</Text>
+            </Pressable>
             <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink, marginBottom: 10 }}>Reroute destination</Text>
             <CityPicker label="New destination" value={newCity} onChange={setNewCity} exclude={p.from_city} />
             <Text style={{ fontSize: 11, color: Colors.t3, marginVertical: 8 }}>Couriers + sender are re-notified; the delivery code stays valid.</Text>

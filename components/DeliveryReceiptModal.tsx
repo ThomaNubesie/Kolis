@@ -60,6 +60,9 @@ export function DeliveryReceiptModal({ visible, data, onClose }: { visible: bool
     <Modal visible={visible} transparent animationType="fade" onRequestClose={() => !busy && onClose()}>
       <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
         <View style={{ backgroundColor: "#fff", borderRadius: 20, padding: 22 }}>
+          <Pressable onPress={() => !busy && onClose()} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}>
+            <Text style={{ fontSize: 22, color: Colors.t3, fontWeight: "600" }}>✕</Text>
+          </Pressable>
           <Text style={{ fontSize: 42, textAlign: "center" }}>🎉</Text>
           <Text style={{ fontSize: 20, fontWeight: "900", color: Colors.ink, textAlign: "center", marginTop: 4 }}>{t("delivered")}</Text>
           <Text style={{ fontSize: 12.5, color: Colors.t2, textAlign: "center", marginBottom: 16 }}>#{data.receiptId} · {data.fromCity} → {data.toCity}</Text>

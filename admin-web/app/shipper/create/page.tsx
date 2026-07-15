@@ -11,7 +11,7 @@ export default function CreateShipment() {
   const router = useRouter();
   const [f, setF] = useState({
     p_dropoff_type: "door", p_size: "small", p_from_city: "Ottawa", p_to_city: "",
-    p_recipient_name: "", p_recipient_phone: "", p_dropoff_addr: "", p_contents: "",
+    p_recipient_name: "", p_recipient_phone: "", p_recipient_email: "", p_dropoff_addr: "", p_contents: "",
   });
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ code: string; payg?: boolean; charged?: number; needCard?: boolean } | null>(null);
@@ -20,6 +20,7 @@ export default function CreateShipment() {
 
   const submit = async () => {
     if (!f.p_to_city.trim()) { setErr(t("Destination city is required.", "La ville de destination est requise.")); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.p_recipient_email.trim())) { setErr(t("A valid recipient email is required — we use it to notify them about the shipment.", "Un courriel valide du destinataire est requis — il sert à l’informer de l’envoi.")); return; }
     setBusy(true); setErr("");
     try {
       const res = await org.createShipment(active.org_id, f);
@@ -99,8 +100,10 @@ export default function CreateShipment() {
         <p className="mono" style={{ marginTop: 12 }}>{t("Recipient", "Destinataire")}</p>
         <input className="input" value={f.p_recipient_name} onChange={(e) => set("p_recipient_name", e.target.value)} placeholder={t("Name", "Nom")} />
         <div className="row" style={{ gap: 16, marginTop: 12 }}>
+          <div style={{ flex: 1 }}><p className="mono">{t("Recipient email *", "Courriel du destinataire *")}</p><input className="input" type="email" value={f.p_recipient_email} onChange={(e) => set("p_recipient_email", e.target.value)} placeholder="name@email.com" /></div>
           <div style={{ flex: 1 }}><p className="mono">{t("Recipient phone", "Téléphone du destinataire")}</p><input className="input" value={f.p_recipient_phone} onChange={(e) => set("p_recipient_phone", e.target.value)} placeholder="(514) 555-0148" /></div>
         </div>
+        <p className="sub" style={{ fontSize: 11.5, marginTop: 4 }}>{t("We email & text the recipient when the shipment is created and as it progresses.", "Nous informons le destinataire par courriel et texto à la création de l’envoi et à chaque étape.")}</p>
         <p className="mono" style={{ marginTop: 12 }}>{t("Delivery address", "Adresse de livraison")}</p>
         <input className="input" value={f.p_dropoff_addr} onChange={(e) => set("p_dropoff_addr", e.target.value)} placeholder={t("Street, unit, postal code", "Rue, unité, code postal")} />
         <p className="mono" style={{ marginTop: 12 }}>{t("Contents", "Contenu")}</p>

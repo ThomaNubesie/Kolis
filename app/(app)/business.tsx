@@ -17,6 +17,8 @@ export default function Business() {
   const [toCity, setToCity] = useState("");
   const [size, setSize] = useState("small");
   const [rcpt, setRcpt] = useState("");
+  const [rEmail, setREmail] = useState("");
+  const [rPhone, setRPhone] = useState("");
   const [busy, setBusy] = useState(false);
   // edit modal
   const [editP, setEditP] = useState<Parcel | null>(null);
@@ -92,14 +94,15 @@ export default function Business() {
 
   const create = async () => {
     if (!activeId || !toCity.trim()) { Alert.alert("Missing info", "Choose a business account and a destination city."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rEmail.trim())) { Alert.alert("Recipient email required", "Enter a valid recipient email — we use it to notify them about the shipment."); return; }
     setBusy(true);
     try {
       const r = await OrgsAPI.createShipment(activeId, {
         p_dropoff_type: "door", p_size: size, p_from_city: "Ottawa", p_to_city: toCity.trim(),
-        p_recipient_name: rcpt || null,
+        p_recipient_name: rcpt || null, p_recipient_email: rEmail.trim(), p_recipient_phone: rPhone.trim() || null,
       });
       Alert.alert("Shipment created", r?.code || "Added to your invoice cycle.");
-      setToCity(""); setRcpt(""); await load();
+      setToCity(""); setRcpt(""); setREmail(""); setRPhone(""); await load();
     } catch (e: any) { Alert.alert("Error", e?.message || "Failed to create shipment."); }
     setBusy(false);
   };
@@ -161,6 +164,11 @@ export default function Business() {
                   style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 10, padding: 11, marginBottom: 8 }} />
                 <TextInput value={rcpt} onChangeText={setRcpt} placeholder="Recipient name"
                   style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 10, padding: 11, marginBottom: 8 }} />
+                <TextInput value={rEmail} onChangeText={setREmail} placeholder="Recipient email *" autoCapitalize="none" keyboardType="email-address"
+                  style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 10, padding: 11, marginBottom: 8 }} />
+                <TextInput value={rPhone} onChangeText={setRPhone} placeholder="Recipient phone" keyboardType="phone-pad"
+                  style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 10, padding: 11, marginBottom: 8 }} />
+                <Text style={{ fontSize: 11, color: Colors.t3, marginBottom: 8 }}>We email &amp; text the recipient when the shipment is created and as it moves.</Text>
                 <View style={{ flexDirection: "row", gap: 8, marginBottom: 10 }}>
                   {["envelope", "small", "large"].map((s) => (
                     <Pressable key={s} onPress={() => setSize(s)}

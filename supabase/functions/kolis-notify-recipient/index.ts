@@ -15,7 +15,7 @@ const TW_FROM = Deno.env.get("KOLIS_TWILIO_FROM");
 
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 
-function copyFor(status: string, code: string, city: string, pin: string | null, eta?: { min: number; clock: string | null } | null) {
+function copyFor(status: string, code: string, city: string, pin: string | null, eta?: { min: number; clock: string | null } | null, contents?: string | null) {
   // Sender pickup ETA (bilingual sentence), inserted before the pickup-code line.
   const etaEn = eta ? ` Estimated arrival in about ${eta.min} min${eta.clock ? ` (around ${eta.clock})` : ""}.` : "";
   const etaFr = eta ? ` Arrivée estimée dans environ ${eta.min} min${eta.clock ? ` (vers ${eta.clock})` : ""}.` : "";
@@ -23,8 +23,11 @@ function copyFor(status: string, code: string, city: string, pin: string | null,
   const pinEn = pin ? ` Your delivery code is ${pin} — give it to your courier to confirm delivery.` : "";
   const pinFr = pin ? ` Votre code de livraison est ${pin} — donnez-le à votre livreur pour confirmer la livraison.` : "";
   // [subject, line] bilingual (EN \n FR)
-  if (status === "created")   // recipient: a package has been sent to them
-    return [`You've been sent a package · ${code}`, `Good news — a package (${code}) is on its way to you in ${city}. You'll get live updates and a delivery code as it moves.\nBonne nouvelle — un colis (${code}) est en route vers vous à ${city}. Vous recevrez des mises à jour en direct et un code de livraison.`];
+  if (status === "created") {  // recipient: a package has been sent to them (with the contents the sender entered)
+    const cEn = contents ? ` Contents: ${contents}.` : "";
+    const cFr = contents ? ` Contenu : ${contents}.` : "";
+    return [`You've been sent a package · ${code}`, `Good news — a package (${code}) is on its way to you in ${city}.${cEn} You'll get live updates and a delivery code as it moves.\nBonne nouvelle — un colis (${code}) est en route vers vous à ${city}.${cFr} Vous recevrez des mises à jour en direct et un code de livraison.`];
+  }
   if (status === "pickup") {  // SENDER: courier assigned — ETA + give them the pickup code to release
     const pkEn = pin ? ` Give the courier your pickup code ${pin} to release the parcel.` : "";
     const pkFr = pin ? ` Donnez au livreur votre code de ramassage ${pin} pour remettre le colis.` : "";
@@ -47,7 +50,7 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data: p } = await admin.from("kolis_parcels")
-      .select("code, to_city, recipient_email, recipient_phone, status, delivery_code, pickup_code, pickup_eta_minutes, pickup_eta_at, org_id, sender_id").eq("id", parcel_id).maybeSingle();
+      .select("code, to_city, recipient_email, recipient_phone, status, delivery_code, pickup_code, pickup_eta_minutes, pickup_eta_at, org_id, sender_id, contents_description").eq("id", parcel_id).maybeSingle();
     if (!p) return json({ error: "not found" }, 404);
 
     const code = p.code as string;
@@ -70,7 +73,7 @@ Deno.serve(async (req) => {
     // Audience: "pickup" targets the SENDER; everything else targets the recipient.
     const toSender = status === "pickup";
     const link = `${TRACK_URL}/${encodeURIComponent(code)}`;
-    const [subject, line] = copyFor(status, code, (p.to_city as string) || "", pin, eta);
+    const [subject, line] = copyFor(status, code, (p.to_city as string) || "", pin, eta, p.contents_description as string | null);
     const [enLine, frLine] = line.split("\n");
     let emailed = false, texted = false;
 

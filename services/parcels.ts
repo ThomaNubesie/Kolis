@@ -27,6 +27,9 @@ export type Parcel = {
   pickup_addr: string | null;
   dropoff_zone: string | null;
   dropoff_addr: string | null;
+  recipient_name: string | null;
+  recipient_phone: string | null;
+  recipient_email: string | null;
   price_cents: number;
   driver_id: string | null;
   external_driver_name: string | null;

@@ -2,7 +2,7 @@
 // (captures the escrow through kolis-finalize-payment). Courier never sees the
 // sender's price — only their own payout.
 import { useCallback, useState } from "react";
-import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, Alert, ActivityIndicator, Linking, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect } from "expo-router";
 import { Colors } from "../../constants/colors";
@@ -17,6 +17,7 @@ export default function Carrying() {
   const [list, setList] = useState<CourierParcel[]>([]);
   const [loading, setLoading] = useState(true);
   const [codes, setCodes] = useState<Record<string, string>>({});
+  const [pcodes, setPcodes] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<DeliveryReceiptData | null>(null);
 
@@ -25,6 +26,34 @@ export default function Carrying() {
     CourierAPI.carrying().then(setList).catch(() => {}).finally(() => setLoading(false));
   }, []);
   useFocusEffect(useCallback(() => { load(); }, [load]));
+
+  // Open the platform maps app with turn-by-turn directions to an address.
+  const openDirections = async (addr: string) => {
+    const dst = encodeURIComponent(addr);
+    const web = `https://www.google.com/maps/dir/?api=1&destination=${dst}`;
+    const nativeUrl = Platform.select({
+      ios: `http://maps.apple.com/?daddr=${dst}&dirflg=d`,
+      android: `google.navigation:q=${dst}`,
+      default: web,
+    })!;
+    try {
+      const ok = await Linking.canOpenURL(nativeUrl);
+      await Linking.openURL(ok ? nativeUrl : web);
+    } catch {
+      try { await Linking.openURL(web); } catch { Alert.alert("Kolis", addr); }
+    }
+  };
+
+  const pickup = async (p: CourierParcel) => {
+    const code = (pcodes[p.id] || "").trim();
+    if (code.length < 4) return;
+    setBusyId(p.id);
+    const res = await CourierAPI.markPickedUp(p.id, code);
+    setBusyId(null);
+    if (res !== "ok") { Alert.alert("Kolis", res === "bad_code" ? t("badPickupCode") : t("badCode")); return; }
+    setPcodes((c) => ({ ...c, [p.id]: "" }));
+    load();
+  };
 
   const deliver = async (p: CourierParcel) => {
     const code = (codes[p.id] || "").trim();
@@ -69,29 +98,78 @@ export default function Carrying() {
 
         {list.map((p) => {
           const isHub = p.dropoff_type === "hub";
-          const where = isHub ? (p.pickup_hub_name || "") : (p.pickup_addr || "");
+          const gotIt = p.status !== "matched"; // picked_up / in_transit → possession confirmed
+          const pickupWhere = isHub ? (p.pickup_hub_name || "") : (p.pickup_addr || "");
           return (
             <View key={p.id} style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 16, padding: 15, marginBottom: 14, backgroundColor: "#fff", shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
                 <Text style={{ fontSize: 22 }}>{SIZE_EMOJI[p.size] ?? "📦"}</Text>
                 <Text style={{ fontSize: 15, fontWeight: "800", color: Colors.ink, flex: 1 }}>#{p.code} {t("forDest")} {p.to_city}</Text>
               </View>
-              {where ? (
-                <Text style={{ fontSize: 11.5, color: Colors.t2, marginBottom: 2 }}>{isHub ? "🏢" : "🚪"} {isHub ? t("pickupHub") : t("pickupDoor")}: {where}</Text>
-              ) : null}
-              <Text style={{ fontSize: 11.5, color: Colors.t3, marginBottom: 12 }}>🔒 {t("recipientMasked")}</Text>
 
-              <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{t("enterDeliveryCode")}</Text>
-              <TextInput
-                value={codes[p.id] || ""}
-                onChangeText={(v) => setCodes((c) => ({ ...c, [p.id]: v.replace(/[^0-9]/g, "") }))}
-                keyboardType="number-pad" maxLength={4} placeholder="••••" placeholderTextColor={Colors.t3}
-                style={{ borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 11, padding: 12, fontSize: 22, fontWeight: "800", letterSpacing: 10, textAlign: "center", color: Colors.ink, backgroundColor: Colors.bg, marginBottom: 10 }}
-              />
-              <Pressable onPress={() => deliver(p)} disabled={busyId === p.id || (codes[p.id] || "").trim().length < 4} style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: "center", opacity: (busyId === p.id || (codes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
-                {busyId === p.id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{t("markDelivered")}</Text>}
-              </Pressable>
-              <Text style={{ color: "#178a5e", fontSize: 11.5, textAlign: "center", marginTop: 8, fontWeight: "700" }}>+C${payout(p)} {t("released")}</Text>
+              {/* STAGE 1 — before pickup: pickup address + tap-to-navigate + "I have it" */}
+              {!gotIt && (
+                <>
+                  {pickupWhere ? (
+                    <Pressable onPress={() => openDirections(pickupWhere)} style={{ backgroundColor: Colors.bg, borderRadius: 11, padding: 11, marginBottom: 10 }}>
+                      <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 3 }}>{isHub ? t("pickupHub") : t("pickupDoor")}</Text>
+                      <Text style={{ fontSize: 13.5, color: Colors.ink, fontWeight: "700" }}>{isHub ? "🏢 " : "🚪 "}{pickupWhere}</Text>
+                      <Text style={{ fontSize: 11.5, color: Colors.accent, fontWeight: "800", marginTop: 4 }}>🧭 {t("directions")}</Text>
+                    </Pressable>
+                  ) : null}
+                  <Text style={{ fontSize: 11.5, color: Colors.t3, marginBottom: 12 }}>🔒 {t("recipientMasked")}</Text>
+                  <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{t("enterPickupCode")}</Text>
+                  <TextInput
+                    value={pcodes[p.id] || ""}
+                    onChangeText={(v) => setPcodes((c) => ({ ...c, [p.id]: v.replace(/[^0-9]/g, "") }))}
+                    keyboardType="number-pad" maxLength={4} placeholder="••••" placeholderTextColor={Colors.t3}
+                    style={{ borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 11, padding: 12, fontSize: 22, fontWeight: "800", letterSpacing: 10, textAlign: "center", color: Colors.ink, backgroundColor: Colors.bg, marginBottom: 6 }}
+                  />
+                  <Text style={{ fontSize: 11, color: Colors.t3, marginBottom: 10 }}>💬 {t("askPickupCode")}</Text>
+                  <Pressable onPress={() => pickup(p)} disabled={busyId === p.id || (pcodes[p.id] || "").trim().length < 4} style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: "center", opacity: (busyId === p.id || (pcodes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
+                    {busyId === p.id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>📦 {t("confirmPickup")}</Text>}
+                  </Pressable>
+                </>
+              )}
+
+              {/* STAGE 2 — after pickup: delivery address + recipient + deliver code */}
+              {gotIt && (
+                <>
+                  <Text style={{ fontSize: 11, color: "#178a5e", fontWeight: "700", marginBottom: 10 }}>✅ {t("pickedUpNote")}</Text>
+                  {p.dropoff_addr ? (
+                    <Pressable onPress={() => openDirections(p.dropoff_addr!)} style={{ backgroundColor: Colors.bg, borderRadius: 11, padding: 11, marginBottom: 10 }}>
+                      <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 3 }}>{t("deliveryAddress")}</Text>
+                      <Text style={{ fontSize: 13.5, color: Colors.ink, fontWeight: "700" }}>📍 {p.dropoff_addr}</Text>
+                      <Text style={{ fontSize: 11.5, color: Colors.accent, fontWeight: "800", marginTop: 4 }}>🧭 {t("directions")}</Text>
+                    </Pressable>
+                  ) : null}
+                  {(p.recipient_name || p.recipient_phone) ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6 }}>{t("recipient")}</Text>
+                        <Text style={{ fontSize: 13, color: Colors.ink, fontWeight: "700" }}>{p.recipient_name || "—"}</Text>
+                      </View>
+                      {p.recipient_phone ? (
+                        <Pressable onPress={() => Linking.openURL(`tel:${p.recipient_phone}`)} style={{ borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 }}>
+                          <Text style={{ color: Colors.accent, fontWeight: "800", fontSize: 12.5 }}>📞 {t("callRecipient")}</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  ) : null}
+
+                  <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{t("enterDeliveryCode")}</Text>
+                  <TextInput
+                    value={codes[p.id] || ""}
+                    onChangeText={(v) => setCodes((c) => ({ ...c, [p.id]: v.replace(/[^0-9]/g, "") }))}
+                    keyboardType="number-pad" maxLength={4} placeholder="••••" placeholderTextColor={Colors.t3}
+                    style={{ borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 11, padding: 12, fontSize: 22, fontWeight: "800", letterSpacing: 10, textAlign: "center", color: Colors.ink, backgroundColor: Colors.bg, marginBottom: 10 }}
+                  />
+                  <Pressable onPress={() => deliver(p)} disabled={busyId === p.id || (codes[p.id] || "").trim().length < 4} style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: "center", opacity: (busyId === p.id || (codes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
+                    {busyId === p.id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{t("markDelivered")}</Text>}
+                  </Pressable>
+                  <Text style={{ color: "#178a5e", fontSize: 11.5, textAlign: "center", marginTop: 8, fontWeight: "700" }}>+C${payout(p)} {t("released")}</Text>
+                </>
+              )}
             </View>
           );
         })}

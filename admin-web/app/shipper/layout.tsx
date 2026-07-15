@@ -11,9 +11,11 @@ const NAV = [
   { href: "/shipper/create", icon: "➕", label: "New shipment", fr: "Nouvel envoi" },
   { href: "/shipper/import", icon: "⬆️", label: "Bulk import", fr: "Import en lot" },
   { href: "/shipper/shipments", icon: "📦", label: "Shipments", fr: "Envois" },
+  { href: "/freight", icon: "🚛", label: "Freight · pallets", fr: "Fret · palettes" },
   { href: "/shipper/analytics", icon: "📈", label: "Analytics", fr: "Statistiques" },
   { href: "/shipper/invoices", icon: "🧾", label: "Invoices", fr: "Factures" },
   { href: "/shipper/billing", icon: "💳", label: "Billing", fr: "Facturation" },
+  { href: "/shipper/plans", icon: "⭐", label: "Plans", fr: "Forfaits" },
   { href: "/shipper/team", icon: "👥", label: "Team & seats", fr: "Équipe et sièges" },
   { href: "/shipper/branding", icon: "🎨", label: "Branding", fr: "Image de marque" },
 ];

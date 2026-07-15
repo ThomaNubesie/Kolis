@@ -1,5 +1,6 @@
-// Card-on-file backstop for net-terms orgs: creates a Stripe SetupIntent so the
-// org can save a card (charged only if an invoice goes overdue). Owner only.
+// Card-on-file for orgs: opens a Stripe hosted Checkout (mode=setup) so the org can
+// save a card. Used both by pay-as-you-go orgs (charged per shipment) and net-terms
+// orgs (charged if an invoice goes overdue). Returns a redirect URL. Owner only.
 //
 // SAFETY INTERLOCK: TEST key (sk_test_…) unless KOLIS_BILLING_LIVE=true.
 // Env: STRIPE_TEST_SECRET_KEY|STRIPE_SECRET_KEY, KOLIS_BILLING_LIVE,
@@ -11,6 +12,7 @@ import Stripe from "https://esm.sh/stripe@14?target=deno";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const PORTAL = Deno.env.get("KOLIS_PORTAL_URL") || "https://business.kolis.ca";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
@@ -52,8 +54,20 @@ Deno.serve(async (req) => {
       customerId = c.id;
       await admin.from("kolis_orgs").update({ stripe_customer_id: customerId }).eq("id", org.id);
     }
-    const si = await stripe.setupIntents.create({ customer: customerId, usage: "off_session" });
-    return json({ clientSecret: si.client_secret });
+    // Hosted Checkout (mode=setup): Stripe collects + saves the card on its own page,
+    // then setup_intent.succeeded (webhook) records it as the org default_pm. We just
+    // hand back a URL to redirect to — no card fields to build in the portal.
+    const session = await stripe.checkout.sessions.create({
+      mode: "setup",
+      customer: customerId,
+      payment_method_types: ["card"],
+      custom_text: {
+        submit: { message: "Kolis is operated by Concord Express Co Inc. Your card is saved securely and charged per shipment — no invoices, cancel anytime." },
+      },
+      success_url: `${PORTAL}/shipper/billing?card=saved`,
+      cancel_url: `${PORTAL}/shipper/billing?card=cancel`,
+    });
+    return json({ url: session.url });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }

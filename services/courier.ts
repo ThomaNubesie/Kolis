@@ -15,6 +15,9 @@ export type CourierParcel = {
   pickup_zone: string | null;
   pickup_hub_name: string | null;
   pickup_addr?: string | null; // present only in carrying (post-accept), not proposals
+  dropoff_addr?: string | null;    // carrying only, revealed after pickup
+  recipient_name?: string | null;  // carrying only, revealed after pickup
+  recipient_phone?: string | null; // carrying only, revealed after pickup
   driver_payout_cents: number | null;
   status?: string;
   is_request?: boolean; // true = admin assigned this to me specifically (accept/decline)
@@ -45,16 +48,35 @@ export const CourierAPI = {
     return (data ?? []) as CourierParcel[];
   },
 
-  // Atomic accept (cross-app: same claim as the LoadQ card).
-  async accept(id: string): Promise<boolean> {
-    const { data } = await supabase.rpc("kolis_accept_parcel", { p_id: id, p_via: "kolis" });
+  // Atomic accept (cross-app: same claim as the LoadQ card). etaMinutes = the
+  // courier's pickup ETA shown to the sender (auto or tapped).
+  async accept(id: string, etaMinutes?: number | null): Promise<boolean> {
+    const { data } = await supabase.rpc("kolis_accept_parcel", { p_id: id, p_via: "kolis", p_eta_minutes: etaMinutes ?? null });
     return data === true;
+  },
+
+  // Auto pickup ETA (driving minutes) from the courier's coords to the pickup
+  // address. Returns null when unavailable (no Maps key / stale GPS) — the caller
+  // then uses the courier's tapped ETA.
+  async pickupEta(parcelId: string, lat: number, lng: number): Promise<number | null> {
+    try {
+      const { data } = await supabase.functions.invoke("kolis-pickup-eta", { body: { parcel_id: parcelId, lat, lng } });
+      return data?.ok ? (data.eta_minutes as number) : null;
+    } catch { return null; }
   },
 
   // Decline a request that was targeted to me — returns it to the pool.
   async decline(id: string): Promise<boolean> {
     const { data } = await supabase.rpc("kolis_decline_parcel", { p_id: id });
     return data === true;
+  },
+
+  // Confirm possession with the SENDER's pickup code: matched -> picked_up.
+  // Reveals the drop-off address + recipient and notifies the recipient.
+  // Returns "ok" | "bad_code" | "fail".
+  async markPickedUp(id: string, code: string): Promise<string> {
+    const { data } = await supabase.rpc("kolis_courier_pickup", { p_id: id, p_code: code });
+    return (data as string) ?? "fail";
   },
 
   // Carried parcels via the walled RPC (hub name resolved, payout only).

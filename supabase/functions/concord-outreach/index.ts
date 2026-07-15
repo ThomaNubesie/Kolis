@@ -57,10 +57,13 @@ function followupHtml(name: string, touch: number) {
   </table></td></tr></table></body></html>`;
 }
 
-async function send(p: { from?: string; to: string; cc?: string; reply_to?: string; subject: string; html: string }) {
+async function send(p: { from?: string; to: string; cc?: string | string[]; reply_to?: string; subject: string; html: string; attachments?: { filename: string; content: string }[] }) {
   const payload: Record<string, unknown> = { from: p.from || FROM, to: [p.to], subject: p.subject, html: p.html };
-  if (p.cc ?? CC) payload.cc = [p.cc ?? CC];
+  const cc = p.cc ?? CC;
+  if (cc) payload.cc = Array.isArray(cc) ? cc : [cc];
   payload.reply_to = p.reply_to || REPLY;
+  // Optional PDF/file attachments (Resend expects base64 content per file).
+  if (Array.isArray(p.attachments) && p.attachments.length) payload.attachments = p.attachments;
   // One-click unsubscribe — strong inbox-placement signal for Gmail/Outlook.
   payload.headers = {
     "List-Unsubscribe": "<mailto:marketing@concordexpress.ca?subject=unsubscribe>",

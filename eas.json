@@ -22,9 +22,7 @@
       "distribution": "store",
       "node": "20.19.4",
       "autoIncrement": true,
-      "ios": {
-        "image": "latest"
-      },
+      "ios": {},
       "android": {
         "buildType": "app-bundle"
       }

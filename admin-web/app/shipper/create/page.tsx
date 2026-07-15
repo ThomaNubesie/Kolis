@@ -14,7 +14,7 @@ export default function CreateShipment() {
     p_recipient_name: "", p_recipient_phone: "", p_dropoff_addr: "", p_contents: "",
   });
   const [busy, setBusy] = useState(false);
-  const [done, setDone] = useState<{ code: string } | null>(null);
+  const [done, setDone] = useState<{ code: string; payg?: boolean; charged?: number; needCard?: boolean } | null>(null);
   const [err, setErr] = useState("");
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
 
@@ -23,8 +23,28 @@ export default function CreateShipment() {
     setBusy(true); setErr("");
     try {
       const res = await org.createShipment(active.org_id, f);
-      setDone({ code: res.code });
+      // Pay-as-you-go: charge the org's saved card now. If none on file, the shipment
+      // is created but unpaid — prompt to add a card.
+      if (res.payg) {
+        if (!res.has_card) { setDone({ code: res.code, payg: true, needCard: true }); }
+        else {
+          const c = await org.chargeShipment(active.org_id, res.id);
+          if (c?.error === "no_card") setDone({ code: res.code, payg: true, needCard: true });
+          else if (c?.error) { setDone({ code: res.code, payg: true }); setErr(t("Shipment created, but the card charge failed: ", "Envoi créé, mais le débit de la carte a échoué : ") + (c.detail || c.error)); }
+          else setDone({ code: res.code, payg: true, charged: c?.charged_cents });
+        }
+      } else setDone({ code: res.code });
     } catch (e: any) { setErr(e?.message || t("Failed to create shipment.", "Échec de la création de l’envoi.")); }
+    setBusy(false);
+  };
+
+  const addCard = async () => {
+    setBusy(true); setErr("");
+    try {
+      const r = await org.setupCard(active.org_id);
+      if (r?.url) window.location.href = r.url;
+      else setErr(r?.skipped || r?.error || t("Card setup isn't available yet.", "L’ajout de carte n’est pas encore disponible."));
+    } catch (e: any) { setErr(e?.message || t("Couldn't open card setup.", "Impossible d’ouvrir l’ajout de carte.")); }
     setBusy(false);
   };
 
@@ -33,9 +53,20 @@ export default function CreateShipment() {
       <h1>{t("Shipment created", "Envoi créé")}</h1>
       <div className="card" style={{ maxWidth: 460 }}>
         <div style={{ fontWeight: 800, fontSize: 18 }}>✓ {done.code}</div>
-        <div className="sub" style={{ marginTop: 6 }}>{t(`Added to ${active.name}’s invoice cycle (net terms). No card charged per shipment.`, `Ajouté au cycle de facturation de ${active.name} (conditions nettes). Aucune carte n’est débitée par envoi.`)}</div>
+        <div className="sub" style={{ marginTop: 6 }}>
+          {done.needCard
+            ? t(`Created — but no card is on file yet. Add a card to pay for this shipment (and future ones).`, `Créé — mais aucune carte n’est enregistrée. Ajoutez une carte pour payer cet envoi (et les suivants).`)
+            : done.charged != null
+              ? t(`Paid $${(done.charged / 100).toFixed(2)} to the card on file.`, `Payé ${(done.charged / 100).toFixed(2)} $ sur la carte enregistrée.`)
+              : done.payg
+                ? t(`Charged to the card on file.`, `Débité sur la carte enregistrée.`)
+                : t(`Added to ${active.name}’s invoice cycle (net terms).`, `Ajouté au cycle de facturation de ${active.name} (conditions nettes).`)}
+        </div>
+        {err ? <div style={{ color: "var(--red)", fontSize: 12.5, marginTop: 10 }}>{err}</div> : null}
         <div className="row" style={{ marginTop: 12 }}>
-          <button className="btn" onClick={() => { setDone(null); set("p_to_city", ""); set("p_recipient_name", ""); }}>{t("Create another", "En créer un autre")}</button>
+          {done.needCard
+            ? <button className="btn" disabled={busy} onClick={addCard}>{busy ? t("Opening…", "Ouverture…") : t("Add a card", "Ajouter une carte")}</button>
+            : <button className="btn" onClick={() => { setDone(null); setErr(""); set("p_to_city", ""); set("p_recipient_name", ""); }}>{t("Create another", "En créer un autre")}</button>}
           <button className="btn ghost" onClick={() => router.push("/shipper/shipments")}>{t("View shipments", "Voir les envois")}</button>
         </div>
       </div>
@@ -45,7 +76,7 @@ export default function CreateShipment() {
   return (
     <>
       <h1>{t("New shipment", "Nouvel envoi")}</h1>
-      <div className="sub">{t(`Billed to ${active.name} on invoice — no card charged per shipment.`, `Facturé à ${active.name} sur facture — aucune carte n’est débitée par envoi.`)}</div>
+      <div className="sub">{t(`Billed to ${active.name}.`, `Facturé à ${active.name}.`)}</div>
       <div className="card" style={{ maxWidth: 560 }}>
         <div className="row" style={{ gap: 16 }}>
           <div style={{ flex: 1 }}>

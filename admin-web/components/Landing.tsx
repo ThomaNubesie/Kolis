@@ -1,5 +1,7 @@
 "use client";
+import { useEffect, useState } from "react";
 import { useLang, LangToggle } from "@/lib/i18n";
+import BookCall from "@/components/BookCall";
 
 // Public marketing landing for business.kolis.ca — shown to logged-out visitors
 // (store owners who received an outreach letter/email). Signed-in users never
@@ -13,7 +15,7 @@ const CSS = `
 .klb *{box-sizing:border-box}
 .klb .wrap{max-width:1080px;margin:0 auto;padding:0 28px}
 .klb a{text-decoration:none;color:inherit}
-.klb .b{display:inline-block;background:#E11D6B;color:#fff;font-weight:700;padding:13px 22px;border-radius:11px;font-size:15px;border:1.5px solid #E11D6B;cursor:pointer}
+.klb .b{display:inline-block;background:#E11D6B;color:#fff;font-weight:700;padding:13px 22px;border-radius:11px;font-size:15px;border:1.5px solid #E11D6B;cursor:pointer;font-family:inherit;line-height:1.2}
 .klb .b.g{background:#fff;color:#E11D6B}
 .klb .nav{display:flex;align-items:center;justify-content:space-between;padding:18px 28px;max-width:1080px;margin:0 auto}
 .klb .brandr{display:flex;align-items:center;gap:10px;font-weight:900;font-size:20px}
@@ -78,9 +80,15 @@ const CSS = `
 
 export default function Landing() {
   const { t } = useLang();
+  const [booking, setBooking] = useState(false);
+  // Open the call modal automatically when arriving from the outreach email (?book=1).
+  useEffect(() => {
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("book") === "1") setBooking(true);
+  }, []);
   return (
     <div className="klb">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
+      {booking && <BookCall onClose={() => setBooking(false)} />}
       <nav className="nav">
         <div className="brandr"><div className="lg">Ko</div>Kolis <span className="biz" style={{ color: "#E11D6B" }}>· Business</span></div>
         <div className="nl">
@@ -102,7 +110,7 @@ export default function Landing() {
               "Expédiez vos colis sur le corridor avec de vrais coursiers locaux — un tableau de bord dédié, l'import en lot, le suivi en direct et une seule facture mensuelle. Aucune flotte à gérer.")}</p>
             <div className="cta">
               <a className="b" href={CONTACT}>{t("Request access", "Demander l'accès")}</a>
-              <a className="b g" href="#how">{t("See how it works", "Voir comment ça marche")}</a>
+              <button className="b g" onClick={() => setBooking(true)}>{t("📞 Book a call", "📞 Réserver un appel")}</button>
             </div>
             <p className="note">{t("By invitation — we set up your account for you. Already invited? ", "Sur invitation — nous configurons votre compte pour vous. Déjà invité ? ")}
               <a href="/login">{t("Log in", "Connectez-vous")}</a>.</p>
@@ -152,7 +160,10 @@ export default function Landing() {
       <section><div className="wrap"><div className="final">
         <h2>{t("Ready to deliver same-day?", "Prêt à livrer le jour même ?")}</h2>
         <p>{t("Join Kolis · Business and capture the sales that distance was costing you.", "Rejoignez Kolis · Business et captez les ventes que la distance vous faisait perdre.")}</p>
-        <a className="b g" style={{ background: "#fff" }} href={CONTACT}>{t("Request access", "Demander l'accès")}</a>
+        <div className="cta" style={{ justifyContent: "center" }}>
+          <a className="b g" style={{ background: "#fff" }} href={CONTACT}>{t("Request access", "Demander l'accès")}</a>
+          <button className="b" onClick={() => setBooking(true)}>{t("📞 Book a call", "📞 Réserver un appel")}</button>
+        </div>
       </div></div></section>
 
       <footer className="ft"><div className="wrap">

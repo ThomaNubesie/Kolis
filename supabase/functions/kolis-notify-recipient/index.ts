@@ -15,11 +15,23 @@ const TW_FROM = Deno.env.get("KOLIS_TWILIO_FROM");
 
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 
-function copyFor(status: string, code: string, city: string, pin: string | null) {
+function copyFor(status: string, code: string, city: string, pin: string | null, eta?: { min: number; clock: string | null } | null) {
+  // Sender pickup ETA (bilingual sentence), inserted before the pickup-code line.
+  const etaEn = eta ? ` Estimated arrival in about ${eta.min} min${eta.clock ? ` (around ${eta.clock})` : ""}.` : "";
+  const etaFr = eta ? ` Arrivée estimée dans environ ${eta.min} min${eta.clock ? ` (vers ${eta.clock})` : ""}.` : "";
   // The recipient must give this PIN to the courier to confirm delivery.
   const pinEn = pin ? ` Your delivery code is ${pin} — give it to your courier to confirm delivery.` : "";
   const pinFr = pin ? ` Votre code de livraison est ${pin} — donnez-le à votre livreur pour confirmer la livraison.` : "";
   // [subject, line] bilingual (EN \n FR)
+  if (status === "created")   // recipient: a package has been sent to them
+    return [`You've been sent a package · ${code}`, `Good news — a package (${code}) is on its way to you in ${city}. You'll get live updates and a delivery code as it moves.\nBonne nouvelle — un colis (${code}) est en route vers vous à ${city}. Vous recevrez des mises à jour en direct et un code de livraison.`];
+  if (status === "pickup") {  // SENDER: courier assigned — ETA + give them the pickup code to release
+    const pkEn = pin ? ` Give the courier your pickup code ${pin} to release the parcel.` : "";
+    const pkFr = pin ? ` Donnez au livreur votre code de ramassage ${pin} pour remettre le colis.` : "";
+    return [`A courier is on the way to pick up ${code}`, `A courier has been assigned to pick up your parcel ${code} (to ${city}).${etaEn}${pkEn}\nUn livreur a été assigné pour ramasser votre colis ${code} (vers ${city}).${etaFr}${pkFr}`];
+  }
+  if (status === "incoming")  // RECIPIENT: a courier is assigned — here's your delivery code up front
+    return [`A courier is bringing your parcel ${code}`, `A courier has been assigned to bring your parcel ${code} to ${city}.${pinEn}\nUn livreur a été assigné pour vous livrer le colis ${code} à ${city}.${pinFr}`];
   if (status === "picked_up")
     return [`Your parcel ${code} is on its way`, `Your parcel ${code} has been picked up and is on its way to ${city}.${pinEn}\nVotre colis ${code} a été ramassé et est en route vers ${city}.${pinFr}`];
   if (status === "in_transit")
@@ -35,49 +47,80 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data: p } = await admin.from("kolis_parcels")
-      .select("code, to_city, recipient_email, recipient_phone, status, delivery_code, org_id").eq("id", parcel_id).maybeSingle();
+      .select("code, to_city, recipient_email, recipient_phone, status, delivery_code, pickup_code, pickup_eta_minutes, pickup_eta_at, org_id, sender_id").eq("id", parcel_id).maybeSingle();
     if (!p) return json({ error: "not found" }, 404);
 
     const code = p.code as string;
-    // Include the delivery PIN before arrival (picked_up / in_transit), not after.
-    const pin = status === "delivered" ? null : (p.delivery_code as string | null);
+    // Recipient arrival statuses carry the DELIVERY code; the sender "pickup"
+    // status carries the PICKUP code (sender releases the parcel with it).
+    const pin = (status === "picked_up" || status === "in_transit" || status === "incoming") ? (p.delivery_code as string | null)
+              : status === "pickup" ? (p.pickup_code as string | null)
+              : null;
+
+    // Pickup ETA for the sender (all corridors are Eastern time).
+    let eta: { min: number; clock: string | null } | null = null;
+    if (status === "pickup" && p.pickup_eta_minutes) {
+      let clock: string | null = null;
+      if (p.pickup_eta_at) {
+        try { clock = new Date(p.pickup_eta_at as string).toLocaleTimeString("en-CA", { timeZone: "America/Toronto", hour: "numeric", minute: "2-digit" }); } catch { /* ignore */ }
+      }
+      eta = { min: p.pickup_eta_minutes as number, clock };
+    }
+
+    // Audience: "pickup" targets the SENDER; everything else targets the recipient.
+    const toSender = status === "pickup";
     const link = `${TRACK_URL}/${encodeURIComponent(code)}`;
-    const [subject, line] = copyFor(status, code, (p.to_city as string) || "", pin);
+    const [subject, line] = copyFor(status, code, (p.to_city as string) || "", pin, eta);
     const [enLine, frLine] = line.split("\n");
     let emailed = false, texted = false;
 
     // White-label: if this parcel belongs to a business with email branding on,
     // wear their name/color/logo; otherwise plain Kolis.
-    let bColor = "#E11D6B", bName = "Kolis", bLogo: string | null = null, bPowered = true;
+    let bColor = "#E11D6B", bName = "Kolis", bLogo: string | null = null, bPowered = true, orgBillingEmail: string | null = null;
     if (p.org_id) {
       const { data: o } = await admin.from("kolis_orgs")
-        .select("name, brand_color, brand_name, brand_logo_url, brand_emails, brand_powered_by").eq("id", p.org_id).maybeSingle();
-      if (o && o.brand_emails) { bColor = o.brand_color || "#E11D6B"; bName = o.brand_name || o.name || "Kolis"; bLogo = o.brand_logo_url; bPowered = o.brand_powered_by !== false; }
+        .select("name, brand_color, brand_name, brand_logo_url, brand_emails, brand_powered_by, billing_email").eq("id", p.org_id).maybeSingle();
+      if (o) { orgBillingEmail = o.billing_email ?? null; if (o.brand_emails) { bColor = o.brand_color || "#E11D6B"; bName = o.brand_name || o.name || "Kolis"; bLogo = o.brand_logo_url; bPowered = o.brand_powered_by !== false; } }
+    }
+
+    // Resolve who we're contacting.
+    let toEmail: string | null = p.recipient_email, toPhone: string | null = p.recipient_phone;
+    if (toSender) {
+      toEmail = null; toPhone = null;
+      if (p.sender_id) { try { const { data: au } = await admin.auth.admin.getUserById(p.sender_id as string); toEmail = au?.user?.email ?? null; toPhone = au?.user?.phone ?? null; } catch { /* ignore */ } }
+      if (!toEmail) toEmail = orgBillingEmail;   // fall back to the business billing email
     }
     const fromEmail = (FROM.match(/<(.+)>/)?.[1]) || FROM;
     const fromName = bName === "Kolis" ? "Kolis" : `${bName} via Kolis`;
 
-    if (p.recipient_email && RESEND) {
+    // The email's code box + copy differ for the sender's pickup code vs the recipient's delivery code.
+    const isPickup = status === "pickup";
+    const pinLabel = isPickup ? "Pickup code · Code de ramassage" : "Delivery code · Code de livraison";
+    const pinHelp = isPickup ? "Give this to your courier to release · Donnez-le pour remettre" : "Give this to your courier · Donnez-le à votre livreur";
+    const stripEn = (s: string) => s.replace(/\s*(Your delivery code is|Give the courier your pickup code)\b[\s\S]*$/, "");
+    const stripFr = (s: string) => s.replace(/\s*(Votre code de livraison est|Donnez au livreur votre code de ramassage)\b[\s\S]*$/, "");
+
+    if (toEmail && RESEND) {
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${RESEND}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: `${fromName} <${fromEmail}>`, to: p.recipient_email, subject,
+          from: `${fromName} <${fromEmail}>`, to: toEmail, subject,
           text: `${enLine}\n\nTrack it: ${link}\n\n${frLine}\nSuivez-le : ${link}`,
           html: `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px">
             ${bLogo ? `<img src="${bLogo}" alt="${bName}" style="max-height:46px;margin-bottom:8px"/>` : ""}
             <h2 style="color:${bColor}">${subject}</h2>
-            <p>${enLine.replace(new RegExp(`\\s*Your delivery code is ${pin}.*$`), "")}</p>
+            <p>${stripEn(enLine)}</p>
             ${pin ? `<div style="background:${bColor}14;border:1px solid ${bColor};border-radius:12px;padding:14px 18px;margin:6px 0 14px;text-align:center">
-              <div style="color:${bColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px">Delivery code · Code de livraison</div>
+              <div style="color:${bColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px">${pinLabel}</div>
               <div style="color:${bColor};font-size:34px;font-weight:800;letter-spacing:6px">${pin}</div>
-              <div style="color:#6B6675;font-size:12px">Give this to your courier · Donnez-le à votre livreur</div>
+              <div style="color:#6B6675;font-size:12px">${pinHelp}</div>
             </div>` : ""}
             <div style="text-align:center;margin:20px 0">
               <a href="${link}" style="display:inline-block;background:${bColor};color:#fff;text-decoration:none;padding:13px 26px;border-radius:10px;font-weight:700">Track your parcel · Suivez votre colis</a>
               <div style="margin-top:10px;font-size:12px;color:#9b97a6"><a href="${link}?lang=en" style="color:${bColor};text-decoration:none;font-weight:700">EN</a> &nbsp;·&nbsp; <a href="${link}?lang=fr" style="color:${bColor};text-decoration:none;font-weight:700">FR</a></div>
             </div>
-            <p style="color:#6B6675;font-size:13px">${frLine.replace(new RegExp(`\\s*Votre code de livraison est ${pin}.*$`), "")}</p>
+            <p style="color:#6B6675;font-size:13px">${stripFr(frLine)}</p>
             ${bName !== "Kolis" ? `<p style="color:#9b97a6;font-size:11px;margin-top:16px">${bName}${bPowered ? " · powered by Kolis" : ""}</p>` : ""}
           </div>`,
         }),
@@ -85,10 +128,10 @@ Deno.serve(async (req) => {
       emailed = res.ok;
     }
 
-    if (p.recipient_phone && TW_SID && TW_TOKEN && TW_FROM) {
-      let to = String(p.recipient_phone).replace(/[^\d+]/g, "");
+    if (toPhone && TW_SID && TW_TOKEN && TW_FROM) {
+      let to = String(toPhone).replace(/[^\d+]/g, "");
       if (!to.startsWith("+")) to = to.length === 10 ? "+1" + to : "+" + to;
-      const body = new URLSearchParams({ To: to, Body: `${enLine} ${link}` });
+      const body = new URLSearchParams({ To: to, Body: `🇬🇧 ${enLine}\n🇫🇷 ${frLine}\n${link}` });
       // KOLIS_TWILIO_FROM may be a Messaging Service SID (MG…) or a from-number.
       if (TW_FROM.startsWith("MG")) body.set("MessagingServiceSid", TW_FROM);
       else body.set("From", TW_FROM);

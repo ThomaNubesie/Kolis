@@ -38,8 +38,9 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return json({ error: "unauthorized" }, 401);
 
-    const { org_id, email, role, caps } = await req.json();
+    const { org_id, email, role, caps, name } = await req.json();
     const e = String(email || "").toLowerCase().trim();
+    const cleanName = String(name || "").trim();
     if (!EMAIL_RE.test(e) || !role) return json({ error: "a valid email and role are required" }, 400);
 
     // ── Staff invite (no org_id): to the admin console ──
@@ -74,6 +75,11 @@ Deno.serve(async (req) => {
     if (inviteErr) return json({ error: inviteErr.message }, 400);
 
     const admin = createClient(SUPABASE_URL, SERVICE);
+    // Capture the invited person's name on the invite → carried to their member row on accept.
+    if (cleanName) {
+      await admin.from("kolis_org_invites").update({ full_name: cleanName })
+        .eq("org_id", org_id).eq("email", e).is("accepted_at", null);
+    }
     const { data: org } = await admin.from("kolis_orgs").select("name").eq("id", org_id).single();
     const orgName = org?.name || "a business on Kolis";
 

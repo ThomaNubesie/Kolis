@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
 import { OrgsAPI, MyOrg } from "../../services/orgs";
 import { ParcelsAPI, Parcel } from "../../services/parcels";
+import { getCurrentLang } from "../../hooks/useStrings";
 
 const money = (c: number) => "$" + Math.round((c || 0) / 100);
 
@@ -19,6 +20,7 @@ export default function Business() {
   const [rcpt, setRcpt] = useState("");
   const [rEmail, setREmail] = useState("");
   const [rPhone, setRPhone] = useState("");
+  const [rLang, setRLang] = useState<"en" | "fr">(getCurrentLang());
   const [busy, setBusy] = useState(false);
   // edit modal
   const [editP, setEditP] = useState<Parcel | null>(null);
@@ -100,6 +102,7 @@ export default function Business() {
       const r = await OrgsAPI.createShipment(activeId, {
         p_dropoff_type: "door", p_size: size, p_from_city: "Ottawa", p_to_city: toCity.trim(),
         p_recipient_name: rcpt || null, p_recipient_email: rEmail.trim(), p_recipient_phone: rPhone.trim() || null,
+        p_recipient_lang: rLang,
       });
       Alert.alert("Shipment created", r?.code || "Added to your invoice cycle.");
       setToCity(""); setRcpt(""); setREmail(""); setRPhone(""); await load();
@@ -168,7 +171,15 @@ export default function Business() {
                   style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 10, padding: 11, marginBottom: 8 }} />
                 <TextInput value={rPhone} onChangeText={setRPhone} placeholder="Recipient phone" keyboardType="phone-pad"
                   style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 10, padding: 11, marginBottom: 8 }} />
-                <Text style={{ fontSize: 11, color: Colors.t3, marginBottom: 8 }}>We email &amp; text the recipient when the shipment is created and as it moves.</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <Text style={{ fontSize: 12, color: Colors.t2 }}>Notify recipient in</Text>
+                  {(["en", "fr"] as const).map((l) => (
+                    <Pressable key={l} onPress={() => setRLang(l)} style={{ borderWidth: 1.5, borderColor: rLang === l ? Colors.accent : Colors.line, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}>
+                      <Text style={{ fontWeight: "800", fontSize: 12, color: rLang === l ? Colors.accent : Colors.t2 }}>{l.toUpperCase()}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={{ fontSize: 11, color: Colors.t3, marginBottom: 8 }}>We email &amp; text the recipient (in this language) at creation and each step. They can switch on the tracking page.</Text>
                 <View style={{ flexDirection: "row", gap: 8, marginBottom: 10 }}>
                   {["envelope", "small", "large"].map((s) => (
                     <Pressable key={s} onPress={() => setSize(s)}

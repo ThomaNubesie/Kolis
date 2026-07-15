@@ -97,6 +97,19 @@ export default function Track() {
                     })
                   )}
                 </div>
+
+                {/* Turn recipients into senders — download the Kolis app / visit kolis.ca */}
+                <div style={{ background: "linear-gradient(135deg,#fff,#FBEFF5)", border: "1px solid #F3D9E6", borderRadius: 16, padding: 18, marginTop: 16, textAlign: "center" }}>
+                  <div style={{ width: 42, height: 42, borderRadius: 11, background: "#E11D6B", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff", fontWeight: 800, fontSize: 19 }}>Ko</div>
+                  <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1722", margin: "10px 0 3px" }}>{t("Send your own parcels with Kolis", "Envoyez vos propres colis avec Kolis")}</div>
+                  <div className="sub" style={{ fontSize: 12.5 }}>{t("A driver already heading to your city carries it — same-day.", "Un chauffeur déjà en route vers votre ville le transporte — le jour même.")}</div>
+                  <div className="row" style={{ gap: 8, justifyContent: "center", marginTop: 12 }}>
+                    <a href="https://apps.apple.com/app/id6778120565" style={{ background: "#000", color: "#fff", borderRadius: 9, padding: "8px 15px", textDecoration: "none", fontWeight: 700, fontSize: 13 }}> App Store</a>
+                    <a href="https://play.google.com/store/apps/details?id=ca.kolis.app" style={{ background: "#000", color: "#fff", borderRadius: 9, padding: "8px 15px", textDecoration: "none", fontWeight: 700, fontSize: 13 }}>▶ Google Play</a>
+                  </div>
+                  <a href="https://kolis.ca" style={{ display: "inline-block", marginTop: 12, color: "#E11D6B", fontWeight: 800, textDecoration: "none", fontSize: 13.5, borderBottom: "2px solid rgba(225,29,107,.35)" }}>kolis.ca →</a>
+                </div>
+
                 <div className="sub" style={{ textAlign: "center", marginTop: 20, fontSize: 12 }}>
                   {brand
                     ? `${t("Delivered by", "Livré par")} ${brand.name}${brand.powered_by ? " · powered by Kolis" : ""}`

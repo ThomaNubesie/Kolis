@@ -75,6 +75,20 @@ Deno.serve(async (req) => {
     const link = `${TRACK_URL}/${encodeURIComponent(code)}`;
     const [subject, line] = copyFor(status, code, (p.to_city as string) || "", pin, eta, p.contents_description as string | null);
     const [enLine, frLine] = line.split("\n");
+    // Deliver in the recipient's language (recipient_lang, set at creation from the
+    // sender's language; default English). The tracking page has an EN/FR toggle.
+    const rlang: "en" | "fr" = (p.recipient_lang === "fr") ? "fr" : "en";
+    const frSubjects: Record<string, string> = {
+      created: `Un colis vous a été envoyé · ${code}`,
+      incoming: `Un livreur vous apporte le colis ${code}`,
+      picked_up: `Votre colis ${code} est en route`,
+      in_transit: `Votre colis ${code} est en cours de livraison`,
+      pickup: `Un livreur vient ramasser ${code}`,
+      delivered: `Votre colis ${code} a été livré`,
+    };
+    const subj = rlang === "fr" ? (frSubjects[status] || subject) : subject;
+    const bodyLine = rlang === "fr" ? frLine : enLine;
+    const dlText = rlang === "fr" ? "Envoyé via Kolis — obtenez l'appli : kolis.ca" : "Sent via Kolis — get the app: kolis.ca";
     let emailed = false, texted = false;
 
     // White-label: if this parcel belongs to a business with email branding on,
@@ -98,33 +112,34 @@ Deno.serve(async (req) => {
 
     // The email's code box + copy differ for the sender's pickup code vs the recipient's delivery code.
     const isPickup = status === "pickup";
-    const pinLabel = isPickup ? "Pickup code · Code de ramassage" : "Delivery code · Code de livraison";
-    const pinHelp = isPickup ? "Give this to your courier to release · Donnez-le pour remettre" : "Give this to your courier · Donnez-le à votre livreur";
-    const stripEn = (s: string) => s.replace(/\s*(Your delivery code is|Give the courier your pickup code)\b[\s\S]*$/, "");
-    const stripFr = (s: string) => s.replace(/\s*(Votre code de livraison est|Donnez au livreur votre code de ramassage)\b[\s\S]*$/, "");
+    const pinLabel = isPickup ? (rlang === "fr" ? "Code de ramassage" : "Pickup code") : (rlang === "fr" ? "Code de livraison" : "Delivery code");
+    const pinHelp = isPickup ? (rlang === "fr" ? "Donnez-le pour remettre le colis" : "Give this to release the parcel") : (rlang === "fr" ? "Donnez-le à votre livreur" : "Give this to your courier");
+    const strip = (s: string) => rlang === "fr"
+      ? s.replace(/\s*(Votre code de livraison est|Donnez au livreur votre code de ramassage)\b[\s\S]*$/, "")
+      : s.replace(/\s*(Your delivery code is|Give the courier your pickup code)\b[\s\S]*$/, "");
 
     if (toEmail && RESEND) {
       const res = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: { Authorization: `Bearer ${RESEND}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          from: `${fromName} <${fromEmail}>`, to: toEmail, subject,
-          text: `${enLine}\n\nTrack it: ${link}\n\n${frLine}\nSuivez-le : ${link}`,
+          from: `${fromName} <${fromEmail}>`, to: toEmail, subject: subj,
+          text: `${bodyLine}\n\n${rlang === "fr" ? "Suivez-le" : "Track it"}: ${link}\n\n${dlText}`,
           html: `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px">
             ${bLogo ? `<img src="${bLogo}" alt="${bName}" style="max-height:46px;margin-bottom:8px"/>` : ""}
-            <h2 style="color:${bColor}">${subject}</h2>
-            <p>${stripEn(enLine)}</p>
+            <h2 style="color:${bColor}">${subj}</h2>
+            <p>${strip(bodyLine)}</p>
             ${pin ? `<div style="background:${bColor}14;border:1px solid ${bColor};border-radius:12px;padding:14px 18px;margin:6px 0 14px;text-align:center">
               <div style="color:${bColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px">${pinLabel}</div>
               <div style="color:${bColor};font-size:34px;font-weight:800;letter-spacing:6px">${pin}</div>
               <div style="color:#6B6675;font-size:12px">${pinHelp}</div>
             </div>` : ""}
             <div style="text-align:center;margin:20px 0">
-              <a href="${link}" style="display:inline-block;background:${bColor};color:#fff;text-decoration:none;padding:13px 26px;border-radius:10px;font-weight:700">Track your parcel · Suivez votre colis</a>
+              <a href="${link}" style="display:inline-block;background:${bColor};color:#fff;text-decoration:none;padding:13px 26px;border-radius:10px;font-weight:700">${rlang === "fr" ? "Suivez votre colis" : "Track your parcel"}</a>
               <div style="margin-top:10px;font-size:12px;color:#9b97a6"><a href="${link}?lang=en" style="color:${bColor};text-decoration:none;font-weight:700">EN</a> &nbsp;·&nbsp; <a href="${link}?lang=fr" style="color:${bColor};text-decoration:none;font-weight:700">FR</a></div>
             </div>
-            <p style="color:#6B6675;font-size:13px">${stripFr(frLine)}</p>
-            ${bName !== "Kolis" ? `<p style="color:#9b97a6;font-size:11px;margin-top:16px">${bName}${bPowered ? " · powered by Kolis" : ""}</p>` : ""}
+            <p style="color:#9b97a6;font-size:12px;text-align:center;margin-top:18px">${rlang === "fr" ? "Envoyé via" : "Sent via"} <b style="color:${bColor}">Kolis</b> — <a href="https://kolis.ca" style="color:${bColor};text-decoration:none;font-weight:700">kolis.ca</a></p>
+            ${bName !== "Kolis" ? `<p style="color:#9b97a6;font-size:11px;text-align:center">${bName}${bPowered ? " · powered by Kolis" : ""}</p>` : ""}
           </div>`,
         }),
       });
@@ -134,7 +149,7 @@ Deno.serve(async (req) => {
     if (toPhone && TW_SID && TW_TOKEN && TW_FROM) {
       let to = String(toPhone).replace(/[^\d+]/g, "");
       if (!to.startsWith("+")) to = to.length === 10 ? "+1" + to : "+" + to;
-      const body = new URLSearchParams({ To: to, Body: `🇬🇧 ${enLine}\n🇫🇷 ${frLine}\n${link}` });
+      const body = new URLSearchParams({ To: to, Body: `${bodyLine}\n${link}\n${dlText}` });
       // KOLIS_TWILIO_FROM may be a Messaging Service SID (MG…) or a from-number.
       if (TW_FROM.startsWith("MG")) body.set("MessagingServiceSid", TW_FROM);
       else body.set("From", TW_FROM);

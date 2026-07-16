@@ -4,7 +4,7 @@
 import { useCallback, useState } from "react";
 import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, Alert, ActivityIndicator, Linking, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { CourierAPI, CourierParcel } from "../../services/courier";
@@ -14,6 +14,7 @@ const SIZE_EMOJI: Record<string, string> = { envelope: "✉️", small: "📦", 
 
 export default function Carrying() {
   const { t } = useStrings();
+  const router = useRouter();
   const [list, setList] = useState<CourierParcel[]>([]);
   const [loading, setLoading] = useState(true);
   const [codes, setCodes] = useState<Record<string, string>>({});
@@ -86,7 +87,12 @@ export default function Carrying() {
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={Colors.accent} />}
       >
-        <Text style={{ fontSize: 26, fontWeight: "800", color: Colors.ink, marginBottom: 4 }}>{t("carrying")}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+          <Text style={{ fontSize: 26, fontWeight: "800", color: Colors.ink, flex: 1 }}>{t("carrying")}</Text>
+          <Pressable onPress={() => router.push("/(app)/scan" as never)} style={{ flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: "#E11D6B", borderRadius: 12, paddingHorizontal: 15, paddingVertical: 10 }}>
+            <Text style={{ fontSize: 15 }}>📷</Text><Text style={{ color: "#fff", fontWeight: "800", fontSize: 13.5 }}>Scan QR</Text>
+          </Pressable>
+        </View>
         <Text style={{ fontSize: 13, color: Colors.t2, marginBottom: 18 }}>{t("carryingSub")}</Text>
 
         {!loading && list.length === 0 && (

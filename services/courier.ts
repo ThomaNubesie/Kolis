@@ -137,4 +137,21 @@ export const CourierAPI = {
     if (data?.error) return { ok: false, error: data.error };
     return { ok: true };
   },
+
+  // Scan a parcel's QR at pickup/delivery. The server enforces a 100 m geofence:
+  // within range it returns the code + records/shares the scan location.
+  async scan(parcelId: string, kind: "pickup" | "delivery", token: string, lat: number | null, lng: number | null): Promise<ScanResult> {
+    const { data, error } = await supabase.functions.invoke("kolis-scan", { body: { parcel_id: parcelId, kind, token, lat, lng } });
+    if (error) throw error;
+    return data as ScanResult;
+  },
+};
+
+export type ScanResult = {
+  ok?: boolean; in_range?: boolean; verified?: boolean; distance_m?: number | null; geofence_m?: number;
+  code?: string; kind?: "pickup" | "delivery";
+  sender?: { name: string; phone: string | null; address: string | null };
+  recipient?: { name: string | null; phone: string | null; address: string | null };
+  scan?: { lat: number; lng: number; map: string };
+  error?: string;
 };

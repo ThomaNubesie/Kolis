@@ -155,6 +155,14 @@ export const org = {
   // args use p_-prefixed keys matching kolis_org_create_shipment
   createShipment: (o: string, args: Record<string, any>) =>
     r<{ id: string; code: string; dedup?: boolean; payg?: boolean; has_card?: boolean }>("kolis_org_create_shipment", { p_org: o, ...args }),
+  // ── Client database (address book) ──
+  clients: (o: string, search: string | null = null) => r<any[]>("kolis_org_clients_list", { p_org: o, p_search: search }),
+  clientSave: (o: string, c: any) => r<string>("kolis_org_client_save", {
+    p_org: o, p_id: c.id ?? null, p_full_name: c.full_name, p_email: c.email ?? null, p_mobile: c.mobile ?? null,
+    p_home: c.home_phone ?? null, p_work: c.work_phone ?? null, p_address: c.address ?? null,
+    p_city: c.city ?? null, p_province: c.province ?? null, p_postal: c.postal ?? null, p_notes: c.notes ?? null,
+  }),
+  clientDelete: (o: string, id: string) => r("kolis_org_client_delete", { p_org: o, p_id: id }),
   // Edit an already-requested shipment (editable until a courier is assigned).
   // Recomputes org-aware price + auto charges/refunds the difference for PAYG.
   async updateShipment(o: string, parcelId: string, fields: Record<string, any>) {

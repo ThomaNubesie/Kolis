@@ -15,6 +15,7 @@ export default function CreateShipment() {
     p_recipient_lang: "en",
   });
   const [busy, setBusy] = useState(false);
+  const [saveClient, setSaveClient] = useState(false);
   const [done, setDone] = useState<{ code: string; payg?: boolean; charged?: number; needCard?: boolean } | null>(null);
   const [err, setErr] = useState("");
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
@@ -27,6 +28,10 @@ export default function CreateShipment() {
     setBusy(true); setErr("");
     try {
       const res = await org.createShipment(active.org_id, f);
+      // Optionally save this recipient to the org's client database.
+      if (saveClient && f.p_recipient_name.trim()) {
+        org.clientSave(active.org_id, { full_name: f.p_recipient_name, email: f.p_recipient_email, mobile: f.p_recipient_phone, address: f.p_dropoff_addr, city: f.p_to_city }).catch(() => {});
+      }
       // Pay-as-you-go: charge the org's saved card now. If none on file, the shipment
       // is created but unpaid — prompt to add a card.
       if (res.payg) {
@@ -113,6 +118,10 @@ export default function CreateShipment() {
           ))}
         </div>
         <p className="sub" style={{ fontSize: 11.5, marginTop: 4 }}>{t("We email & text the recipient (in this language) when the shipment is created and as it progresses. They can switch language on the tracking page.", "Nous informons le destinataire par courriel et texto (dans cette langue) à la création et à chaque étape. Il peut changer de langue sur la page de suivi.")}</p>
+        <label className="row" style={{ gap: 8, alignItems: "center", marginTop: 8, cursor: "pointer" }}>
+          <input type="checkbox" checked={saveClient} onChange={(e) => setSaveClient(e.target.checked)} />
+          <span className="mono">{t("Save this recipient to my clients", "Enregistrer ce destinataire dans mes clients")}</span>
+        </label>
         <p className="mono" style={{ marginTop: 12 }}>{t("Delivery address", "Adresse de livraison")}</p>
         <input className="input" value={f.p_dropoff_addr} onChange={(e) => set("p_dropoff_addr", e.target.value)} placeholder={t("Street, unit, postal code", "Rue, unité, code postal")} />
         <p className="mono" style={{ marginTop: 12 }}>{t("Contents", "Contenu")}</p>

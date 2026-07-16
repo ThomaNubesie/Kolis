@@ -163,6 +163,10 @@ export const org = {
     p_city: c.city ?? null, p_province: c.province ?? null, p_postal: c.postal ?? null, p_notes: c.notes ?? null,
   }),
   clientDelete: (o: string, id: string) => r("kolis_org_client_delete", { p_org: o, p_id: id }),
+  // ── Bulk shipping from the client database ──
+  hubs: (o: string) => r<any[]>("kolis_org_hubs", { p_org: o }),
+  bulkQuote: (o: string, pickup: any, rows: any[]) => r<{ rows: any[]; total_cents: number }>("kolis_org_bulk_quote", { p_org: o, p_pickup: pickup, p_rows: rows }),
+  bulkShip: (o: string, pickup: any, rows: any[]) => r<{ results: any[]; payg: boolean }>("kolis_org_bulk_ship", { p_org: o, p_pickup: pickup, p_rows: rows }),
   // Edit an already-requested shipment (editable until a courier is assigned).
   // Recomputes org-aware price + auto charges/refunds the difference for PAYG.
   async updateShipment(o: string, parcelId: string, fields: Record<string, any>) {

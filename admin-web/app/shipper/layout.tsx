@@ -12,6 +12,7 @@ const NAV = [
   { href: "/shipper/import", icon: "⬆️", label: "Bulk import", fr: "Import en lot" },
   { href: "/shipper/shipments", icon: "📦", label: "Shipments", fr: "Envois" },
   { href: "/shipper/clients", icon: "👤", label: "Clients", fr: "Clients" },
+  { href: "/shipper/bulk", icon: "📮", label: "Bulk shipment", fr: "Envoi en lot" },
   { href: "/freight", icon: "🚛", label: "Freight · pallets", fr: "Fret · palettes" },
   { href: "/shipper/analytics", icon: "📈", label: "Analytics", fr: "Statistiques" },
   { href: "/shipper/invoices", icon: "🧾", label: "Invoices", fr: "Factures" },

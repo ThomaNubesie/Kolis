@@ -84,7 +84,10 @@ export default function Shipments() {
               <td>{p.code}</td><td>{p.from_city} → {p.to_city}{p.dropoff_type === "hub" ? " · hub" : ""}</td><td>{p.recipient_name || "—"}</td><td>{p.size}</td>
               <td><span className={"pill " + (STATUS[p.status] || "pgrey")}>{p.status.replace(/_/g, " ")}</span></td>
               <td>{money(p.price_cents)}</td>
-              <td>{editable(p) ? <button className="btn ghost" onClick={() => openEdit(p)}>{t("Edit", "Modifier")}</button> : <span style={{ color: "var(--t3)", fontSize: 12 }}>{t("locked", "verrouillé")}</span>}</td>
+              <td style={{ display: "flex", gap: 6 }}>
+                <a className="btn ghost" href={`/shipper/label/${encodeURIComponent(p.code)}`} target="_blank" rel="noreferrer">🖨 {t("Label", "Étiquette")}</a>
+                {editable(p) ? <button className="btn ghost" onClick={() => openEdit(p)}>{t("Edit", "Modifier")}</button> : null}
+              </td>
             </tr>
           ))}
           {rows.length === 0 && <tr><td colSpan={8} style={{ color: "var(--t3)" }}>{t("No shipments.", "Aucun envoi.")}</td></tr>}

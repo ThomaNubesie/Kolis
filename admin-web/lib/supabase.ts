@@ -167,6 +167,7 @@ export const org = {
   hubs: (o: string) => r<any[]>("kolis_org_hubs", { p_org: o }),
   bulkQuote: (o: string, pickup: any, rows: any[]) => r<{ rows: any[]; total_cents: number }>("kolis_org_bulk_quote", { p_org: o, p_pickup: pickup, p_rows: rows }),
   bulkShip: (o: string, pickup: any, rows: any[]) => r<{ results: any[]; payg: boolean }>("kolis_org_bulk_ship", { p_org: o, p_pickup: pickup, p_rows: rows }),
+  label: (o: string, code: string) => r<any>("kolis_org_label", { p_org: o, p_code: code }),
   // Edit an already-requested shipment (editable until a courier is assigned).
   // Recomputes org-aware price + auto charges/refunds the difference for PAYG.
   async updateShipment(o: string, parcelId: string, fields: Record<string, any>) {

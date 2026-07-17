@@ -11,9 +11,11 @@ import { useOrg } from "@/lib/org-context";
 // only the sender and recipient hold them; they confirm the handoff to the courier.
 const qr = (data: string) => `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=0&data=${encodeURIComponent(data)}`;
 
-// palette
-const MAG = "#E11D6B", MAG_L = "#FF5CA2", GREEN_L = "#35D6A0";
-const CARD = "#1b1a22", LINE = "#34313f", TXT = "#f2f0f6", MUTED = "#9a95a3";
+// palette — light-gray body (ink-friendly), magenta header + dark footer kept
+const MAG = "#E11D6B";
+const CARD = "#EBE9E4", LINE = "#CFCBC2", TXT = "#1b1a22", MUTED = "#6B6675";
+const CAP_MAG = "#B81558", CAP_GREEN = "#0E4A38";
+const FOOT_BG = "#201f27", FOOT_TXT = "#9a95a3", FOOT_LINK = "#FF5CA2";
 
 export default function Label() {
   const { code } = useParams<{ code: string }>();
@@ -66,7 +68,7 @@ export default function Label() {
           <div style={{ fontSize: 23, fontWeight: 800 }}>Kolis</div>
           <div style={{ marginLeft: "auto", fontSize: 28, fontWeight: 900, letterSpacing: 1 }}>{p.code}</div>
         </div>
-        <div style={{ padding: "13px 24px", background: "#241019", borderBottom: `1px solid ${LINE}`, fontWeight: 800, color: "#fff", fontSize: 20 }}>{p.from_city} → {p.to_city}</div>
+        <div style={{ padding: "13px 24px", background: "#FBEEF4", borderBottom: `1px solid ${LINE}`, fontWeight: 800, color: CAP_MAG, fontSize: 20 }}>{p.from_city} → {p.to_city}</div>
         <div style={{ display: "flex", borderBottom: `1px solid ${LINE}` }}>
           <div style={{ flex: 1, padding: "12px 18px", borderRight: `1px solid ${LINE}` }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: MUTED }}>From · Sender</div>
@@ -75,23 +77,23 @@ export default function Label() {
           <div style={{ flex: 1, padding: "12px 18px" }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: MUTED }}>To · Recipient</div>
             <div style={{ fontSize: 14, fontWeight: 800, color: TXT, marginTop: 3 }}>{p.recipient_name || "—"}</div>
-            <div style={{ fontSize: 11.5, color: "#b9b4c2", marginTop: 2 }}>{p.dropoff_addr || p.to_city}{p.recipient_phone ? <><br />📱 {p.recipient_phone}</> : null}</div>
+            <div style={{ fontSize: 11.5, color: MUTED, marginTop: 2 }}>{p.dropoff_addr || p.to_city}{p.recipient_phone ? <><br />📱 {p.recipient_phone}</> : null}</div>
           </div>
         </div>
         <div className="qrrow" style={{ display: "flex" }}>
           <div style={{ flex: 1, padding: "16px 12px", textAlign: "center", borderRight: `1px dashed ${LINE}` }}>
             <QrChip data={pickupData} alt="pickup QR" />
-            <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: 2, textTransform: "uppercase", color: MAG_L, marginTop: 12 }}>Pickup</div>
+            <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: 2, textTransform: "uppercase", color: CAP_MAG, marginTop: 12 }}>Pickup</div>
             <div style={{ fontSize: 12.5, color: MUTED, marginTop: 4, lineHeight: 1.35 }}>Courier scans here within 100 m of pickup</div>
           </div>
           <div style={{ flex: 1, padding: "16px 12px", textAlign: "center" }}>
             <QrChip data={deliverData} alt="delivery QR" />
-            <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: 2, textTransform: "uppercase", color: GREEN_L, marginTop: 12 }}>Delivery</div>
+            <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: 2, textTransform: "uppercase", color: CAP_GREEN, marginTop: 12 }}>Delivery</div>
             <div style={{ fontSize: 12.5, color: MUTED, marginTop: 4, lineHeight: 1.35 }}>Courier scans here within 100 m of drop-off</div>
           </div>
         </div>
-        <div style={{ padding: "9px 18px", textAlign: "center", fontSize: 10.5, color: MUTED, borderTop: `1px solid ${LINE}`, background: "#201f27", lineHeight: 1.4 }}>🔒 The confirmation code is held only by the sender &amp; recipient — never printed here.</div>
-        <div style={{ padding: "9px 18px", textAlign: "center", fontSize: 11, color: MUTED, borderTop: `1px solid ${LINE}` }}>Scan with the <b style={{ color: MAG_L }}>Kolis driver app</b> · powered by Concord Express · kolis.ca</div>
+        <div style={{ padding: "9px 18px", textAlign: "center", fontSize: 10.5, color: FOOT_TXT, borderTop: `1px solid ${LINE}`, background: FOOT_BG, lineHeight: 1.4 }}>🔒 The confirmation code is held only by the sender &amp; recipient — never printed here.</div>
+        <div style={{ padding: "9px 18px", textAlign: "center", fontSize: 11, color: FOOT_TXT, background: FOOT_BG, borderTop: `1px solid #3a3742` }}>Scan with the <b style={{ color: FOOT_LINK }}>Kolis driver app</b> · powered by Concord Express · kolis.ca</div>
       </div>
     </div>
   );

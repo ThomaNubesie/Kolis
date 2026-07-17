@@ -75,7 +75,12 @@ export default function Carrying() {
     setBusyId(p.id);
     const { ok, error } = await CourierAPI.deliver(p.id, code);
     setBusyId(null);
-    if (!ok) { Alert.alert("Kolis", error === "bad_code" ? t("badCode") : (error || t("badCode"))); return; }
+    if (!ok) {
+      const m = error === "bad_code" ? t("badCode")
+        : error === "payment_not_captured" ? (fr ? "Paiement non encaissé pour ce colis — contactez la répartition avant de livrer." : "Payment not captured for this parcel — contact dispatch before delivering.")
+        : (error || t("badCode"));
+      Alert.alert("Kolis", m); return;
+    }
     setCodes((c) => ({ ...c, [p.id]: "" }));
     // Walled receipt: courier branch returns payout only.
     const r = await CourierAPI.receipt(p.id).catch(() => null);

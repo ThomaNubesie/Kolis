@@ -60,7 +60,9 @@ export default function Scan() {
       else { Alert.alert("Kolis", fr ? "Ramassage confirmé." : "Pickup confirmed."); router.back(); }
     } else {
       const d = await CourierAPI.deliver(res.parcelId, res.code);
-      if (!d.ok) Alert.alert("Kolis", d.error || (fr ? "Impossible de confirmer la livraison." : "Couldn't confirm delivery."));
+      if (!d.ok) Alert.alert("Kolis", d.error === "payment_not_captured"
+        ? (fr ? "Paiement non encaissé pour ce colis — contactez la répartition avant de livrer." : "Payment not captured for this parcel — contact dispatch before delivering.")
+        : (d.error || (fr ? "Impossible de confirmer la livraison." : "Couldn't confirm delivery.")));
       else { Alert.alert("Kolis", fr ? "Livré." : "Delivered."); router.back(); }
     }
     setConfirming(false);

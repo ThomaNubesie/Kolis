@@ -35,11 +35,11 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return json({ error: "unauthorized" }, 401);
 
-    const { parcel_id, action, code } = await req.json();
+    const { parcel_id, action, code, force } = await req.json();
     const admin = createClient(SUPABASE_URL, SERVICE);
     const { data: parcel } = await admin
       .from("kolis_parcels")
-      .select("id, sender_id, driver_id, delivery_code, stripe_payment_intent_id")
+      .select("id, sender_id, driver_id, delivery_code, stripe_payment_intent_id, billing_mode, org_id")
       .eq("id", parcel_id)
       .single();
     if (!parcel) return json({ error: "not found" }, 404);
@@ -60,13 +60,21 @@ Deno.serve(async (req) => {
     // and already-captured / expired / released holds so a legitimate delivery still
     // closes instead of erroring. NEVER throws.
     async function settle(): Promise<string> {
-      if (!pid || !stripe) return "no_payment_intent";
+      if (!pid) return "no_payment_intent";
+      if (pid.startsWith("credit_")) return "credit"; // fully covered by org credit
+      if (!stripe) return "no_payment_intent";
       try {
         const pi = await stripe.paymentIntents.retrieve(pid);
         if (pi.status === "requires_capture") { await stripe.paymentIntents.capture(pid); return "captured"; }
-        return pi.status; // succeeded / canceled / expired — don't fail the delivery
+        return pi.status; // succeeded / canceled / expired
       } catch (e) { console.error("[finalize] settle:", pid, String((e as Error)?.message ?? e)); return "capture_error"; }
     }
+    // A delivery may only close if the money is actually in hand: the escrow was
+    // captured, the charge already succeeded (PAYG), org credit covered it, or the
+    // org is billed by invoice. Anything else (expired/canceled hold, no PI,
+    // capture error) is NOT collected — block the delivery.
+    const isPaid = (settled: string) =>
+      settled === "captured" || settled === "succeeded" || settled === "credit" || parcel.billing_mode === "invoice";
 
     // Return handled outcomes as HTTP 200 with {ok:false,error} so the app shows a
     // friendly message — a non-2xx surfaces to the driver as "Edge Function error".
@@ -74,11 +82,16 @@ Deno.serve(async (req) => {
       if (!isDriver && !isAdmin) return json({ ok: false, error: "not_assigned" });
       if (String(code).trim() !== String(parcel.delivery_code ?? "").trim()) return json({ ok: false, error: "bad_code" });
       const settled = await settle();
+      // GUARD: never mark delivered unless the payment is actually captured/covered.
+      if (!isPaid(settled)) return json({ ok: false, error: "payment_not_captured", settled });
       await admin.from("kolis_parcels").update({ status: "delivered", delivered_at: new Date().toISOString() }).eq("id", parcel.id);
       return json({ ok: true, settled });
     } else if (action === "capture") {
       if (!isAdmin) return json({ ok: false, error: "forbidden" });
       const settled = await settle();
+      // Same guard for the admin path; an admin can override with force:true when
+      // the payment is genuinely settled through another channel.
+      if (!isPaid(settled) && !force) return json({ ok: false, error: "payment_not_captured", settled });
       await admin.from("kolis_parcels").update({ status: "delivered", delivered_at: new Date().toISOString() }).eq("id", parcel.id);
       return json({ ok: true, settled });
     } else if (action === "cancel") {

@@ -19,25 +19,30 @@ const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-admin-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
+// Ops/admin path: charge a parcel to its org's PAYG card without a user session
+// (used for back-billing). Same credit+card logic as the portal call.
+const ADMIN_SECRET = "kolis_admincharge_2f7a";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
-    const authHeader = req.headers.get("Authorization") ?? "";
-    const userClient = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: authHeader } } });
-    const { data: { user } } = await userClient.auth.getUser();
-    if (!user) return json({ error: "unauthorized" }, 401);
-
     const { org_id, parcel_id } = await req.json();
     if (!org_id || !parcel_id) return json({ error: "org_id and parcel_id required" }, 400);
 
-    // Only owner/admin/shipper of the org may charge.
-    const { data: role } = await userClient.rpc("kolis_org_role", { p_org: org_id });
-    if (!["owner", "admin", "shipper"].includes(String(role))) return json({ error: "forbidden" }, 403);
+    const adminCall = (req.headers.get("x-admin-secret") || "") === ADMIN_SECRET;
+    if (!adminCall) {
+      const authHeader = req.headers.get("Authorization") ?? "";
+      const userClient = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: authHeader } } });
+      const { data: { user } } = await userClient.auth.getUser();
+      if (!user) return json({ error: "unauthorized" }, 401);
+      // Only owner/admin/shipper of the org may charge.
+      const { data: role } = await userClient.rpc("kolis_org_role", { p_org: org_id });
+      if (!["owner", "admin", "shipper"].includes(String(role))) return json({ error: "forbidden" }, 403);
+    }
 
     const sr = resolveStripe();
     if ("skip" in sr) return json({ error: "billing_disabled", detail: sr.skip }, 400);

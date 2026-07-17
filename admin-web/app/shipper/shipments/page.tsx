@@ -25,6 +25,17 @@ export default function Shipments() {
   const [f, setF] = useState<any>({});
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  // multi-select for batch label printing
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const toggleSel = (code: string) => setSelected((s) => { const n = new Set(s); n.has(code) ? n.delete(code) : n.add(code); return n; });
+  const allOn = rows.length > 0 && rows.every((p) => selected.has(p.code));
+  const toggleAll = () => setSelected(() => (allOn ? new Set<string>() : new Set(rows.map((p) => p.code))));
+  const printSelected = () => {
+    const codes = Array.from(selected);
+    if (!codes.length) return;
+    try { localStorage.setItem("kolis_batch_labels", JSON.stringify({ org: active.org_id, codes })); } catch { /* */ }
+    window.open(`/shipper/labels?codes=${encodeURIComponent(codes.join(","))}`, "_blank");
+  };
 
   const load = () => org.shipments(active.org_id, filter, search || null).then(setRows).catch(() => {});
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [active.org_id, filter]);
@@ -74,12 +85,14 @@ export default function Shipments() {
         <input className="search" placeholder={t("Search code, city, recipient…", "Rechercher code, ville, destinataire…")} value={search}
           onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} />
         <button className="btn ghost" onClick={load}>{t("Search", "Rechercher")}</button>
+        <button className="btn" style={{ marginLeft: "auto" }} disabled={selected.size === 0} onClick={printSelected}>🖨 {t(`Print labels (${selected.size})`, `Imprimer étiquettes (${selected.size})`)}</button>
       </div>
       <table>
-        <thead><tr><th>{t("When", "Quand")}</th><th>{t("Code", "Code")}</th><th>{t("Route", "Trajet")}</th><th>{t("Recipient", "Destinataire")}</th><th>{t("Size", "Taille")}</th><th>{t("Status", "Statut")}</th><th>{t("Cost", "Coût")}</th><th></th></tr></thead>
+        <thead><tr><th style={{ width: 26 }}><input type="checkbox" checked={allOn} onChange={toggleAll} title={t("Select all", "Tout sélectionner")} /></th><th>{t("When", "Quand")}</th><th>{t("Code", "Code")}</th><th>{t("Route", "Trajet")}</th><th>{t("Recipient", "Destinataire")}</th><th>{t("Size", "Taille")}</th><th>{t("Status", "Statut")}</th><th>{t("Cost", "Coût")}</th><th></th></tr></thead>
         <tbody>
           {rows.map((p) => (
-            <tr key={p.id}>
+            <tr key={p.id} style={{ background: selected.has(p.code) ? "rgba(225,29,107,0.05)" : undefined }}>
+              <td><input type="checkbox" checked={selected.has(p.code)} onChange={() => toggleSel(p.code)} /></td>
               <td style={{ whiteSpace: "nowrap", color: "var(--t2)" }}>{when(p.created_at)}</td>
               <td>{p.code}</td><td>{p.from_city} → {p.to_city}{p.dropoff_type === "hub" ? " · hub" : ""}</td><td>{p.recipient_name || "—"}</td><td>{p.size}</td>
               <td><span className={"pill " + (STATUS[p.status] || "pgrey")}>{p.status.replace(/_/g, " ")}</span></td>
@@ -90,7 +103,7 @@ export default function Shipments() {
               </td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan={8} style={{ color: "var(--t3)" }}>{t("No shipments.", "Aucun envoi.")}</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={9} style={{ color: "var(--t3)" }}>{t("No shipments.", "Aucun envoi.")}</td></tr>}
         </tbody>
       </table>
 

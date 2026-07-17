@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Building2, Clock } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { HubsAPI, Hub } from "../../services/hubs";
@@ -47,11 +48,13 @@ export default function HubScreen() {
               <Text style={{ fontWeight: "700", fontSize: 15, color: Colors.ink, marginTop: 3 }}>{hub.address || hub.city}</Text>
               <Text style={{ fontSize: 12, color: Colors.t2, marginTop: 2 }}>{hub.hours || t("hubOpen")}</Text>
             </View>
-            <View style={{ backgroundColor: Colors.cardAlt, borderRadius: 12, padding: 13, marginBottom: 12 }}>
-              <Text style={{ fontSize: 13, color: Colors.t2, lineHeight: 19 }}>🏢 {t("hubPromise", { city: p.to || "" })}</Text>
+            <View style={{ backgroundColor: Colors.cardAlt, borderRadius: 12, padding: 13, marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Building2 size={13} color={Colors.t2} strokeWidth={2.2} />
+              <Text style={{ fontSize: 13, color: Colors.t2, lineHeight: 19, flex: 1 }}>{t("hubPromise", { city: p.to || "" })}</Text>
             </View>
-            <View style={{ backgroundColor: "rgba(46,204,143,0.12)", borderRadius: 12, padding: 11, marginBottom: 18 }}>
-              <Text style={{ color: "#178a5e", fontWeight: "700", fontSize: 12.5 }}>⏱ {t("dispatchedSameDay")}</Text>
+            <View style={{ backgroundColor: "rgba(46,204,143,0.12)", borderRadius: 12, padding: 11, marginBottom: 18, flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <Clock size={12.5} color="#178a5e" strokeWidth={2.2} />
+              <Text style={{ color: "#178a5e", fontWeight: "700", fontSize: 12.5 }}>{t("dispatchedSameDay")}</Text>
             </View>
             <Pressable onPress={go} style={{ backgroundColor: Colors.accent, borderRadius: 13, padding: 16, alignItems: "center" }}>
               <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{t("confirmHubBtn", { city })}</Text>

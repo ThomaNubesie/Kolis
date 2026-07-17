@@ -8,8 +8,13 @@ import * as Location from "expo-location";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { CourierAPI, CourierParcel } from "../../services/courier";
+import { Package, Mail, Luggage, Inbox, Building2, DoorOpen, Megaphone, MapPin } from "lucide-react-native";
 
-const SIZE_EMOJI: Record<string, string> = { envelope: "✉️", small: "📦", large: "🧳" };
+const SizeIcon = ({ size, px = 24, color = Colors.ink }: { size: string; px?: number; color?: string }) => {
+  if (size === "envelope") return <Mail size={px} color={color} strokeWidth={2} />;
+  if (size === "large") return <Luggage size={px} color={color} strokeWidth={2} />;
+  return <Package size={px} color={color} strokeWidth={2} />;
+};
 const ETA_CHIPS = [10, 15, 20, 30, 45, 60];
 
 export default function Proposals() {
@@ -78,7 +83,7 @@ export default function Proposals() {
 
         {!loading && list.length === 0 && (
           <View style={{ alignItems: "center", marginTop: 60 }}>
-            <Text style={{ fontSize: 40 }}>📭</Text>
+            <Inbox size={40} color={Colors.ink} strokeWidth={1.8} />
             <Text style={{ fontSize: 15, fontWeight: "800", color: Colors.ink, marginTop: 12 }}>{t("noProposals")}</Text>
             <Text style={{ fontSize: 12.5, color: Colors.t3, textAlign: "center", marginTop: 4, maxWidth: 240 }}>{t("noProposalsSub")}</Text>
           </View>
@@ -91,10 +96,13 @@ export default function Proposals() {
             <View key={p.id} style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 16, padding: 15, marginBottom: 12, backgroundColor: "#fff", shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } }}>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
                 <View style={{ flexDirection: "row", alignItems: "center", gap: 10, flex: 1 }}>
-                  <Text style={{ fontSize: 24 }}>{SIZE_EMOJI[p.size] ?? "📦"}</Text>
+                  <SizeIcon size={p.size} px={24} color={Colors.ink} />
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontSize: 15, fontWeight: "800", color: Colors.ink }}>#{p.code} · {t("forCity", { city: p.to_city })}</Text>
-                    <Text style={{ fontSize: 11.5, color: Colors.t2, marginTop: 2 }}>{isHub ? "🏢" : "🚪"} {isHub ? t("proposalHub") : t("proposalDoor")}</Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+                      {isHub ? <Building2 size={11.5} color={Colors.t2} strokeWidth={2.2} /> : <DoorOpen size={11.5} color={Colors.t2} strokeWidth={2.2} />}
+                      <Text style={{ fontSize: 11.5, color: Colors.t2 }}>{isHub ? t("proposalHub") : t("proposalDoor")}</Text>
+                    </View>
                   </View>
                 </View>
                 <View style={{ backgroundColor: "rgba(46,204,143,0.14)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
@@ -108,8 +116,9 @@ export default function Proposals() {
               </View>
 
               {p.is_request && (
-                <View style={{ backgroundColor: "rgba(255,107,0,0.10)", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 10 }}>
-                  <Text style={{ fontSize: 11.5, color: "#B85700", fontWeight: "700" }}>📣 {t("requestedForYou")}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(255,107,0,0.10)", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 10 }}>
+                  <Megaphone size={11.5} color="#B85700" strokeWidth={2.2} />
+                  <Text style={{ fontSize: 11.5, color: "#B85700", fontWeight: "700" }}>{t("requestedForYou")}</Text>
                 </View>
               )}
               <View style={{ flexDirection: "row", gap: 10 }}>
@@ -140,7 +149,10 @@ export default function Proposals() {
                 <Text style={{ color: Colors.t2, fontSize: 12.5 }}>{t("etaLocating")}</Text>
               </View>
             ) : etaAuto ? (
-              <Text style={{ fontSize: 12.5, color: "#178a5e", fontWeight: "700", marginBottom: 12 }}>📍 {t("etaAuto", { min: etaAuto })}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                <MapPin size={12.5} color="#178a5e" strokeWidth={2.2} />
+                <Text style={{ fontSize: 12.5, color: "#178a5e", fontWeight: "700" }}>{t("etaAuto", { min: etaAuto })}</Text>
+              </View>
             ) : (
               <Text style={{ fontSize: 12.5, color: Colors.t3, marginBottom: 12 }}>{t("etaManual")}</Text>
             )}

@@ -3,6 +3,7 @@ import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, Region } from "react-native-maps";
+import { AlertTriangle } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { ParcelsAPI, Parcel, ParcelStatus, ParcelTracking } from "../../services/parcels";
@@ -123,7 +124,10 @@ export default function Track() {
                 <Text style={styles.distText}>~{Math.round(track.distance_km)} km left</Text>
               )}
               {track.stale ? (
-                <Text style={styles.staleText}>⚠ Location updated over 10 min ago</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <AlertTriangle size={11.5} color={Colors.gold} strokeWidth={2.2} />
+                  <Text style={styles.staleText}>Location updated over 10 min ago</Text>
+                </View>
               ) : (
                 <Text style={styles.freshText}>Updated just now</Text>
               )}

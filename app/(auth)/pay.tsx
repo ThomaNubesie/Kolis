@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useStripe } from "@stripe/stripe-react-native";
+import { Award } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { VerificationAPI, FeeQuote } from "../../services/verification";
@@ -107,7 +108,7 @@ export default function Pay() {
           <>
             <Text style={{ fontSize: 23, fontWeight: "900", color: Colors.ink, marginBottom: 14 }}>{t("payAlmostThere")}</Text>
             <View style={{ backgroundColor: "#fdf6e6", borderWidth: 1, borderColor: "#e8b54a88", borderRadius: 14, padding: 14, alignItems: "center", marginBottom: 12 }}>
-              <Text style={{ fontSize: 28 }}>🏅</Text>
+              <Award size={28} color="#b5862a" strokeWidth={1.8} />
               <Text style={{ fontWeight: "900", fontSize: 15, color: "#b5862a", marginTop: 4 }}>{q.founding_number ? t("payFoundingNumber", { n: q.founding_number }) : t("payFoundingMember")}</Text>
               <Text style={{ fontSize: 11.5, color: "#a98c52", marginTop: 3, textAlign: "center" }}>{t("payFoundingNote")}</Text>
             </View>

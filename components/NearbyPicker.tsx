@@ -7,6 +7,7 @@ import { HubsAPI } from "../services/hubs";
 import { regionCode } from "../constants/geo";
 import { getMyLocation } from "../services/location";
 import { haversineKm, kmLabel } from "../constants/distance";
+import { Building2, Flag, X } from "lucide-react-native";
 
 export type NearbyChoice = { id: string; name: string; address: string | null; kind: "hub" | "zone" };
 
@@ -102,7 +103,7 @@ export function NearbyPicker({
       <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.45)", justifyContent: "flex-end" }}>
         <Pressable onPress={() => {}} style={{ backgroundColor: "#fff", borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: 16, paddingBottom: 24, maxHeight: "82%" }}>
           <Pressable onPress={onClose} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}>
-            <Text style={{ fontSize: 22, color: Colors.t3, fontWeight: "600" }}>✕</Text>
+            <X size={22} color={Colors.t3} strokeWidth={2} />
           </Pressable>
           <View style={{ width: 38, height: 4, borderRadius: 2, backgroundColor: "#d8d3c7", alignSelf: "center", marginBottom: 12 }} />
           <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink }}>
@@ -126,7 +127,7 @@ export function NearbyPicker({
                   <Pressable key={it.id} onPress={() => setSel(it.id)}
                     style={{ flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1.5, borderRadius: 13, padding: 11, marginBottom: 9, backgroundColor: on ? "rgba(225,29,107,0.04)" : "#fff", borderColor: on ? Colors.accent : Colors.line }}>
                     <View style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: Colors.bg, alignItems: "center", justifyContent: "center" }}>
-                      <Text style={{ fontSize: 16 }}>{mode === "hub" ? "🏢" : "🏁"}</Text>
+                      {mode === "hub" ? <Building2 size={16} color={Colors.ink} strokeWidth={1.8} /> : <Flag size={16} color={Colors.ink} strokeWidth={1.8} />}
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 13.5, fontWeight: "700", color: Colors.ink }} numberOfLines={1}>{it.name}</Text>

@@ -7,6 +7,7 @@ import { useStrings } from "../../hooks/useStrings";
 import { LoadqAPI, AvailableDriver } from "../../services/loadq";
 import { regionCode } from "../../constants/geo";
 import { routeKm } from "../../constants/pricing";
+import { Check, Clock, MapPin, Star } from "lucide-react-native";
 
 export default function Drivers() {
   const { t } = useStrings();
@@ -56,7 +57,7 @@ export default function Drivers() {
           <ActivityIndicator color={Colors.accent} style={{ marginTop: 30 }} />
         ) : list.length === 0 ? (
           <View style={{ alignItems: "center", marginTop: 24 }}>
-            <Text style={{ fontSize: 40 }}>🕓</Text>
+            <Clock size={40} color={Colors.ink} strokeWidth={1.8} />
             <Text style={{ color: Colors.ink, fontWeight: "800", fontSize: 15, marginTop: 10, textAlign: "center" }}>{t("noDriversYetTitle", { city: p.to ?? "" })}</Text>
             <Text style={{ color: Colors.t2, fontSize: 12.5, textAlign: "center", marginTop: 6, lineHeight: 18, paddingHorizontal: 10 }}>{t("noDriversYetSub")}</Text>
             <Pressable onPress={() => toConfirm()} style={{ backgroundColor: Colors.accent, borderRadius: 13, paddingVertical: 14, paddingHorizontal: 22, marginTop: 18 }}>
@@ -79,12 +80,20 @@ export default function Drivers() {
                     </View>
                   )}
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: "800", color: Colors.ink }}>
-                      {d.display_name}
-                      {d.verified ? <Text style={{ fontSize: 11, color: Colors.green }}>  ✓ {t("verified")}</Text> : null}
-                    </Text>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                      <Text style={{ fontSize: 14, fontWeight: "800", color: Colors.ink }}>{d.display_name}</Text>
+                      {d.verified ? (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 2 }}>
+                          <Check size={11} color={Colors.green} strokeWidth={2.6} />
+                          <Text style={{ fontSize: 11, color: Colors.green }}>{t("verified")}</Text>
+                        </View>
+                      ) : null}
+                    </View>
                     {d.trust_score != null && (
-                      <Text style={{ fontSize: 11, color: Colors.t2 }}>★ {(d.trust_score / 20).toFixed(1)}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 3 }}>
+                        <Star size={11} color={Colors.t2} strokeWidth={2.2} />
+                        <Text style={{ fontSize: 11, color: Colors.t2 }}>{(d.trust_score / 20).toFixed(1)}</Text>
+                      </View>
                     )}
                   </View>
                   <View style={{ alignItems: "flex-end" }}>
@@ -95,7 +104,7 @@ export default function Drivers() {
                 <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
                   <Text style={{ fontSize: 10, color: Colors.t2, backgroundColor: Colors.bg, borderRadius: 7, paddingVertical: 4, paddingHorizontal: 7 }}>{t("queuedAgo", { m: d.queued_minutes })}</Text>
                   {d.seats_available > 0 && <Text style={{ fontSize: 10, color: Colors.t2, backgroundColor: Colors.bg, borderRadius: 7, paddingVertical: 4, paddingHorizontal: 7 }}>{t("seatsFree", { n: d.seats_available })}</Text>}
-                  {p.zoneName ? <Text style={{ fontSize: 10, color: Colors.t2, backgroundColor: Colors.bg, borderRadius: 7, paddingVertical: 4, paddingHorizontal: 7 }} numberOfLines={1}>📍 {p.zoneName}</Text> : null}
+                  {p.zoneName ? <View style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: Colors.bg, borderRadius: 7, paddingVertical: 4, paddingHorizontal: 7 }}><MapPin size={10} color={Colors.t2} strokeWidth={2.2} /><Text style={{ fontSize: 10, color: Colors.t2 }} numberOfLines={1}>{p.zoneName}</Text></View> : null}
                 </View>
               </Pressable>
             );

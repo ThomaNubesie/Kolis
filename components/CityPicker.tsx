@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View, Text, Pressable, Modal, ScrollView } from "react-native";
+import { X, Check } from "lucide-react-native";
 import { Colors } from "../constants/colors";
 import { CITIES } from "../constants/cities";
 
@@ -32,7 +33,7 @@ export function CityPicker({
         <Pressable onPress={() => setOpen(false)} style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.45)", justifyContent: "center", padding: 28 }}>
           <Pressable onPress={() => {}} style={{ backgroundColor: "#fff", borderRadius: 18, maxHeight: "70%", overflow: "hidden" }}>
             <Pressable onPress={() => setOpen(false)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}>
-              <Text style={{ fontSize: 22, color: Colors.t3, fontWeight: "600" }}>✕</Text>
+              <X size={22} color={Colors.t3} strokeWidth={2} />
             </Pressable>
             <Text style={{ fontSize: 13, fontWeight: "800", color: Colors.ink, padding: 15, paddingBottom: 8 }}>{label}</Text>
             <ScrollView>
@@ -42,7 +43,7 @@ export function CityPicker({
                   <Pressable key={c.code} onPress={() => { onChange(c.label); setOpen(false); }}
                     style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 13, paddingHorizontal: 15, borderTopWidth: 1, borderTopColor: Colors.line, backgroundColor: on ? "rgba(225,29,107,0.05)" : "#fff" }}>
                     <Text style={{ fontSize: 15, fontWeight: on ? "800" : "600", color: on ? Colors.accent : Colors.ink }}>{c.label}</Text>
-                    {on && <Text style={{ color: Colors.accent, fontWeight: "800" }}>✓</Text>}
+                    {on && <Check size={16} color={Colors.accent} strokeWidth={2.5} />}
                   </Pressable>
                 );
               })}

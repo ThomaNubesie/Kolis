@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { View, Text, Pressable, ScrollView, Switch } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Flag } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { LoadqAPI, LoadqZone } from "../../services/loadq";
@@ -37,7 +38,7 @@ export default function AdminZones() {
           const on = isOn(z.id);
           return (
             <View key={z.id} style={{ flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1.5, borderColor: Colors.line, borderRadius: 12, padding: 11, backgroundColor: "#fff", marginBottom: 8, opacity: on ? 1 : 0.6 }}>
-              <Text style={{ fontSize: 16 }}>🏁</Text>
+              <Flag size={16} color={Colors.ink} strokeWidth={1.8} />
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: "700", fontSize: 14, color: Colors.ink }}>{z.name}</Text>
                 <Text style={{ fontSize: 11, color: Colors.t3 }}>{z.region || ""}</Text>

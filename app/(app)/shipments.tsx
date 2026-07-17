@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { Text, Pressable, ScrollView, View, RefreshControl } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ReceiptText } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { ParcelsAPI, Parcel } from "../../services/parcels";
@@ -50,8 +51,9 @@ export default function Shipments() {
         <Text style={{ fontSize: 11.5, fontWeight: "800", color: p.status === "delivered" ? Colors.green : Colors.accent }}>{statusLabel[p.status] ?? p.status}</Text>
       </View>
       {p.status === "delivered" && (
-        <Pressable onPress={() => openReceipt(p.id)} style={{ marginTop: 10, alignSelf: "flex-start", borderWidth: 1.5, borderColor: Colors.line, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
-          <Text style={{ fontSize: 11.5, fontWeight: "700", color: Colors.t2 }}>🧾 {t("viewReceipt")}</Text>
+        <Pressable onPress={() => openReceipt(p.id)} style={{ marginTop: 10, alignSelf: "flex-start", borderWidth: 1.5, borderColor: Colors.line, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <ReceiptText size={12} color={Colors.t2} strokeWidth={2.2} />
+          <Text style={{ fontSize: 11.5, fontWeight: "700", color: Colors.t2 }}>{t("viewReceipt")}</Text>
         </Pressable>
       )}
     </Pressable>

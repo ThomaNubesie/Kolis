@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { View, Text, Pressable, ScrollView, TextInput, Alert, RefreshControl, Linking, Modal, KeyboardAvoidingView, Platform } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Lock, Pencil, X } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { OrgsAPI, MyOrg } from "../../services/orgs";
 import { ParcelsAPI, Parcel } from "../../services/parcels";
@@ -192,7 +193,10 @@ export default function Business() {
                   style={{ backgroundColor: Colors.accent, borderRadius: 11, padding: 13, alignItems: "center", opacity: busy ? 0.6 : 1 }}>
                   <Text style={{ color: "#fff", fontWeight: "800" }}>{busy ? "Creating…" : "Create shipment"}</Text>
                 </Pressable>
-                <Text style={{ fontSize: 11, color: Colors.t3, marginTop: 8 }}>🔒 Billed to {activeOrg.name}.</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 }}>
+                  <Lock size={11} color={Colors.t3} strokeWidth={2} />
+                  <Text style={{ fontSize: 11, color: Colors.t3 }}>Billed to {activeOrg.name}.</Text>
+                </View>
               </View>
             )}
           </>
@@ -211,8 +215,9 @@ export default function Business() {
             <Text style={{ fontSize: 11.5, color: Colors.t2, marginTop: 2 }}>{p.size} · {p.dropoff_type === "hub" ? "hub · " : ""}#{p.code}</Text>
             {editable(p) && (
               <Pressable onPress={() => openEdit(p)}
-                style={{ marginTop: 8, alignSelf: "flex-start", borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 6 }}>
-                <Text style={{ color: Colors.accent, fontWeight: "800", fontSize: 12 }}>✏️ Edit</Text>
+                style={{ marginTop: 8, alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 6 }}>
+                <Pencil size={12} color={Colors.accent} strokeWidth={2.2} />
+                <Text style={{ color: Colors.accent, fontWeight: "800", fontSize: 12 }}>Edit</Text>
               </Pressable>
             )}
           </View>
@@ -225,7 +230,7 @@ export default function Business() {
           <ScrollView style={{ maxHeight: "88%", backgroundColor: Colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20 }} contentContainerStyle={{ padding: 20, paddingBottom: 36 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
               <Text style={{ fontSize: 20, fontWeight: "800", color: Colors.ink }}>Edit shipment{editP ? ` · ${editP.code}` : ""}</Text>
-              <Pressable onPress={() => !editBusy && setEditP(null)}><Text style={{ fontSize: 22, color: Colors.t2 }}>✕</Text></Pressable>
+              <Pressable onPress={() => !editBusy && setEditP(null)}><X size={22} color={Colors.t2} strokeWidth={2} /></Pressable>
             </View>
             <Text style={{ fontSize: 12.5, color: Colors.t2, marginBottom: 14 }}>
               Editable until a courier is assigned. Price updates automatically — any difference is charged or refunded to the card on file.

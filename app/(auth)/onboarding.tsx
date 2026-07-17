@@ -15,6 +15,7 @@ import { ProfileAPI, KolisRole } from "../../services/profile";
 import { supabase } from "../../services/supabase";
 import { COUNTRIES, PHONE_RULES, countryByCode } from "../../constants/countries";
 import type { Lang } from "../../constants/i18n";
+import { Check, AlertTriangle, Package, Car, Repeat } from "lucide-react-native";
 
 type Step = "welcome" | "language" | "country" | "name" | "contact" | "otp" | "summary" | "role";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -187,7 +188,7 @@ export default function Onboarding() {
                   style={{ flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1.5, borderRadius: 13, padding: 14, marginBottom: 9, backgroundColor: lang === l ? "#fdeef4" : "#fff", borderColor: lang === l ? Colors.accent : Colors.line }}>
                   <Text style={{ fontSize: 18 }}>{l === "en" ? "🇨🇦" : "🇫🇷"}</Text>
                   <Text style={{ flex: 1, fontWeight: "800", color: Colors.ink }}>{l === "en" ? "English" : "Français"}</Text>
-                  {lang === l && <Text style={{ color: Colors.accent, fontWeight: "800" }}>✓</Text>}
+                  {lang === l && <Check size={16} color={Colors.accent} strokeWidth={3} />}
                 </Pressable>
               ))}
               <View style={{ flex: 1 }} />
@@ -207,7 +208,7 @@ export default function Onboarding() {
                     <Text style={{ fontWeight: "800", color: Colors.ink, fontSize: 14 }}>{c.name}</Text>
                     <Text style={{ fontSize: 11, color: Colors.t3 }}>{c.currency} · {c.dial}{country === c.code ? ` · ${t("obDetected")}` : ""}</Text>
                   </View>
-                  {country === c.code && <Text style={{ color: Colors.accent, fontWeight: "800" }}>✓</Text>}
+                  {country === c.code && <Check size={16} color={Colors.accent} strokeWidth={3} />}
                 </Pressable>
               ))}
               <View style={{ height: 8 }} />
@@ -237,7 +238,7 @@ export default function Onboarding() {
           {step === "contact" && (
             <>
               <Header title={t("obContactInfo")} sub={emailOk ? t("obVerifyPhoneNow") : t("obVerifyEmailFirst")} />
-              {err ? <Text style={{ color: Colors.red, fontSize: 12.5, marginBottom: 10 }}>⚠️ {err}</Text> : null}
+              {err ? <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}><AlertTriangle size={13} color={Colors.red} strokeWidth={2.2} /><Text style={{ color: Colors.red, fontSize: 12.5 }}>{err}</Text></View> : null}
 
               <Label>{t("obEmailAddress")}</Label>
               <View style={{ flexDirection: "row", gap: 8, marginBottom: 6 }}>
@@ -245,7 +246,7 @@ export default function Onboarding() {
                   placeholder="you@email.com" placeholderTextColor={Colors.t3} keyboardType="email-address" autoCapitalize="none"
                   style={[inputStyle, { flex: 1, marginBottom: 0, opacity: emailOk ? 0.6 : 1 }]} />
                 {emailOk
-                  ? <View style={verifiedBadge}><Text style={{ color: Colors.green, fontWeight: "800", fontSize: 12 }}>✓</Text></View>
+                  ? <View style={verifiedBadge}><Check size={13} color={Colors.green} strokeWidth={3} /></View>
                   : <Pressable onPress={sendEmail} disabled={busy} style={verifyBtn}><Text style={verifyBtnTxt}>{t("verify")}</Text></Pressable>}
               </View>
               {emailOk && <View style={{ backgroundColor: "#eafaf3", borderRadius: 10, padding: 9, marginBottom: 10 }}><Text style={{ color: "#178a5e", fontSize: 11.5, fontWeight: "700" }}>{t("obEmailVerified", { email: email.trim() })}</Text></View>}
@@ -261,7 +262,7 @@ export default function Onboarding() {
                       placeholder={rule.placeholder} placeholderTextColor={Colors.t3} keyboardType="phone-pad"
                       style={[inputStyle, { flex: 1, marginBottom: 0, opacity: phoneOk ? 0.6 : 1 }]} />
                     {phoneOk
-                      ? <View style={verifiedBadge}><Text style={{ color: Colors.green, fontWeight: "800", fontSize: 12 }}>✓</Text></View>
+                      ? <View style={verifiedBadge}><Check size={13} color={Colors.green} strokeWidth={3} /></View>
                       : <Pressable onPress={sendPhone} disabled={busy} style={verifyBtn}><Text style={verifyBtnTxt}>{t("verify")}</Text></Pressable>}
                   </View>
                   {phoneOk && <View style={{ backgroundColor: "#eafaf3", borderRadius: 10, padding: 9 }}><Text style={{ color: "#178a5e", fontSize: 11.5, fontWeight: "700" }}>{t("obPhoneVerified")}</Text></View>}
@@ -297,7 +298,7 @@ export default function Onboarding() {
           {step === "summary" && (
             <>
               <Header title={t("obLooksGood")} sub={t("obHeresProfile")} />
-              {[[t("obSumName"), `${firstName.trim()} ${lastName.trim()}`], [t("obSumEmail"), `${email.trim()} ✓`], [t("obSumPhone"), `${cty.dial} ${phone} ✓`], [t("obSumCountry"), `${cty.flag} ${cty.name}`]].map(([k, v]) => (
+              {[[t("obSumName"), `${firstName.trim()} ${lastName.trim()}`], [t("obSumEmail"), `${email.trim()}`], [t("obSumPhone"), `${cty.dial} ${phone}`], [t("obSumCountry"), `${cty.flag} ${cty.name}`]].map(([k, v]) => (
                 <View key={k} style={{ flexDirection: "row", justifyContent: "space-between", backgroundColor: "#fff", borderWidth: 1, borderColor: Colors.line, borderRadius: 12, padding: 13, marginBottom: 9 }}>
                   <Text style={{ color: Colors.t3, fontSize: 12.5 }}>{k}</Text>
                   <Text style={{ color: Colors.ink, fontWeight: "700", fontSize: 12.5 }}>{v}</Text>
@@ -313,18 +314,18 @@ export default function Onboarding() {
             <>
               <Header title={t("obHowUseKolis")} sub={t("obRoleSub")} />
               {([
-                ["sender", "📦", t("obRoleSender"), t("obRoleSenderDesc")],
-                ["courier", "🚗", t("obRoleCourier"), t("obRoleCourierDesc")],
-                ["both", "🔁", t("obRoleBoth"), t("obRoleBothDesc")],
-              ] as [KolisRole, string, string, string][]).map(([r, icon, title, desc]) => (
+                ["sender", Package, t("obRoleSender"), t("obRoleSenderDesc")],
+                ["courier", Car, t("obRoleCourier"), t("obRoleCourierDesc")],
+                ["both", Repeat, t("obRoleBoth"), t("obRoleBothDesc")],
+              ] as [KolisRole, any, string, string][]).map(([r, Icon, title, desc]) => (
                 <Pressable key={r} onPress={() => setRole(r)}
                   style={{ flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1.5, borderRadius: 13, padding: 13, marginBottom: 9, backgroundColor: role === r ? "#fdeef4" : "#fff", borderColor: role === r ? Colors.accent : Colors.line }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 11, backgroundColor: Colors.cardAlt, alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 18 }}>{icon}</Text></View>
+                  <View style={{ width: 40, height: 40, borderRadius: 11, backgroundColor: Colors.cardAlt, alignItems: "center", justifyContent: "center" }}><Icon size={18} color={Colors.ink} strokeWidth={2} /></View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: "800", color: Colors.ink, fontSize: 14 }}>{title}</Text>
                     <Text style={{ fontSize: 11, color: Colors.t3 }}>{desc}</Text>
                   </View>
-                  {role === r && <Text style={{ color: Colors.accent, fontWeight: "800" }}>✓</Text>}
+                  {role === r && <Check size={16} color={Colors.accent} strokeWidth={3} />}
                 </Pressable>
               ))}
               <View style={{ flex: 1, minHeight: 16 }} />

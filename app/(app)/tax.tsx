@@ -5,6 +5,7 @@ import { useCallback, useState } from "react";
 import { View, Text, Pressable, ScrollView, RefreshControl, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
+import { ReceiptText, Mail } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { CourierAPI, TaxYear } from "../../services/courier";
@@ -45,7 +46,7 @@ export default function Tax() {
 
         {!loading && years.length === 0 && (
           <View style={{ alignItems: "center", marginTop: 50 }}>
-            <Text style={{ fontSize: 40 }}>🧾</Text>
+            <ReceiptText size={40} color={Colors.t3} strokeWidth={1.8} />
             <Text style={{ fontSize: 14, fontWeight: "700", color: Colors.ink, marginTop: 12 }}>{t("taxNone")}</Text>
             <Text style={{ fontSize: 12.5, color: Colors.t3, textAlign: "center", marginTop: 4, maxWidth: 250 }}>{t("taxNoneSub")}</Text>
           </View>
@@ -63,15 +64,16 @@ export default function Tax() {
                 <Text style={{ fontSize: 18, fontWeight: "800", color: Colors.accent }}>C${Math.round(y.total_payout_cents / 100)}</Text>
               </View>
             </View>
-            <Pressable onPress={() => emailDoc(y.year)} disabled={busyYear === y.year} style={{ marginTop: 13, backgroundColor: Colors.ink, borderRadius: 12, padding: 13, alignItems: "center", opacity: busyYear === y.year ? 0.6 : 1 }}>
-              {busyYear === y.year ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13.5 }}>📧 {t("taxEmailDoc")}</Text>}
+            <Pressable onPress={() => emailDoc(y.year)} disabled={busyYear === y.year} style={{ marginTop: 13, backgroundColor: Colors.ink, borderRadius: 12, padding: 13, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, opacity: busyYear === y.year ? 0.6 : 1 }}>
+              {busyYear === y.year ? <ActivityIndicator color="#fff" /> : <><Mail size={14} color="#fff" strokeWidth={2.2} /><Text style={{ color: "#fff", fontWeight: "800", fontSize: 13.5 }}>{t("taxEmailDoc")}</Text></>}
             </Pressable>
           </View>
         ))}
 
         {years.length > 0 && (
-          <View style={{ backgroundColor: Colors.cardAlt, borderRadius: 12, padding: 13, marginTop: 4 }}>
-            <Text style={{ fontSize: 11.5, color: Colors.t2, lineHeight: 17 }}>🧾 {t("contractorNote")}</Text>
+          <View style={{ backgroundColor: Colors.cardAlt, borderRadius: 12, padding: 13, marginTop: 4, flexDirection: "row", alignItems: "flex-start", gap: 6 }}>
+            <ReceiptText size={12} color={Colors.t2} strokeWidth={2} style={{ marginTop: 2 }} />
+            <Text style={{ flex: 1, fontSize: 11.5, color: Colors.t2, lineHeight: 17 }}>{t("contractorNote")}</Text>
           </View>
         )}
       </ScrollView>

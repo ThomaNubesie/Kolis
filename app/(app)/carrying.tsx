@@ -10,8 +10,13 @@ import { useStrings } from "../../hooks/useStrings";
 import { CourierAPI, CourierParcel } from "../../services/courier";
 import { drainScannedCodes } from "../../services/scanBridge";
 import { DeliveryReceiptModal, DeliveryReceiptData } from "../../components/DeliveryReceiptModal";
+import { Package, Mail, Luggage, Camera, Truck, Building2, DoorOpen, Navigation, Lock, CheckCircle2, MapPin, Phone } from "lucide-react-native";
 
-const SIZE_EMOJI: Record<string, string> = { envelope: "✉️", small: "📦", large: "🧳" };
+const SizeIcon = ({ size, px = 22, color = Colors.ink }: { size: string; px?: number; color?: string }) => {
+  if (size === "envelope") return <Mail size={px} color={color} strokeWidth={2} />;
+  if (size === "large") return <Luggage size={px} color={color} strokeWidth={2} />;
+  return <Package size={px} color={color} strokeWidth={2} />;
+};
 
 export default function Carrying() {
   const { t, lang } = useStrings();
@@ -108,14 +113,14 @@ export default function Carrying() {
         <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
           <Text style={{ fontSize: 26, fontWeight: "800", color: Colors.ink, flex: 1 }}>{t("carrying")}</Text>
           <Pressable onPress={() => router.push("/(app)/scan" as never)} style={{ flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: "#E11D6B", borderRadius: 12, paddingHorizontal: 15, paddingVertical: 10 }}>
-            <Text style={{ fontSize: 15 }}>📷</Text><Text style={{ color: "#fff", fontWeight: "800", fontSize: 13.5 }}>Scan QR</Text>
+            <Camera size={15} color="#fff" strokeWidth={2.2} /><Text style={{ color: "#fff", fontWeight: "800", fontSize: 13.5 }}>Scan QR</Text>
           </Pressable>
         </View>
         <Text style={{ fontSize: 13, color: Colors.t2, marginBottom: 18 }}>{t("carryingSub")}</Text>
 
         {!loading && list.length === 0 && (
           <View style={{ alignItems: "center", marginTop: 60 }}>
-            <Text style={{ fontSize: 40 }}>🚚</Text>
+            <Truck size={40} color={Colors.ink} strokeWidth={1.8} />
             <Text style={{ fontSize: 15, fontWeight: "800", color: Colors.ink, marginTop: 12 }}>{t("noneCarrying")}</Text>
           </View>
         )}
@@ -127,7 +132,7 @@ export default function Carrying() {
           return (
             <View key={p.id} style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 16, padding: 15, marginBottom: 14, backgroundColor: "#fff", shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } }}>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <Text style={{ fontSize: 22 }}>{SIZE_EMOJI[p.size] ?? "📦"}</Text>
+                <SizeIcon size={p.size} px={22} color={Colors.ink} />
                 <Text style={{ fontSize: 15, fontWeight: "800", color: Colors.ink, flex: 1 }}>#{p.code} {t("forDest")} {p.to_city}</Text>
               </View>
 
@@ -137,25 +142,37 @@ export default function Carrying() {
                   {pickupWhere ? (
                     <Pressable onPress={() => openDirections(pickupWhere)} style={{ backgroundColor: Colors.bg, borderRadius: 11, padding: 11, marginBottom: 10 }}>
                       <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 3 }}>{isHub ? t("pickupHub") : t("pickupDoor")}</Text>
-                      <Text style={{ fontSize: 13.5, color: Colors.ink, fontWeight: "700" }}>{isHub ? "🏢 " : "🚪 "}{pickupWhere}</Text>
-                      <Text style={{ fontSize: 11.5, color: Colors.accent, fontWeight: "800", marginTop: 4 }}>🧭 {t("directions")}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        {isHub ? <Building2 size={13.5} color={Colors.ink} strokeWidth={2.2} /> : <DoorOpen size={13.5} color={Colors.ink} strokeWidth={2.2} />}
+                        <Text style={{ fontSize: 13.5, color: Colors.ink, fontWeight: "700" }}>{pickupWhere}</Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                        <Navigation size={11.5} color={Colors.accent} strokeWidth={2.2} />
+                        <Text style={{ fontSize: 11.5, color: Colors.accent, fontWeight: "800" }}>{t("directions")}</Text>
+                      </View>
                     </Pressable>
                   ) : null}
-                  <Text style={{ fontSize: 11.5, color: Colors.t3, marginBottom: 12 }}>🔒 {t("recipientMasked")}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                    <Lock size={11.5} color={Colors.t3} strokeWidth={2.2} />
+                    <Text style={{ fontSize: 11.5, color: Colors.t3 }}>{t("recipientMasked")}</Text>
+                  </View>
                   <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{fr ? "Code de ramassage" : "Pickup code"}</Text>
                   {(pcodes[p.id] || "").length >= 4 ? (
                     <View style={{ borderWidth: 1.5, borderColor: "#178a5e", borderRadius: 11, padding: 12, backgroundColor: "rgba(23,138,94,0.08)", marginBottom: 10 }}>
                       <Text style={{ fontSize: 22, fontWeight: "800", letterSpacing: 10, textAlign: "center", color: Colors.ink }}>{pcodes[p.id]}</Text>
-                      <Text style={{ fontSize: 10.5, color: "#178a5e", fontWeight: "700", textAlign: "center", marginTop: 4 }}>✅ {fr ? "Rempli par le scan" : "Filled by scan"}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 4 }}>
+                        <CheckCircle2 size={10.5} color="#178a5e" strokeWidth={2.2} />
+                        <Text style={{ fontSize: 10.5, color: "#178a5e", fontWeight: "700" }}>{fr ? "Rempli par le scan" : "Filled by scan"}</Text>
+                      </View>
                     </View>
                   ) : (
                     <Pressable onPress={() => router.push("/(app)/scan" as never)} style={{ borderWidth: 1.5, borderColor: Colors.accent, borderStyle: "dashed", borderRadius: 11, padding: 14, alignItems: "center", backgroundColor: Colors.bg, marginBottom: 10 }}>
-                      <Text style={{ fontSize: 22 }}>📷</Text>
+                      <Camera size={22} color={Colors.accent} strokeWidth={1.8} />
                       <Text style={{ fontSize: 12.5, color: Colors.accent, fontWeight: "800", marginTop: 4, textAlign: "center" }}>{fr ? "Scannez le QR à moins de 100 m pour remplir le code" : "Scan the QR within 100 m to fill the code"}</Text>
                     </Pressable>
                   )}
-                  <Pressable onPress={() => pickup(p)} disabled={busyId === p.id || (pcodes[p.id] || "").trim().length < 4} style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: "center", opacity: (busyId === p.id || (pcodes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
-                    {busyId === p.id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>📦 {t("confirmPickup")}</Text>}
+                  <Pressable onPress={() => pickup(p)} disabled={busyId === p.id || (pcodes[p.id] || "").trim().length < 4} style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6, backgroundColor: Colors.accent, borderRadius: 12, padding: 14, opacity: (busyId === p.id || (pcodes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
+                    {busyId === p.id ? <ActivityIndicator color="#fff" /> : <><Package size={14} color="#fff" strokeWidth={2.2} /><Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{t("confirmPickup")}</Text></>}
                   </Pressable>
                 </>
               )}
@@ -163,12 +180,21 @@ export default function Carrying() {
               {/* STAGE 2 — after pickup: delivery address + recipient + deliver code */}
               {gotIt && (
                 <>
-                  <Text style={{ fontSize: 11, color: "#178a5e", fontWeight: "700", marginBottom: 10 }}>✅ {t("pickedUpNote")}</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                    <CheckCircle2 size={11} color="#178a5e" strokeWidth={2.2} />
+                    <Text style={{ fontSize: 11, color: "#178a5e", fontWeight: "700" }}>{t("pickedUpNote")}</Text>
+                  </View>
                   {p.dropoff_addr ? (
                     <Pressable onPress={() => openDirections(p.dropoff_addr!)} style={{ backgroundColor: Colors.bg, borderRadius: 11, padding: 11, marginBottom: 10 }}>
                       <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 3 }}>{t("deliveryAddress")}</Text>
-                      <Text style={{ fontSize: 13.5, color: Colors.ink, fontWeight: "700" }}>📍 {p.dropoff_addr}</Text>
-                      <Text style={{ fontSize: 11.5, color: Colors.accent, fontWeight: "800", marginTop: 4 }}>🧭 {t("directions")}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <MapPin size={13.5} color={Colors.ink} strokeWidth={2.2} />
+                        <Text style={{ fontSize: 13.5, color: Colors.ink, fontWeight: "700", flex: 1 }}>{p.dropoff_addr}</Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                        <Navigation size={11.5} color={Colors.accent} strokeWidth={2.2} />
+                        <Text style={{ fontSize: 11.5, color: Colors.accent, fontWeight: "800" }}>{t("directions")}</Text>
+                      </View>
                     </Pressable>
                   ) : null}
                   {(p.recipient_name || p.recipient_phone) ? (
@@ -178,8 +204,9 @@ export default function Carrying() {
                         <Text style={{ fontSize: 13, color: Colors.ink, fontWeight: "700" }}>{p.recipient_name || "—"}</Text>
                       </View>
                       {p.recipient_phone ? (
-                        <Pressable onPress={() => Linking.openURL(`tel:${p.recipient_phone}`)} style={{ borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 }}>
-                          <Text style={{ color: Colors.accent, fontWeight: "800", fontSize: 12.5 }}>📞 {t("callRecipient")}</Text>
+                        <Pressable onPress={() => Linking.openURL(`tel:${p.recipient_phone}`)} style={{ flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 }}>
+                          <Phone size={12.5} color={Colors.accent} strokeWidth={2.2} />
+                          <Text style={{ color: Colors.accent, fontWeight: "800", fontSize: 12.5 }}>{t("callRecipient")}</Text>
                         </Pressable>
                       ) : null}
                     </View>
@@ -189,11 +216,14 @@ export default function Carrying() {
                   {(codes[p.id] || "").length >= 4 ? (
                     <View style={{ borderWidth: 1.5, borderColor: "#178a5e", borderRadius: 11, padding: 12, backgroundColor: "rgba(23,138,94,0.08)", marginBottom: 10 }}>
                       <Text style={{ fontSize: 22, fontWeight: "800", letterSpacing: 10, textAlign: "center", color: Colors.ink }}>{codes[p.id]}</Text>
-                      <Text style={{ fontSize: 10.5, color: "#178a5e", fontWeight: "700", textAlign: "center", marginTop: 4 }}>✅ {fr ? "Rempli par le scan" : "Filled by scan"}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 4 }}>
+                        <CheckCircle2 size={10.5} color="#178a5e" strokeWidth={2.2} />
+                        <Text style={{ fontSize: 10.5, color: "#178a5e", fontWeight: "700" }}>{fr ? "Rempli par le scan" : "Filled by scan"}</Text>
+                      </View>
                     </View>
                   ) : (
                     <Pressable onPress={() => router.push("/(app)/scan" as never)} style={{ borderWidth: 1.5, borderColor: Colors.accent, borderStyle: "dashed", borderRadius: 11, padding: 14, alignItems: "center", backgroundColor: Colors.bg, marginBottom: 10 }}>
-                      <Text style={{ fontSize: 22 }}>📷</Text>
+                      <Camera size={22} color={Colors.accent} strokeWidth={1.8} />
                       <Text style={{ fontSize: 12.5, color: Colors.accent, fontWeight: "800", marginTop: 4, textAlign: "center" }}>{fr ? "Scannez le QR à moins de 100 m pour remplir le code" : "Scan the QR within 100 m to fill the code"}</Text>
                     </Pressable>
                   )}

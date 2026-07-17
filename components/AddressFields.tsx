@@ -5,6 +5,7 @@
 // so the keyboard never drops focus.
 import { useEffect, useRef, useState } from "react";
 import { View, Text, TextInput, Pressable, ActivityIndicator } from "react-native";
+import { MapPin } from "lucide-react-native";
 import { Colors } from "../constants/colors";
 import { useStrings } from "../hooks/useStrings";
 
@@ -95,8 +96,9 @@ export function AddressFields({ value, onChange, country }: { value: Address; on
       {open && sugs.length > 0 ? (
         <View style={{ borderWidth: 1, borderColor: Colors.line, borderTopWidth: 0, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, backgroundColor: "#fff", overflow: "hidden", marginBottom: 8 }}>
           {sugs.map((s) => (
-            <Pressable key={s.place_id} onPress={() => pick(s)} style={{ paddingVertical: 11, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: Colors.line }}>
-              <Text style={{ fontSize: 12.5, color: Colors.ink }}>📍 {s.description}</Text>
+            <Pressable key={s.place_id} onPress={() => pick(s)} style={{ paddingVertical: 11, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: Colors.line, flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <MapPin size={12.5} color={Colors.ink} strokeWidth={2.2} />
+              <Text style={{ fontSize: 12.5, color: Colors.ink, flex: 1 }}>{s.description}</Text>
             </Pressable>
           ))}
         </View>

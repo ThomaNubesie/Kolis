@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { View, Text, Pressable, ScrollView, Alert } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Lock } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { ParcelsAPI, Parcel } from "../../services/parcels";
@@ -33,7 +34,11 @@ export default function Dispatch() {
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
               <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: "800", fontSize: 14, color: Colors.ink }}>{p.size} → {p.to_city}</Text>
-                <Text style={{ fontSize: 11, color: Colors.t3, marginTop: 2 }}>#{p.code} · 🔒 {t("senderHidden")}</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 2 }}>
+                  <Text style={{ fontSize: 11, color: Colors.t3 }}>#{p.code} · </Text>
+                  <Lock size={11} color={Colors.t3} strokeWidth={2.2} />
+                  <Text style={{ fontSize: 11, color: Colors.t3 }}>{t("senderHidden")}</Text>
+                </View>
               </View>
               <Pressable onPress={() => dispatch(p)} style={{ backgroundColor: Colors.accent, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14 }}>
                 <Text style={{ color: "#fff", fontWeight: "800", fontSize: 12.5 }}>{t("dispatchBtn")}</Text>

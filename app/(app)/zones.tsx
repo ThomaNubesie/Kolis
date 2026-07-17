@@ -3,6 +3,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { useCallback, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Flag } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { LoadqAPI, LoadqZone } from "../../services/loadq";
@@ -55,7 +56,7 @@ export default function Zones() {
             return (
               <Pressable key={z.id} onPress={() => setSel(z.id)}
                 style={{ flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1.5, borderRadius: 13, padding: 12, marginBottom: 9, backgroundColor: "#fff", borderColor: on ? Colors.accent : Colors.line, opacity: has ? 1 : 0.6 }}>
-                <Text style={{ fontSize: 17 }}>🏁</Text>
+                <Flag size={17} color={Colors.ink} strokeWidth={2} />
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontWeight: "700", fontSize: 14, color: Colors.ink }}>{z.name}</Text>
                   {has ? (

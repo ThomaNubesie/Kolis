@@ -4,11 +4,12 @@
 import { useState } from "react";
 import { View, Text, Pressable, Modal, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { Mail, Package, Briefcase, Building2, DoorOpen, X, PartyPopper, LucideIcon } from "lucide-react-native";
 import { Colors } from "../constants/colors";
 import { useStrings } from "../hooks/useStrings";
 import { ReceiptAPI } from "../services/verification";
 
-const SIZE_EMOJI: Record<string, string> = { envelope: "✉️", small: "📦", large: "🧳" };
+const SIZE_ICON: Record<string, LucideIcon> = { envelope: Mail, small: Package, large: Briefcase };
 
 export type DeliveryReceiptData = {
   receiptId: string;       // parcel code, e.g. KL-1234
@@ -61,15 +62,22 @@ export function DeliveryReceiptModal({ visible, data, onClose }: { visible: bool
       <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
         <View style={{ backgroundColor: "#fff", borderRadius: 20, padding: 22 }}>
           <Pressable onPress={() => !busy && onClose()} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}>
-            <Text style={{ fontSize: 22, color: Colors.t3, fontWeight: "600" }}>✕</Text>
+            <X size={22} color={Colors.t3} strokeWidth={2} />
           </Pressable>
-          <Text style={{ fontSize: 42, textAlign: "center" }}>🎉</Text>
+          <View style={{ alignItems: "center" }}>
+            <PartyPopper size={42} color={Colors.accent} strokeWidth={1.8} />
+          </View>
           <Text style={{ fontSize: 20, fontWeight: "900", color: Colors.ink, textAlign: "center", marginTop: 4 }}>{t("delivered")}</Text>
           <Text style={{ fontSize: 12.5, color: Colors.t2, textAlign: "center", marginBottom: 16 }}>#{data.receiptId} · {data.fromCity} → {data.toCity}</Text>
 
           <View style={{ backgroundColor: Colors.bg, borderRadius: 13, padding: 14, marginBottom: 16 }}>
             <View style={{ flexDirection: "row", justifyContent: "space-between", paddingBottom: 6 }}>
-              <Text style={{ color: Colors.t2, fontSize: 13 }}>{SIZE_EMOJI[data.size] ?? "📦"} {data.dropoffType === "hub" ? "🏢" : "🚪"}</Text>
+              {(() => { const SizeIcon = SIZE_ICON[data.size] ?? Package; const DropIcon = data.dropoffType === "hub" ? Building2 : DoorOpen; return (
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                  <SizeIcon size={13} color={Colors.t2} strokeWidth={2} />
+                  <DropIcon size={13} color={Colors.t2} strokeWidth={2} />
+                </View>
+              ); })()}
               <Text style={{ color: Colors.t3, fontSize: 12 }}>{date}</Text>
             </View>
             <View style={{ flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: Colors.line, paddingTop: 9 }}>

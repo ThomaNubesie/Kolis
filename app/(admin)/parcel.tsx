@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { View, Text, Pressable, ScrollView, Modal, Alert, ActivityIndicator } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { X } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { AdminAPI, AdminRole, Candidate } from "../../services/admin";
 import { CityPicker } from "../../components/CityPicker";
@@ -120,7 +121,7 @@ export default function AdminParcel() {
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "flex-end" }}>
           <View style={{ backgroundColor: Colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 18, maxHeight: "75%" }}>
             <Pressable onPress={() => setDrivers(null)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}>
-              <Text style={{ fontSize: 22, color: Colors.t3, fontWeight: "600" }}>✕</Text>
+              <X size={22} color={Colors.t3} strokeWidth={2} />
             </Pressable>
             <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink, marginBottom: 10 }}>Pick a courier → {p.to_city}</Text>
             <ScrollView>
@@ -145,7 +146,7 @@ export default function AdminParcel() {
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
           <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
             <Pressable onPress={() => setReroute(false)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}>
-              <Text style={{ fontSize: 22, color: Colors.t3, fontWeight: "600" }}>✕</Text>
+              <X size={22} color={Colors.t3} strokeWidth={2} />
             </Pressable>
             <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink, marginBottom: 10 }}>Reroute destination</Text>
             <CityPicker label="New destination" value={newCity} onChange={setNewCity} exclude={p.from_city} />

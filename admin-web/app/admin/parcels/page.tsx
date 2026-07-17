@@ -27,7 +27,7 @@ export default function Parcels() {
     <>
       <h1>{t("Parcels", "Colis")}</h1>
       <div className="toolbar">
-        <input className="search" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder={t("🔍 code, city, recipient, sender…", "🔍 code, ville, destinataire, expéditeur…")} />
+        <input className="search" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder={t("code, city, recipient, sender…", "code, ville, destinataire, expéditeur…")} />
         {FILTERS.map(([f, en, fr]) => <button key={f} className={"chip" + (filter === f ? " on" : "")} onClick={() => { setFilter(f); load(f, search); }}>{lang === "fr" ? fr : en}</button>)}
       </div>
       <table>

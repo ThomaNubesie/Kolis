@@ -4,19 +4,20 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase, api } from "@/lib/supabase";
 import { useLang, LangToggle } from "@/lib/i18n";
+import { LayoutDashboard, Building2, CircleDollarSign, Package, ShieldCheck, Users, Target, Phone, Truck, KeyRound, LogOut } from "lucide-react";
 
 // `cap` = the capability a section requires; `owner` = owner-only (Team & access).
 const NAV = [
-  { href: "/admin", icon: "📊", label: "Overview", fr: "Aperçu" },
-  { href: "/admin/orgs", icon: "🏢", label: "Organizations", fr: "Organisations", cap: "orgs" },
-  { href: "/admin/revenue", icon: "💰", label: "Revenue", fr: "Revenus", cap: "revenue" },
-  { href: "/admin/parcels", icon: "📦", label: "Parcels", fr: "Colis", cap: "parcels" },
-  { href: "/admin/claims", icon: "🛡️", label: "Claims", fr: "Réclamations", cap: "claims" },
-  { href: "/admin/members", icon: "👥", label: "Members", fr: "Membres", cap: "members" },
-  { href: "/admin/prospects", icon: "🎯", label: "Prospects", fr: "Prospects", owner: true },
-  { href: "/admin/call-requests", icon: "📞", label: "Call requests", fr: "Demandes d'appel", owner: true },
-  { href: "/admin/freight", icon: "🚛", label: "Freight", fr: "Fret", owner: true },
-  { href: "/admin/team", icon: "🔑", label: "Team & access", fr: "Équipe et accès", owner: true },
+  { href: "/admin", Icon: LayoutDashboard, label: "Overview", fr: "Aperçu" },
+  { href: "/admin/orgs", Icon: Building2, label: "Organizations", fr: "Organisations", cap: "orgs" },
+  { href: "/admin/revenue", Icon: CircleDollarSign, label: "Revenue", fr: "Revenus", cap: "revenue" },
+  { href: "/admin/parcels", Icon: Package, label: "Parcels", fr: "Colis", cap: "parcels" },
+  { href: "/admin/claims", Icon: ShieldCheck, label: "Claims", fr: "Réclamations", cap: "claims" },
+  { href: "/admin/members", Icon: Users, label: "Members", fr: "Membres", cap: "members" },
+  { href: "/admin/prospects", Icon: Target, label: "Prospects", fr: "Prospects", owner: true },
+  { href: "/admin/call-requests", Icon: Phone, label: "Call requests", fr: "Demandes d'appel", owner: true },
+  { href: "/admin/freight", Icon: Truck, label: "Freight", fr: "Fret", owner: true },
+  { href: "/admin/team", Icon: KeyRound, label: "Team & access", fr: "Équipe et accès", owner: true },
 ];
 
 export default function DashLayout({ children }: { children: React.ReactNode }) {
@@ -54,13 +55,13 @@ export default function DashLayout({ children }: { children: React.ReactNode }) 
         <div className="brand">Kolis · Admin</div>
         {NAV.filter(allowed).map((n) => (
           <Link key={n.href} href={n.href} className={"nav" + (isActive(n.href) ? " on" : "")}>
-            <span>{n.icon}</span>{lang === "fr" ? n.fr : n.label}
+            <n.Icon size={17} strokeWidth={2} style={{ flex: "none" }} />{lang === "fr" ? n.fr : n.label}
           </Link>
         ))}
         <div className="who">
           <div style={{ marginBottom: 8 }}><LangToggle /></div>
           {role?.toUpperCase()}<br />
-          <button className="nav" style={{ padding: "6px 0", marginTop: 6 }} onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}>↩︎ {t("Sign out", "Déconnexion")}</button>
+          <button className="nav" style={{ padding: "6px 0", marginTop: 6 }} onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}><LogOut size={15} strokeWidth={2} style={{ flex: "none" }} />{t("Sign out", "Déconnexion")}</button>
         </div>
       </aside>
       <main className="main">{children}</main>

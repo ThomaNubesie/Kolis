@@ -28,6 +28,9 @@ export default function Clients() {
 
   const save = async () => {
     if (!edit?.full_name?.trim()) { setErr(t("Full name is required.", "Le nom complet est requis.")); return; }
+    if (!edit?.email?.trim()) { setErr(t("Email address is required.", "L’adresse courriel est requise.")); return; }
+    if (!edit?.mobile?.trim()) { setErr(t("Phone number is required.", "Le numéro de téléphone est requis.")); return; }
+    if (!edit?.address?.trim()) { setErr(t("Home address is required.", "L’adresse est requise.")); return; }
     setBusy(true); setErr("");
     try { await org.clientSave(active.org_id, edit); setEdit(null); flash(t("Client saved.", "Client enregistré.")); load(); }
     catch (e: any) { setErr(e?.message || t("Failed.", "Échec.")); }
@@ -78,14 +81,14 @@ export default function Clients() {
             </div>
             <div className="mono" style={{ marginTop: 10 }}>{t("Full name *", "Nom complet *")}</div>
             <input className="input" value={edit.full_name || ""} onChange={(e) => set("full_name", e.target.value)} />
-            <div className="mono" style={{ marginTop: 10 }}>{t("Email", "Courriel")}</div>
+            <div className="mono" style={{ marginTop: 10 }}>{t("Email *", "Courriel *")}</div>
             <input className="input" type="email" value={edit.email || ""} onChange={(e) => set("email", e.target.value)} placeholder="name@email.com" />
             <div className="row" style={{ gap: 10, marginTop: 10 }}>
-              <div style={{ flex: 1 }}><div className="mono">{t("Mobile", "Mobile")}</div><input className="input" value={edit.mobile || ""} onChange={(e) => set("mobile", e.target.value)} /></div>
+              <div style={{ flex: 1 }}><div className="mono">{t("Mobile *", "Mobile *")}</div><input className="input" value={edit.mobile || ""} onChange={(e) => set("mobile", e.target.value)} /></div>
               <div style={{ flex: 1 }}><div className="mono">{t("Home", "Domicile")}</div><input className="input" value={edit.home_phone || ""} onChange={(e) => set("home_phone", e.target.value)} /></div>
               <div style={{ flex: 1 }}><div className="mono">{t("Work", "Travail")}</div><input className="input" value={edit.work_phone || ""} onChange={(e) => set("work_phone", e.target.value)} /></div>
             </div>
-            <div className="mono" style={{ marginTop: 10 }}>{t("Address", "Adresse")}</div>
+            <div className="mono" style={{ marginTop: 10 }}>{t("Home address *", "Adresse *")}</div>
             <input className="input" value={edit.address || ""} onChange={(e) => set("address", e.target.value)} placeholder={t("Street, unit", "Rue, unité")} />
             <div className="row" style={{ gap: 10, marginTop: 10 }}>
               <div style={{ flex: 2 }}><div className="mono">{t("City", "Ville")}</div><input className="input" value={edit.city || ""} onChange={(e) => set("city", e.target.value)} /></div>

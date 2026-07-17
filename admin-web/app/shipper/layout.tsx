@@ -20,6 +20,7 @@ const NAV = [
   { href: "/shipper/plans", icon: "⭐", label: "Plans", fr: "Forfaits" },
   { href: "/shipper/team", icon: "👥", label: "Team & seats", fr: "Équipe et sièges" },
   { href: "/shipper/branding", icon: "🎨", label: "Branding", fr: "Image de marque" },
+  { href: "/shipper/account", icon: "🧑‍💼", label: "Account", fr: "Compte" },
 ];
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -30,6 +31,16 @@ function Shell({ children }: { children: React.ReactNode }) {
   const [brand, setBrand] = useState<any>(null);
   useEffect(() => { org.branding(active.org_id).then(setBrand).catch(() => setBrand(null)); }, [active.org_id]);
   const isActive = (href: string) => (href === "/shipper" ? path === "/shipper" : path.startsWith(href));
+
+  // Hard gate: an owner/admin whose account is missing phone/email/business address
+  // is redirected to /shipper/account and can't use the rest of the portal until done.
+  const [acct, setAcct] = useState<any>(undefined);
+  useEffect(() => { org.account(active.org_id).then(setAcct).catch(() => setAcct(null)); }, [active.org_id]);
+  useEffect(() => {
+    if (acct && !acct.complete && (acct.role === "owner" || acct.role === "admin") && path !== "/shipper/account") {
+      router.replace("/shipper/account");
+    }
+  }, [acct, path, router]);
   return (
     <div className="app" style={brand?.color ? ({ ["--accent" as any]: brand.color }) : undefined}>
       <aside className="side">
@@ -50,7 +61,11 @@ function Shell({ children }: { children: React.ReactNode }) {
           <button className="nav" style={{ padding: "6px 0", marginTop: 6 }} onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}>↩︎ {t("Sign out", "Déconnexion")}</button>
         </div>
       </aside>
-      <main className="main">{children}</main>
+      <main className="main">
+        {acct && !acct.complete && (acct.role === "owner" || acct.role === "admin") && path !== "/shipper/account"
+          ? <div style={{ padding: 24 }}>{t("Complete your account details to continue…", "Complétez les détails de votre compte pour continuer…")}</div>
+          : children}
+      </main>
     </div>
   );
 }

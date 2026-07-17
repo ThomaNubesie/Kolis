@@ -165,6 +165,10 @@ export const org = {
   clientDelete: (o: string, id: string) => r("kolis_org_client_delete", { p_org: o, p_id: id }),
   clientGet: (o: string, id: string) => r<any>("kolis_org_client_get", { p_org: o, p_id: id }),
   clientHistory: (o: string, id: string) => r<any[]>("kolis_org_client_history", { p_org: o, p_client_id: id }),
+  // ── Business account details (required: phone, email, business address) ──
+  account: (o: string) => r<any>("kolis_org_account_get", { p_org: o }),
+  accountSave: (o: string, a: { phone: string; email: string; address: string; city?: string; postal?: string }) =>
+    r<any>("kolis_org_account_save", { p_org: o, p_phone: a.phone, p_email: a.email, p_address: a.address, p_city: a.city ?? null, p_postal: a.postal ?? null }),
   // ── Bulk shipping from the client database ──
   hubs: (o: string) => r<any[]>("kolis_org_hubs", { p_org: o }),
   bulkQuote: (o: string, pickup: any, rows: any[]) => r<{ rows: any[]; total_cents: number }>("kolis_org_bulk_quote", { p_org: o, p_pickup: pickup, p_rows: rows }),

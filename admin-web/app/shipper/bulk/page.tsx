@@ -24,6 +24,12 @@ export default function BulkShip() {
   const [result, setResult] = useState<string>("");
   const [err, setErr] = useState("");
   const [preview, setPreview] = useState(false);
+  const [batchCodes, setBatchCodes] = useState<string[]>([]);
+  const printAllLabels = () => {
+    if (!batchCodes.length) return;
+    try { localStorage.setItem("kolis_batch_labels", JSON.stringify({ org: active.org_id, codes: batchCodes })); } catch { /* */ }
+    window.open(`/shipper/labels?codes=${encodeURIComponent(batchCodes.join(","))}`, "_blank");
+  };
 
   useEffect(() => {
     org.clients(active.org_id).then(setClients).catch(() => {});
@@ -110,6 +116,7 @@ export default function BulkShip() {
       const created = (res.results || []).filter((x: any) => x.ok);
       const failed = (res.results || []).filter((x: any) => !x.ok);
       if (res.payg) await Promise.all(created.map((x: any) => org.chargeShipment(active.org_id, x.id).catch(() => {})));
+      setBatchCodes(created.map((x: any) => x.code).filter(Boolean));
       setRows({}); setPreview(false);
       setResult(t(`✓ Created ${created.length} shipment(s)${res.payg ? " and charged the card on file" : ""}.${failed.length ? ` ${failed.length} failed.` : ""}`,
         `✓ ${created.length} envoi(s) créé(s)${res.payg ? " et débités sur la carte" : ""}.${failed.length ? ` ${failed.length} en échec.` : ""}`));
@@ -122,7 +129,12 @@ export default function BulkShip() {
       {histFor && <div onClick={() => setHistFor(null)} style={{ position: "fixed", inset: 0, zIndex: 15 }} />}
       <h1>{t("Bulk shipment", "Envoi en lot")}</h1>
       <div className="sub">{t("One pickup for the batch, then pick clients from your database — one shipment each.", "Un ramassage pour le lot, puis choisissez des clients de votre base — un envoi chacun.")}</div>
-      {result ? <div className="pill pg" style={{ display: "inline-block", margin: "10px 0" }}>{result}</div> : null}
+      {result ? (
+        <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "10px 0", flexWrap: "wrap" }}>
+          <div className="pill pg" style={{ display: "inline-block" }}>{result}</div>
+          {batchCodes.length > 0 ? <button className="btn" onClick={printAllLabels}>🖨 {t(`Print all ${batchCodes.length} labels`, `Imprimer les ${batchCodes.length} étiquettes`)}</button> : null}
+        </div>
+      ) : null}
 
       {/* Batch pickup */}
       <div className="card" style={{ marginTop: 12 }}>

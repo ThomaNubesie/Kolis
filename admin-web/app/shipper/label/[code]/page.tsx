@@ -28,8 +28,8 @@ export default function Label() {
 
   // A QR sits on its own white chip so it always scans, even on the dark label.
   const QrChip = ({ data, alt }: { data: string; alt: string }) => (
-    <div style={{ display: "inline-block", background: "#fff", borderRadius: 10, padding: 8 }}>
-      <img src={qr(data)} alt={alt} style={{ width: 116, height: 116, maxWidth: "100%", display: "block" }} />
+    <div style={{ display: "inline-block", background: "#fff", borderRadius: 12, padding: 10 }}>
+      <img src={qr(data)} alt={alt} style={{ width: 200, height: 200, maxWidth: "100%", display: "block" }} />
     </div>
   );
 
@@ -55,18 +55,18 @@ export default function Label() {
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
       `}</style>
-      <div className="noprint" style={{ maxWidth: 464, margin: "0 auto 14px", display: "flex", gap: 10 }}>
+      <div className="noprint" style={{ maxWidth: 780, margin: "0 auto 14px", display: "flex", gap: 10 }}>
         <button className="btn" onClick={() => window.print()}>🖨 Print label</button>
         <a className="btn ghost" href="/shipper/shipments">← Shipments</a>
       </div>
 
-      <div className="label" style={{ maxWidth: 464, margin: "0 auto", background: CARD, borderRadius: 10, overflow: "hidden", border: `1px solid ${LINE}`, fontFamily: "-apple-system,Segoe UI,Roboto,sans-serif" }}>
-        <div style={{ background: MAG, color: "#fff", padding: "14px 18px", display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 9, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", color: MAG, fontWeight: 800 }}>Ko</div>
-          <div style={{ fontSize: 17, fontWeight: 800 }}>Kolis</div>
-          <div style={{ marginLeft: "auto", fontSize: 20, fontWeight: 900 }}>{p.code}</div>
+      <div className="label" style={{ maxWidth: 780, margin: "0 auto", background: CARD, borderRadius: 12, overflow: "hidden", border: `1px solid ${LINE}`, fontFamily: "-apple-system,Segoe UI,Roboto,sans-serif" }}>
+        <div style={{ background: MAG, color: "#fff", padding: "18px 24px", display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ width: 42, height: 42, borderRadius: 11, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", color: MAG, fontWeight: 800, fontSize: 18 }}>Ko</div>
+          <div style={{ fontSize: 23, fontWeight: 800 }}>Kolis</div>
+          <div style={{ marginLeft: "auto", fontSize: 28, fontWeight: 900, letterSpacing: 1 }}>{p.code}</div>
         </div>
-        <div style={{ padding: "10px 18px", background: "#241019", borderBottom: `1px solid ${LINE}`, fontWeight: 800, color: "#fff", fontSize: 15 }}>{p.from_city} → {p.to_city}</div>
+        <div style={{ padding: "13px 24px", background: "#241019", borderBottom: `1px solid ${LINE}`, fontWeight: 800, color: "#fff", fontSize: 20 }}>{p.from_city} → {p.to_city}</div>
         <div style={{ display: "flex", borderBottom: `1px solid ${LINE}` }}>
           <div style={{ flex: 1, padding: "12px 18px", borderRight: `1px solid ${LINE}` }}>
             <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: MUTED }}>From · Sender</div>
@@ -81,13 +81,13 @@ export default function Label() {
         <div className="qrrow" style={{ display: "flex" }}>
           <div style={{ flex: 1, padding: "16px 12px", textAlign: "center", borderRight: `1px dashed ${LINE}` }}>
             <QrChip data={pickupData} alt="pickup QR" />
-            <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: 2, textTransform: "uppercase", color: MAG_L, marginTop: 9 }}>Pickup</div>
-            <div style={{ fontSize: 10.5, color: MUTED, marginTop: 3, lineHeight: 1.35 }}>Courier scans here within 100 m of pickup</div>
+            <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: 2, textTransform: "uppercase", color: MAG_L, marginTop: 12 }}>Pickup</div>
+            <div style={{ fontSize: 12.5, color: MUTED, marginTop: 4, lineHeight: 1.35 }}>Courier scans here within 100 m of pickup</div>
           </div>
           <div style={{ flex: 1, padding: "16px 12px", textAlign: "center" }}>
             <QrChip data={deliverData} alt="delivery QR" />
-            <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: 2, textTransform: "uppercase", color: GREEN_L, marginTop: 9 }}>Delivery</div>
-            <div style={{ fontSize: 10.5, color: MUTED, marginTop: 3, lineHeight: 1.35 }}>Courier scans here within 100 m of drop-off</div>
+            <div style={{ fontSize: 16, fontWeight: 900, letterSpacing: 2, textTransform: "uppercase", color: GREEN_L, marginTop: 12 }}>Delivery</div>
+            <div style={{ fontSize: 12.5, color: MUTED, marginTop: 4, lineHeight: 1.35 }}>Courier scans here within 100 m of drop-off</div>
           </div>
         </div>
         <div style={{ padding: "9px 18px", textAlign: "center", fontSize: 10.5, color: MUTED, borderTop: `1px solid ${LINE}`, background: "#201f27", lineHeight: 1.4 }}>🔒 The confirmation code is held only by the sender &amp; recipient — never printed here.</div>

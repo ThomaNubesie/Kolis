@@ -149,7 +149,8 @@ export const CourierAPI = {
 
 export type ScanResult = {
   ok?: boolean; in_range?: boolean; verified?: boolean; distance_m?: number | null; geofence_m?: number;
-  code?: string; kind?: "pickup" | "delivery";
+  reason?: "in_range" | "too_far" | "location_off" | "not_geocoded";
+  code?: string; parcel_code?: string; kind?: "pickup" | "delivery";
   sender?: { name: string; phone: string | null; address: string | null };
   recipient?: { name: string | null; phone: string | null; address: string | null };
   scan?: { lat: number; lng: number; map: string };

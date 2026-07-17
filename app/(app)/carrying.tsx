@@ -2,18 +2,20 @@
 // (captures the escrow through kolis-finalize-payment). Courier never sees the
 // sender's price — only their own payout.
 import { useCallback, useState } from "react";
-import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, Alert, ActivityIndicator, Linking, Platform } from "react-native";
+import { View, Text, Pressable, ScrollView, RefreshControl, Alert, ActivityIndicator, Linking, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { CourierAPI, CourierParcel } from "../../services/courier";
+import { drainScannedCodes } from "../../services/scanBridge";
 import { DeliveryReceiptModal, DeliveryReceiptData } from "../../components/DeliveryReceiptModal";
 
 const SIZE_EMOJI: Record<string, string> = { envelope: "✉️", small: "📦", large: "🧳" };
 
 export default function Carrying() {
-  const { t } = useStrings();
+  const { t, lang } = useStrings();
+  const fr = lang === "fr";
   const router = useRouter();
   const [list, setList] = useState<CourierParcel[]>([]);
   const [loading, setLoading] = useState(true);
@@ -26,7 +28,18 @@ export default function Carrying() {
     setLoading(true);
     CourierAPI.carrying().then(setList).catch(() => {}).finally(() => setLoading(false));
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // On focus: reload, then drain any code the QR scanner stashed while in the
+  // 100 m geofence and auto-fill the matching input. The driver never types it.
+  useFocusEffect(useCallback(() => {
+    load();
+    const drained = drainScannedCodes();
+    const p: Record<string, string> = {}, d: Record<string, string> = {};
+    for (const [id, e] of Object.entries(drained)) {
+      if (e.kind === "pickup") p[id] = e.code; else d[id] = e.code;
+    }
+    if (Object.keys(p).length) setPcodes((c) => ({ ...c, ...p }));
+    if (Object.keys(d).length) setCodes((c) => ({ ...c, ...d }));
+  }, [load]));
 
   // Open the platform maps app with turn-by-turn directions to an address.
   const openDirections = async (addr: string) => {
@@ -124,14 +137,18 @@ export default function Carrying() {
                     </Pressable>
                   ) : null}
                   <Text style={{ fontSize: 11.5, color: Colors.t3, marginBottom: 12 }}>🔒 {t("recipientMasked")}</Text>
-                  <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{t("enterPickupCode")}</Text>
-                  <TextInput
-                    value={pcodes[p.id] || ""}
-                    onChangeText={(v) => setPcodes((c) => ({ ...c, [p.id]: v.replace(/[^0-9]/g, "") }))}
-                    keyboardType="number-pad" maxLength={4} placeholder="••••" placeholderTextColor={Colors.t3}
-                    style={{ borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 11, padding: 12, fontSize: 22, fontWeight: "800", letterSpacing: 10, textAlign: "center", color: Colors.ink, backgroundColor: Colors.bg, marginBottom: 6 }}
-                  />
-                  <Text style={{ fontSize: 11, color: Colors.t3, marginBottom: 10 }}>💬 {t("askPickupCode")}</Text>
+                  <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{fr ? "Code de ramassage" : "Pickup code"}</Text>
+                  {(pcodes[p.id] || "").length >= 4 ? (
+                    <View style={{ borderWidth: 1.5, borderColor: "#178a5e", borderRadius: 11, padding: 12, backgroundColor: "rgba(23,138,94,0.08)", marginBottom: 10 }}>
+                      <Text style={{ fontSize: 22, fontWeight: "800", letterSpacing: 10, textAlign: "center", color: Colors.ink }}>{pcodes[p.id]}</Text>
+                      <Text style={{ fontSize: 10.5, color: "#178a5e", fontWeight: "700", textAlign: "center", marginTop: 4 }}>✅ {fr ? "Rempli par le scan" : "Filled by scan"}</Text>
+                    </View>
+                  ) : (
+                    <Pressable onPress={() => router.push("/(app)/scan" as never)} style={{ borderWidth: 1.5, borderColor: Colors.accent, borderStyle: "dashed", borderRadius: 11, padding: 14, alignItems: "center", backgroundColor: Colors.bg, marginBottom: 10 }}>
+                      <Text style={{ fontSize: 22 }}>📷</Text>
+                      <Text style={{ fontSize: 12.5, color: Colors.accent, fontWeight: "800", marginTop: 4, textAlign: "center" }}>{fr ? "Scannez le QR à moins de 100 m pour remplir le code" : "Scan the QR within 100 m to fill the code"}</Text>
+                    </Pressable>
+                  )}
                   <Pressable onPress={() => pickup(p)} disabled={busyId === p.id || (pcodes[p.id] || "").trim().length < 4} style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: "center", opacity: (busyId === p.id || (pcodes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
                     {busyId === p.id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>📦 {t("confirmPickup")}</Text>}
                   </Pressable>
@@ -163,13 +180,18 @@ export default function Carrying() {
                     </View>
                   ) : null}
 
-                  <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{t("enterDeliveryCode")}</Text>
-                  <TextInput
-                    value={codes[p.id] || ""}
-                    onChangeText={(v) => setCodes((c) => ({ ...c, [p.id]: v.replace(/[^0-9]/g, "") }))}
-                    keyboardType="number-pad" maxLength={4} placeholder="••••" placeholderTextColor={Colors.t3}
-                    style={{ borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 11, padding: 12, fontSize: 22, fontWeight: "800", letterSpacing: 10, textAlign: "center", color: Colors.ink, backgroundColor: Colors.bg, marginBottom: 10 }}
-                  />
+                  <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{fr ? "Code de livraison" : "Delivery code"}</Text>
+                  {(codes[p.id] || "").length >= 4 ? (
+                    <View style={{ borderWidth: 1.5, borderColor: "#178a5e", borderRadius: 11, padding: 12, backgroundColor: "rgba(23,138,94,0.08)", marginBottom: 10 }}>
+                      <Text style={{ fontSize: 22, fontWeight: "800", letterSpacing: 10, textAlign: "center", color: Colors.ink }}>{codes[p.id]}</Text>
+                      <Text style={{ fontSize: 10.5, color: "#178a5e", fontWeight: "700", textAlign: "center", marginTop: 4 }}>✅ {fr ? "Rempli par le scan" : "Filled by scan"}</Text>
+                    </View>
+                  ) : (
+                    <Pressable onPress={() => router.push("/(app)/scan" as never)} style={{ borderWidth: 1.5, borderColor: Colors.accent, borderStyle: "dashed", borderRadius: 11, padding: 14, alignItems: "center", backgroundColor: Colors.bg, marginBottom: 10 }}>
+                      <Text style={{ fontSize: 22 }}>📷</Text>
+                      <Text style={{ fontSize: 12.5, color: Colors.accent, fontWeight: "800", marginTop: 4, textAlign: "center" }}>{fr ? "Scannez le QR à moins de 100 m pour remplir le code" : "Scan the QR within 100 m to fill the code"}</Text>
+                    </Pressable>
+                  )}
                   <Pressable onPress={() => deliver(p)} disabled={busyId === p.id || (codes[p.id] || "").trim().length < 4} style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: "center", opacity: (busyId === p.id || (codes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
                     {busyId === p.id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{t("markDelivered")}</Text>}
                   </Pressable>

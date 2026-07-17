@@ -6,6 +6,7 @@ import * as Location from "expo-location";
 import { useRouter } from "expo-router";
 import { Colors } from "../../constants/colors";
 import { CourierAPI, ScanResult } from "../../services/courier";
+import { stashScannedCode } from "../../services/scanBridge";
 import { useStrings } from "../../hooks/useStrings";
 
 const MAG = "#E11D6B", GREEN = "#19A96E", RED = "#F0503C";
@@ -40,6 +41,9 @@ export default function Scan() {
       } catch { /* no GPS */ }
       const r = await CourierAPI.scan(m[1], m[2] as any, m[3] ?? "", lat, lng);
       if (r?.error) { Alert.alert("Kolis", errMsg(r.error)); setBusy(false); return; }
+      // In-geofence: the server revealed the code — stash it so the Carrying
+      // card's input auto-fills. The driver never types the code.
+      if (r?.code) stashScannedCode(m[1], m[2] as any, r.code);
       setRes({ ...r, parcelId: m[1], kind: m[2] as any });
     } catch (err: any) { Alert.alert("Kolis", err?.message || "Scan failed."); }
     setBusy(false);
@@ -76,20 +80,29 @@ export default function Scan() {
 
   // ── Result screen ──
   if (res) {
-    const far = res.verified && res.in_range === false;
+    const locked = res.in_range === false; // fail-closed: code hidden unless confirmed in range
+    const reason = res.reason;
     const dist = res.distance_m != null ? `${res.distance_m} m` : "";
+    const lockTitle = reason === "location_off" ? (fr ? "Localisation désactivée" : "Location off")
+      : reason === "not_geocoded" ? (fr ? "Position non vérifiable" : "Can't verify location")
+      : (fr ? "Trop loin" : "Too far");
+    const lockMsg = reason === "location_off"
+      ? (fr ? `Activez la localisation. Le code se débloque uniquement à moins de ${res.geofence_m} m du point.` : `Turn on location. The code unlocks only within ${res.geofence_m} m of the point.`)
+      : reason === "not_geocoded"
+      ? (fr ? `Ce colis n'a pas encore de position vérifiée. Contactez la répartition pour débloquer le code.` : `This parcel has no verified location yet. Contact dispatch to unlock the code.`)
+      : (fr ? `Vous êtes à ${dist} du point. Le code se débloque à moins de ${res.geofence_m} m — rapprochez-vous.` : `You're ${dist} away. The code unlocks within ${res.geofence_m} m — get closer.`);
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["top", "bottom"]}>
-        <View style={{ backgroundColor: far ? "#5a2018" : MAG, padding: 16, flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{far ? (fr ? "Trop loin" : "Too far") : (fr ? "À destination" : "In range")}</Text>
+        <View style={{ backgroundColor: locked ? "#5a2018" : MAG, padding: 16, flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{locked ? lockTitle : (fr ? "À destination" : "In range")}</Text>
           <Pressable onPress={() => setRes(null)} style={{ marginLeft: "auto" }}><Text style={{ color: "#fff", fontWeight: "800" }}>{fr ? "Scanner à nouveau" : "Scan again"}</Text></Pressable>
         </View>
 
-        <View style={{ margin: 14, borderRadius: 12, padding: 13, backgroundColor: far ? "rgba(240,80,60,0.13)" : "rgba(25,169,110,0.13)", borderWidth: 1, borderColor: far ? "rgba(240,80,60,0.5)" : "rgba(25,169,110,0.45)" }}>
-          <Text style={{ color: far ? "#ffb3a8" : "#7ee0b3", fontWeight: "700", fontSize: 13, lineHeight: 19 }}>
-            {far
-              ? (fr ? `Vous êtes à ${dist} du point. Le code se débloque à moins de ${res.geofence_m} m — rapprochez-vous.` : `You're ${dist} away. The code unlocks within ${res.geofence_m} m — get closer.`)
-              : (fr ? `📍 ${res.verified ? `À ${dist}. ` : ""}Position enregistrée et partagée avec l'expéditeur, le destinataire et l'administration.` : `📍 ${res.verified ? `${dist} away. ` : ""}Location captured & shared with sender, recipient & admin.`)}
+        <View style={{ margin: 14, borderRadius: 12, padding: 13, backgroundColor: locked ? "rgba(240,80,60,0.13)" : "rgba(25,169,110,0.13)", borderWidth: 1, borderColor: locked ? "rgba(240,80,60,0.5)" : "rgba(25,169,110,0.45)" }}>
+          <Text style={{ color: locked ? "#ffb3a8" : "#7ee0b3", fontWeight: "700", fontSize: 13, lineHeight: 19 }}>
+            {locked
+              ? lockMsg
+              : (fr ? `📍 À ${dist}. Position enregistrée et partagée avec l'expéditeur, le destinataire et l'administration.` : `📍 ${dist} away. Location captured & shared with sender, recipient & admin.`)}
           </Text>
         </View>
 
@@ -111,10 +124,15 @@ export default function Scan() {
         })}
 
         <View style={{ marginTop: "auto", padding: 16 }}>
-          {far ? (
+          {locked ? (
             <View style={{ backgroundColor: "#191720", borderWidth: 1, borderColor: "#45414f", borderStyle: "dashed", borderRadius: 13, padding: 16, alignItems: "center" }}>
               <Text style={{ fontSize: 24 }}>🔒</Text>
-              <Text style={{ color: Colors.t2, fontWeight: "700", fontSize: 12.5, marginTop: 6, textAlign: "center" }}>{fr ? `Code masqué jusqu'à moins de ${res.geofence_m} m` : `Code hidden until within ${res.geofence_m} m`}</Text>
+              <Text style={{ color: Colors.t2, fontWeight: "700", fontSize: 12.5, marginTop: 6, textAlign: "center" }}>{reason === "location_off" ? (fr ? "Activez la localisation pour débloquer le code" : "Turn on location to unlock the code") : reason === "not_geocoded" ? (fr ? "Position non vérifiable — code masqué" : "Location unverifiable — code hidden") : (fr ? `Code masqué jusqu'à moins de ${res.geofence_m} m` : `Code hidden until within ${res.geofence_m} m`)}</Text>
+              {reason === "location_off" ? (
+                <Pressable onPress={() => Linking.openSettings().catch(() => {})} style={{ backgroundColor: MAG, borderRadius: 11, paddingVertical: 11, paddingHorizontal: 22, marginTop: 12 }}>
+                  <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>{fr ? "Ouvrir les réglages" : "Open settings"}</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : (
             <>

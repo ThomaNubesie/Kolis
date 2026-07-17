@@ -55,7 +55,7 @@ export default function Clients() {
         <tbody>
           {rows.map((c) => (
             <tr key={c.id}>
-              <td><b>{c.full_name}</b>{c.email ? <div className="sub" style={{ fontSize: 12 }}>{c.email}</div> : null}</td>
+              <td><a href={`/shipper/clients/${c.id}`} style={{ color: "#B81558", fontWeight: 800, textDecoration: "none" }}>{c.full_name}</a>{c.email ? <div className="sub" style={{ fontSize: 12 }}>{c.email}</div> : null}</td>
               <td style={{ fontSize: 12.5 }}>{c.mobile ? <div>📱 {c.mobile}</div> : null}{c.home_phone ? <div className="sub">🏠 {c.home_phone}</div> : null}{c.work_phone ? <div className="sub">💼 {c.work_phone}</div> : null}</td>
               <td style={{ fontSize: 12.5 }}>{c.address || "—"}{c.city ? <div className="sub">{[c.city, c.province, c.postal].filter(Boolean).join(", ")}</div> : null}</td>
               <td className="sub" style={{ fontSize: 12 }}>{c.notes || "—"}</td>

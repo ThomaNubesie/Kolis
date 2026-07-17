@@ -55,29 +55,48 @@ Deno.serve(async (req) => {
     // Geofence: distance from the scan point to the pickup (or drop-off) coords.
     const tLat = kind === "pickup" ? p.pickup_lat : p.dropoff_lat;
     const tLng = kind === "pickup" ? p.pickup_lng : p.dropoff_lng;
-    let distance: number | null = null, verified = false;
+    let distance: number | null = null;
     if (typeof lat === "number" && typeof lng === "number" && tLat != null && tLng != null) {
       const { data: d } = await admin.rpc("kolis_distance_m", { lat1: lat, lng1: lng, lat2: tLat, lng2: tLng });
       distance = d != null ? Math.round(d as number) : null;
-      verified = true;
     }
 
     // Sender/recipient details the driver's app shows (call + directions).
     let senderName = "Sender", senderPhone: string | null = null, senderEmail: string | null = null;
     if (p.org_id) { const { data: o } = await admin.from("kolis_orgs").select("name, billing_email").eq("id", p.org_id).maybeSingle(); if (o) { senderName = o.name || senderName; senderEmail = o.billing_email; } }
     if (p.sender_id) { try { const { data: au } = await admin.auth.admin.getUserById(p.sender_id as string); senderPhone = au?.user?.phone ?? null; senderEmail = senderEmail || au?.user?.email || null; } catch { /* */ } }
+    // Navigation details (name / phone / address) — NEVER the code. Note: this is
+    // the parcel tracking code (p.code), not the secret PIN, and is sent for the
+    // driver's screen header only.
     const details = {
-      code: p.code, kind,
+      parcel_code: p.code, kind,
       sender: { name: senderName, phone: senderPhone, address: kind === "pickup" ? (p.pickup_addr || p.from_city) : null },
       recipient: { name: p.recipient_name, phone: p.recipient_phone, address: p.dropoff_addr || p.to_city },
     };
 
-    // Beyond the fence → return details for navigation but NOT the code.
-    if (verified && distance != null && distance > GEOFENCE_M) {
-      return json({ ok: true, in_range: false, verified: true, distance_m: distance, geofence_m: GEOFENCE_M, ...details });
+    // ── FAIL-CLOSED geofence ──────────────────────────────────────────────
+    // The code is revealed ONLY on a confirmed in-range GPS fix. If we can't
+    // prove the driver is within 100 m, we return WHY (so the app can prompt)
+    // but never the code.
+    const hasDriverLoc = typeof lat === "number" && typeof lng === "number";
+    const hasTargetLoc = tLat != null && tLng != null;
+    // NOTE: verified:true on every locked response too — older app builds gate the
+    // "locked" UI on (verified && !in_range); keeping it true makes them lock
+    // cleanly instead of falling through. Security is `in_range`, never `verified`.
+    if (!hasDriverLoc) {
+      // Driver's location is off/unavailable — cannot verify distance.
+      return json({ ok: true, in_range: false, reason: "location_off", verified: true, geofence_m: GEOFENCE_M, ...details });
+    }
+    if (!hasTargetLoc) {
+      // Parcel has no pickup/drop-off coordinates yet — cannot verify distance.
+      return json({ ok: true, in_range: false, reason: "not_geocoded", verified: true, geofence_m: GEOFENCE_M, ...details });
+    }
+    if (distance == null || distance > GEOFENCE_M) {
+      // Both located, but the driver is outside the fence.
+      return json({ ok: true, in_range: false, reason: "too_far", verified: true, distance_m: distance, geofence_m: GEOFENCE_M, ...details });
     }
 
-    // In range (or coords unknown) → reveal the code, record the scan, notify.
+    // In range (confirmed within 100 m) → reveal the code, record the scan, notify.
     const pin = kind === "pickup" ? p.pickup_code : p.delivery_code;
     const upd: Record<string, unknown> = {};
     if (kind === "pickup") { upd.picked_up_lat = lat ?? null; upd.picked_up_lng = lng ?? null; upd.picked_up_scan_at = new Date().toISOString(); }
@@ -95,7 +114,7 @@ Deno.serve(async (req) => {
     sms(p.recipient_phone as string, `🇬🇧 ${body}`);
     sms(senderPhone as string, `🇬🇧 ${body}`);
 
-    return json({ ok: true, in_range: true, verified, distance_m: distance, geofence_m: GEOFENCE_M, code: pin, scan: { lat, lng, map: mapUrl }, ...details });
+    return json({ ok: true, in_range: true, reason: "in_range", verified: true, distance_m: distance, geofence_m: GEOFENCE_M, scan: { lat, lng, map: mapUrl }, ...details, code: pin });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }

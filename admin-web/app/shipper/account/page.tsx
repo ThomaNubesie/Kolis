@@ -4,6 +4,7 @@ import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
 import { COUNTRIES, countryByCode, toE164, localFromE164 } from "@/lib/countries";
+import { AlertTriangle } from "lucide-react";
 
 // Business account details — phone, email, and business address are REQUIRED.
 // The shipper layout gates the whole portal here until these are complete.
@@ -61,7 +62,7 @@ export default function Account() {
 
       {incomplete ? (
         <div className="card" style={{ marginTop: 12, background: "#FBF3F7", border: "1px solid #f0d8e5" }}>
-          <b>⚠️ {t("Complete your account to continue", "Complétez votre compte pour continuer")}</b>
+          <b style={{ display: "inline-flex", alignItems: "center", gap: 7 }}><AlertTriangle size={16} strokeWidth={2.2} /> {t("Complete your account to continue", "Complétez votre compte pour continuer")}</b>
           <div className="sub" style={{ marginTop: 4 }}>{t("A phone number, email address and business address are required for every Kolis Business account.", "Un numéro de téléphone, une adresse courriel et une adresse d’affaires sont requis pour chaque compte Kolis Business.")}</div>
         </div>
       ) : null}

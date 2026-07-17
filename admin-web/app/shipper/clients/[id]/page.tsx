@@ -4,6 +4,7 @@ import { useParams } from "next/navigation";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
+import { Mail, Smartphone, Home, Briefcase, MapPin, StickyNote, Send, Package, ArrowLeft } from "lucide-react";
 
 const money = (c: number) => "$" + ((c || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const STATUS: Record<string, string> = {
@@ -40,7 +41,7 @@ export default function ClientProfile() {
 
   return (
     <>
-      <a className="link" href="/shipper/clients" style={{ color: "var(--mag,#B81558)", fontWeight: 800, fontSize: 13 }}>← {t("Clients", "Clients")}</a>
+      <a className="link" href="/shipper/clients" style={{ color: "var(--mag,#B81558)", fontWeight: 800, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 5 }}><ArrowLeft size={14} strokeWidth={2.2} /> {t("Clients", "Clients")}</a>
 
       {/* Header */}
       <div className="card" style={{ marginTop: 12, display: "flex", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
@@ -49,15 +50,15 @@ export default function ClientProfile() {
           <div style={{ fontSize: 22, fontWeight: 900 }}>{c.full_name}</div>
           <div className="sub">{t("Customer", "Client")} · {active.name}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10 }}>
-            {c.email ? <span style={chip}>✉️ {c.email}</span> : null}
-            {c.mobile ? <a style={chip} href={`tel:${c.mobile}`}>📱 {c.mobile}</a> : null}
-            {c.home_phone ? <span style={chip}>🏠 {c.home_phone}</span> : null}
-            {c.work_phone ? <span style={chip}>💼 {c.work_phone}</span> : null}
-            {(c.address || c.city) ? <span style={chip}>📍 {[c.address, c.city, c.province, c.postal].filter(Boolean).join(", ")}</span> : null}
+            {c.email ? <span style={chip}><Mail size={14} strokeWidth={2} /> {c.email}</span> : null}
+            {c.mobile ? <a style={chip} href={`tel:${c.mobile}`}><Smartphone size={14} strokeWidth={2} /> {c.mobile}</a> : null}
+            {c.home_phone ? <span style={chip}><Home size={14} strokeWidth={2} /> {c.home_phone}</span> : null}
+            {c.work_phone ? <span style={chip}><Briefcase size={14} strokeWidth={2} /> {c.work_phone}</span> : null}
+            {(c.address || c.city) ? <span style={chip}><MapPin size={14} strokeWidth={2} /> {[c.address, c.city, c.province, c.postal].filter(Boolean).join(", ")}</span> : null}
           </div>
-          {c.notes ? <div className="sub" style={{ marginTop: 8 }}>📝 {c.notes}</div> : null}
+          {c.notes ? <div className="sub" style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 6 }}><StickyNote size={14} strokeWidth={2} /> {c.notes}</div> : null}
         </div>
-        <a className="btn ghost" href={`/shipper/bulk?client=${c.id}`}>📮 {t("New shipment", "Nouvel envoi")}</a>
+        <a className="btn ghost" href={`/shipper/bulk?client=${c.id}`} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Send size={15} strokeWidth={2} /> {t("New shipment", "Nouvel envoi")}</a>
       </div>
 
       {/* Stats */}
@@ -70,7 +71,7 @@ export default function ClientProfile() {
 
       {/* History */}
       <div className="card">
-        <h2 style={{ margin: 0, fontSize: 15 }}>📦 {t("Package history", "Historique des colis")}</h2>
+        <h2 style={{ margin: 0, fontSize: 15, display: "flex", alignItems: "center", gap: 7 }}><Package size={17} strokeWidth={2} /> {t("Package history", "Historique des colis")}</h2>
         <div className="sub" style={{ marginBottom: 6 }}>{t("Every parcel sent to this customer — newest first.", "Chaque colis envoyé à ce client — le plus récent en premier.")}</div>
         <table>
           <thead><tr><th>{t("Date", "Date")}</th><th>{t("Code", "Code")}</th><th>{t("Route", "Trajet")}</th><th>{t("Size", "Taille")}</th><th>{t("Status", "Statut")}</th><th style={{ textAlign: "right" }}>{t("Cost", "Coût")}</th></tr></thead>

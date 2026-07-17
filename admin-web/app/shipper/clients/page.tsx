@@ -4,6 +4,7 @@ import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
 import { COUNTRIES, countryByCode, toE164 } from "@/lib/countries";
+import { Smartphone, Home, Briefcase } from "lucide-react";
 
 type Client = {
   id: string; full_name: string; email: string | null; mobile: string | null;
@@ -62,7 +63,7 @@ export default function Clients() {
           {rows.map((c) => (
             <tr key={c.id}>
               <td><a href={`/shipper/clients/${c.id}`} style={{ color: "#B81558", fontWeight: 800, textDecoration: "none" }}>{c.full_name}</a>{c.email ? <div className="sub" style={{ fontSize: 12 }}>{c.email}</div> : null}</td>
-              <td style={{ fontSize: 12.5 }}>{c.mobile ? <div>📱 {c.mobile}</div> : null}{c.home_phone ? <div className="sub">🏠 {c.home_phone}</div> : null}{c.work_phone ? <div className="sub">💼 {c.work_phone}</div> : null}</td>
+              <td style={{ fontSize: 12.5 }}>{c.mobile ? <div style={{ display: "flex", alignItems: "center", gap: 5 }}><Smartphone size={13} strokeWidth={2} /> {c.mobile}</div> : null}{c.home_phone ? <div className="sub" style={{ display: "flex", alignItems: "center", gap: 5 }}><Home size={12} strokeWidth={2} /> {c.home_phone}</div> : null}{c.work_phone ? <div className="sub" style={{ display: "flex", alignItems: "center", gap: 5 }}><Briefcase size={12} strokeWidth={2} /> {c.work_phone}</div> : null}</td>
               <td style={{ fontSize: 12.5 }}>{c.address || "—"}{c.city ? <div className="sub">{[c.city, c.province, c.postal].filter(Boolean).join(", ")}</div> : null}</td>
               <td className="sub" style={{ fontSize: 12 }}>{c.notes || "—"}</td>
               <td style={{ display: "flex", gap: 6 }}>

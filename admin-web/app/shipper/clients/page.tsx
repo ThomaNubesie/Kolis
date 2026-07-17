@@ -3,13 +3,14 @@ import { useEffect, useState } from "react";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
+import { COUNTRIES, countryByCode, toE164 } from "@/lib/countries";
 
 type Client = {
   id: string; full_name: string; email: string | null; mobile: string | null;
   home_phone: string | null; work_phone: string | null; address: string | null;
-  city: string | null; province: string | null; postal: string | null; notes: string | null;
+  city: string | null; province: string | null; postal: string | null; country: string | null; notes: string | null;
 };
-const EMPTY: Partial<Client> = { full_name: "", email: "", mobile: "", home_phone: "", work_phone: "", address: "", city: "", province: "", postal: "", notes: "" };
+const EMPTY: Partial<Client> = { full_name: "", email: "", mobile: "", home_phone: "", work_phone: "", address: "", city: "", province: "", postal: "", country: "CA", notes: "" };
 
 export default function Clients() {
   const { active } = useOrg();
@@ -32,7 +33,9 @@ export default function Clients() {
     if (!edit?.mobile?.trim()) { setErr(t("Phone number is required.", "Le numéro de téléphone est requis.")); return; }
     if (!edit?.address?.trim()) { setErr(t("Home address is required.", "L’adresse est requise.")); return; }
     setBusy(true); setErr("");
-    try { await org.clientSave(active.org_id, edit); setEdit(null); flash(t("Client saved.", "Client enregistré.")); load(); }
+    const dial = countryByCode(edit.country).dial;
+    const payload = { ...edit, mobile: edit.mobile ? toE164(edit.mobile, dial) : edit.mobile };
+    try { await org.clientSave(active.org_id, payload); setEdit(null); flash(t("Client saved.", "Client enregistré.")); load(); }
     catch (e: any) { setErr(e?.message || t("Failed.", "Échec.")); }
     setBusy(false);
   };
@@ -81,10 +84,14 @@ export default function Clients() {
             </div>
             <div className="mono" style={{ marginTop: 10 }}>{t("Full name *", "Nom complet *")}</div>
             <input className="input" value={edit.full_name || ""} onChange={(e) => set("full_name", e.target.value)} />
+            <div className="mono" style={{ marginTop: 10 }}>{t("Country *", "Pays *")}</div>
+            <select className="input" value={edit.country || "CA"} onChange={(e) => set("country", e.target.value)}>
+              {COUNTRIES.map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
+            </select>
             <div className="mono" style={{ marginTop: 10 }}>{t("Email *", "Courriel *")}</div>
             <input className="input" type="email" value={edit.email || ""} onChange={(e) => set("email", e.target.value)} placeholder="name@email.com" />
             <div className="row" style={{ gap: 10, marginTop: 10 }}>
-              <div style={{ flex: 1 }}><div className="mono">{t("Mobile *", "Mobile *")}</div><input className="input" value={edit.mobile || ""} onChange={(e) => set("mobile", e.target.value)} /></div>
+              <div style={{ flex: 1 }}><div className="mono">{t("Mobile *", "Mobile *")}</div><input className="input" value={edit.mobile || ""} onChange={(e) => set("mobile", e.target.value)} placeholder={`${countryByCode(edit.country).dial} ${countryByCode(edit.country).phonePh}`} inputMode="tel" /></div>
               <div style={{ flex: 1 }}><div className="mono">{t("Home", "Domicile")}</div><input className="input" value={edit.home_phone || ""} onChange={(e) => set("home_phone", e.target.value)} /></div>
               <div style={{ flex: 1 }}><div className="mono">{t("Work", "Travail")}</div><input className="input" value={edit.work_phone || ""} onChange={(e) => set("work_phone", e.target.value)} /></div>
             </div>
@@ -92,8 +99,8 @@ export default function Clients() {
             <input className="input" value={edit.address || ""} onChange={(e) => set("address", e.target.value)} placeholder={t("Street, unit", "Rue, unité")} />
             <div className="row" style={{ gap: 10, marginTop: 10 }}>
               <div style={{ flex: 2 }}><div className="mono">{t("City", "Ville")}</div><input className="input" value={edit.city || ""} onChange={(e) => set("city", e.target.value)} /></div>
-              <div style={{ flex: 1 }}><div className="mono">{t("Prov.", "Prov.")}</div><input className="input" value={edit.province || ""} onChange={(e) => set("province", e.target.value)} /></div>
-              <div style={{ flex: 1 }}><div className="mono">{t("Postal", "Code")}</div><input className="input" value={edit.postal || ""} onChange={(e) => set("postal", e.target.value)} /></div>
+              <div style={{ flex: 1 }}><div className="mono">{countryByCode(edit.country).region}</div><input className="input" value={edit.province || ""} onChange={(e) => set("province", e.target.value)} /></div>
+              <div style={{ flex: 1 }}><div className="mono">{countryByCode(edit.country).postal}</div><input className="input" value={edit.postal || ""} onChange={(e) => set("postal", e.target.value)} placeholder={countryByCode(edit.country).postalPh} /></div>
             </div>
             <div className="mono" style={{ marginTop: 10 }}>{t("Delivery notes", "Notes de livraison")}</div>
             <input className="input" value={edit.notes || ""} onChange={(e) => set("notes", e.target.value)} placeholder={t("Buzzer, floor, leave-at-door…", "Sonnette, étage, laisser à la porte…")} />

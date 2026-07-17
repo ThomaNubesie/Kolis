@@ -43,16 +43,28 @@ Deno.serve(async (req) => {
     const { stripe } = s;
 
     const admin = createClient(SUPABASE_URL, SERVICE);
-    const { data: org } = await admin.from("kolis_orgs").select("id,name,billing_email,stripe_customer_id").eq("id", org_id).single();
+    const { data: org } = await admin.from("kolis_orgs").select("id,name,billing_email,phone,address,city,postal,country,stripe_customer_id").eq("id", org_id).single();
     if (!org) return json({ error: "not found" }, 404);
+
+    // Full customer profile so the Stripe record clearly identifies the org.
+    const custFields: Record<string, unknown> = {
+      name: org.name,
+      email: org.billing_email ?? undefined,
+      phone: org.phone ?? undefined,
+      description: `${org.name} · Kolis Business`,
+      metadata: { kolis_org_id: org.id, org_name: org.name },
+    };
+    if (org.address || org.city || org.postal || org.country) {
+      custFields.address = { line1: org.address ?? undefined, city: org.city ?? undefined, postal_code: org.postal ?? undefined, country: org.country || "CA" };
+    }
 
     let customerId = org.stripe_customer_id as string | null;
     if (!customerId) {
-      const c = await stripe.customers.create(
-        { name: org.name, email: org.billing_email ?? undefined, metadata: { kolis_org_id: org.id } },
-        { idempotencyKey: `kolis_cust_${org.id}` });
+      const c = await stripe.customers.create(custFields, { idempotencyKey: `kolis_cust_${org.id}` });
       customerId = c.id;
       await admin.from("kolis_orgs").update({ stripe_customer_id: customerId }).eq("id", org.id);
+    } else {
+      try { await stripe.customers.update(customerId, custFields); } catch { /* keep-in-sync; non-fatal */ }
     }
     // Hosted Checkout (mode=setup): Stripe collects + saves the card on its own page,
     // then setup_intent.succeeded (webhook) records it as the org default_pm. We just

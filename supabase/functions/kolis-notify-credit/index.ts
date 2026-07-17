@@ -26,13 +26,13 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     if ((req.headers.get("x-secret") || "") !== SECRET) return json({ error: "forbidden" }, 403);
-    const { org_id, amount_cents, phone, email: emailTo } = await req.json();
+    const { org_id, amount_cents, phone, email: emailTo, no_email } = await req.json();
     if (!org_id || !amount_cents) return json({ error: "org_id and amount_cents required" }, 400);
     const amt = `$${(Number(amount_cents) / 100).toFixed(2)}`;
 
-    // Resolve the org's billing email if none passed.
+    // Resolve the org's billing email if none passed (unless email is suppressed).
     let to = emailTo as string | undefined;
-    if (!to) {
+    if (!to && !no_email) {
       const r = await fetch(`${SUPABASE_URL}/rest/v1/kolis_orgs?id=eq.${org_id}&select=billing_email`, { headers: { apikey: SERVICE, Authorization: `Bearer ${SERVICE}` } });
       const rows = await r.json().catch(() => []);
       to = rows?.[0]?.billing_email;
@@ -56,7 +56,7 @@ Merci d'expédier avec Kolis.
 — Concord Express · Kolis`;
     const smsBody = `Kolis: you've been credited ${amt} toward your next shipments — applied automatically before your card. Merci! — Concord Express`;
 
-    const e = to ? await email(to, subject, body) : { sent: false, why: "no email on file" };
+    const e = (to && !no_email) ? await email(to, subject, body) : { sent: false, why: no_email ? "email suppressed" : "no email on file" };
     const s = phone ? await sms(phone as string, smsBody) : { sent: false, why: "no phone provided" };
     return json({ ok: true, email: { to, ...e }, sms: { to: phone ?? null, ...s } });
   } catch (e) {

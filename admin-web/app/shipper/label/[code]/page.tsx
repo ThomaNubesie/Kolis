@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
+import { Printer, ArrowLeft } from "lucide-react";
 import KolisLabel from "@/components/KolisLabel";
 
 export default function Label() {
@@ -36,8 +37,8 @@ export default function Label() {
         }
       `}</style>
       <div className="noprint" style={{ maxWidth: 780, margin: "0 auto 14px", display: "flex", gap: 10 }}>
-        <button className="btn" onClick={() => window.print()}>🖨 Print label</button>
-        <a className="btn ghost" href="/shipper/shipments">← Shipments</a>
+        <button className="btn" style={{ display: "inline-flex", alignItems: "center", gap: 7 }} onClick={() => window.print()}><Printer size={16} strokeWidth={2} /> Print label</button>
+        <a className="btn ghost" href="/shipper/shipments" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><ArrowLeft size={15} strokeWidth={2} /> Shipments</a>
       </div>
       <KolisLabel p={p} />
     </div>

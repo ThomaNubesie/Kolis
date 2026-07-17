@@ -5,22 +5,23 @@ import Link from "next/link";
 import { supabase, org } from "@/lib/supabase";
 import { OrgGate, useOrg } from "@/lib/org-context";
 import { useLang, LangToggle } from "@/lib/i18n";
+import { LayoutDashboard, PackagePlus, Upload, Package, Users, Send, Truck, TrendingUp, ReceiptText, CreditCard, Star, UsersRound, Palette, Building2, LogOut } from "lucide-react";
 
 const NAV = [
-  { href: "/shipper", icon: "📊", label: "Overview", fr: "Aperçu" },
-  { href: "/shipper/create", icon: "➕", label: "New shipment", fr: "Nouvel envoi" },
-  { href: "/shipper/import", icon: "⬆️", label: "Bulk import", fr: "Import en lot" },
-  { href: "/shipper/shipments", icon: "📦", label: "Shipments", fr: "Envois" },
-  { href: "/shipper/clients", icon: "👤", label: "Clients", fr: "Clients" },
-  { href: "/shipper/bulk", icon: "📮", label: "Bulk shipment", fr: "Envoi en lot" },
-  { href: "/freight", icon: "🚛", label: "Freight · pallets", fr: "Fret · palettes" },
-  { href: "/shipper/analytics", icon: "📈", label: "Analytics", fr: "Statistiques" },
-  { href: "/shipper/invoices", icon: "🧾", label: "Invoices", fr: "Factures" },
-  { href: "/shipper/billing", icon: "💳", label: "Billing", fr: "Facturation" },
-  { href: "/shipper/plans", icon: "⭐", label: "Plans", fr: "Forfaits" },
-  { href: "/shipper/team", icon: "👥", label: "Team & seats", fr: "Équipe et sièges" },
-  { href: "/shipper/branding", icon: "🎨", label: "Branding", fr: "Image de marque" },
-  { href: "/shipper/account", icon: "🧑‍💼", label: "Account", fr: "Compte" },
+  { href: "/shipper", Icon: LayoutDashboard, label: "Overview", fr: "Aperçu" },
+  { href: "/shipper/create", Icon: PackagePlus, label: "New shipment", fr: "Nouvel envoi" },
+  { href: "/shipper/import", Icon: Upload, label: "Bulk import", fr: "Import en lot" },
+  { href: "/shipper/shipments", Icon: Package, label: "Shipments", fr: "Envois" },
+  { href: "/shipper/clients", Icon: Users, label: "Clients", fr: "Clients" },
+  { href: "/shipper/bulk", Icon: Send, label: "Bulk shipment", fr: "Envoi en lot" },
+  { href: "/freight", Icon: Truck, label: "Freight · pallets", fr: "Fret · palettes" },
+  { href: "/shipper/analytics", Icon: TrendingUp, label: "Analytics", fr: "Statistiques" },
+  { href: "/shipper/invoices", Icon: ReceiptText, label: "Invoices", fr: "Factures" },
+  { href: "/shipper/billing", Icon: CreditCard, label: "Billing", fr: "Facturation" },
+  { href: "/shipper/plans", Icon: Star, label: "Plans", fr: "Forfaits" },
+  { href: "/shipper/team", Icon: UsersRound, label: "Team & seats", fr: "Équipe et sièges" },
+  { href: "/shipper/branding", Icon: Palette, label: "Branding", fr: "Image de marque" },
+  { href: "/shipper/account", Icon: Building2, label: "Account", fr: "Compte" },
 ];
 
 function Shell({ children }: { children: React.ReactNode }) {
@@ -53,12 +54,12 @@ function Shell({ children }: { children: React.ReactNode }) {
           <div style={{ color: "#fff", fontSize: 12, padding: "0 8px 10px", opacity: .8 }}>{active.name}</div>
         )}
         {NAV.map((n) => (
-          <Link key={n.href} href={n.href} className={"nav" + (isActive(n.href) ? " on" : "")}><span>{n.icon}</span>{lang === "fr" ? n.fr : n.label}</Link>
+          <Link key={n.href} href={n.href} className={"nav" + (isActive(n.href) ? " on" : "")}><n.Icon size={17} strokeWidth={2} style={{ flex: "none" }} />{lang === "fr" ? n.fr : n.label}</Link>
         ))}
         <div className="who">
           <div style={{ marginBottom: 8 }}><LangToggle /></div>
           {active.role?.toUpperCase()} · {t("SHIPPER", "EXPÉDITEUR")}<br />
-          <button className="nav" style={{ padding: "6px 0", marginTop: 6 }} onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}>↩︎ {t("Sign out", "Déconnexion")}</button>
+          <button className="nav" style={{ padding: "6px 0", marginTop: 6 }} onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}><LogOut size={15} strokeWidth={2} style={{ flex: "none" }} />{t("Sign out", "Déconnexion")}</button>
         </div>
       </aside>
       <main className="main">

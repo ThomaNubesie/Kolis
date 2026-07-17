@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
+import { Printer, History } from "lucide-react";
 
 const money = (c: number) => "$" + ((c || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 type Row = { size: string; to_city: string; to_address: string };
@@ -132,7 +133,7 @@ export default function BulkShip() {
       {result ? (
         <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "10px 0", flexWrap: "wrap" }}>
           <div className="pill pg" style={{ display: "inline-block" }}>{result}</div>
-          {batchCodes.length > 0 ? <button className="btn" onClick={printAllLabels}>🖨 {t(`Print all ${batchCodes.length} labels`, `Imprimer les ${batchCodes.length} étiquettes`)}</button> : null}
+          {batchCodes.length > 0 ? <button className="btn" style={{ display: "inline-flex", alignItems: "center", gap: 7 }} onClick={printAllLabels}><Printer size={16} strokeWidth={2} /> {t(`Print all ${batchCodes.length} labels`, `Imprimer les ${batchCodes.length} étiquettes`)}</button> : null}
         </div>
       ) : null}
 
@@ -176,7 +177,7 @@ export default function BulkShip() {
                 <td style={{ position: "relative" }}>
                   <a href={`/shipper/clients/${c.id}`} style={{ color: "#B81558", fontWeight: 800, textDecoration: "none" }}>{c.full_name}</a>
                   {c.mobile ? <div className="sub" style={{ fontSize: 12 }}>{c.mobile}</div> : null}
-                  <button type="button" onClick={() => openHistory(c.id)} style={{ marginTop: 5, background: "#FBF3F7", border: "1px solid #f0d8e5", color: "#B81558", borderRadius: 8, padding: "4px 9px", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}>📦 {t("From history", "Historique")}</button>
+                  <button type="button" onClick={() => openHistory(c.id)} style={{ marginTop: 5, display: "inline-flex", alignItems: "center", gap: 5, background: "#FBF3F7", border: "1px solid #f0d8e5", color: "#B81558", borderRadius: 8, padding: "4px 9px", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}><History size={13} strokeWidth={2.2} /> {t("From history", "Historique")}</button>
                   {histFor === c.id && (
                     <div style={{ position: "absolute", zIndex: 20, top: "100%", left: 0, width: 430, background: "#fff", border: "1px solid #E4E0D8", borderRadius: 12, boxShadow: "0 12px 34px rgba(0,0,0,.16)", padding: 8 }} onClick={(e) => e.stopPropagation()}>
                       <div className="mono" style={{ padding: "6px 8px" }}>📦 {t("Reuse a past shipment", "Réutiliser un envoi passé")}</div>

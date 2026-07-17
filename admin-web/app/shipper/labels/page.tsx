@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
+import { Printer, ArrowLeft } from "lucide-react";
 import KolisLabel from "@/components/KolisLabel";
 
 // Print ALL labels for a batch at once — one label per page. Codes come from the
@@ -60,8 +61,8 @@ export default function BatchLabels() {
       `}</style>
 
       <div className="noprint" style={{ maxWidth: 780, margin: "0 auto 14px", display: "flex", gap: 10, alignItems: "center" }}>
-        <button className="btn" disabled={labels.length === 0} onClick={() => window.print()}>🖨 {t(`Print all ${labels.length} labels`, `Imprimer les ${labels.length} étiquettes`)}</button>
-        <a className="btn ghost" href="/shipper/bulk">← {t("Bulk shipment", "Envoi en lot")}</a>
+        <button className="btn" style={{ display: "inline-flex", alignItems: "center", gap: 7 }} disabled={labels.length === 0} onClick={() => window.print()}><Printer size={16} strokeWidth={2} /> {t(`Print all ${labels.length} labels`, `Imprimer les ${labels.length} étiquettes`)}</button>
+        <a className="btn ghost" href="/shipper/bulk" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><ArrowLeft size={15} strokeWidth={2} /> {t("Bulk shipment", "Envoi en lot")}</a>
         {missing.length > 0 ? <span className="warn" style={{ color: "#ffb3a8" }}>{t(`${missing.length} not found: ${missing.join(", ")}`, `${missing.length} introuvable(s) : ${missing.join(", ")}`)}</span> : null}
       </div>
 

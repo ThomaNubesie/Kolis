@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
+import { Printer, Pencil } from "lucide-react";
 
 const money = (c: number) => "$" + ((c || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const STATUS: Record<string, string> = {
@@ -85,7 +86,7 @@ export default function Shipments() {
         <input className="search" placeholder={t("Search code, city, recipient…", "Rechercher code, ville, destinataire…")} value={search}
           onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} />
         <button className="btn ghost" onClick={load}>{t("Search", "Rechercher")}</button>
-        <button className="btn" style={{ marginLeft: "auto" }} disabled={selected.size === 0} onClick={printSelected}>🖨 {t(`Print labels (${selected.size})`, `Imprimer étiquettes (${selected.size})`)}</button>
+        <button className="btn" style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 7 }} disabled={selected.size === 0} onClick={printSelected}><Printer size={16} strokeWidth={2} /> {t(`Print labels (${selected.size})`, `Imprimer étiquettes (${selected.size})`)}</button>
       </div>
       <table>
         <thead><tr><th style={{ width: 26 }}><input type="checkbox" checked={allOn} onChange={toggleAll} title={t("Select all", "Tout sélectionner")} /></th><th>{t("When", "Quand")}</th><th>{t("Code", "Code")}</th><th>{t("Route", "Trajet")}</th><th>{t("Recipient", "Destinataire")}</th><th>{t("Size", "Taille")}</th><th>{t("Status", "Statut")}</th><th>{t("Cost", "Coût")}</th><th></th></tr></thead>
@@ -98,8 +99,8 @@ export default function Shipments() {
               <td><span className={"pill " + (STATUS[p.status] || "pgrey")}>{p.status.replace(/_/g, " ")}</span></td>
               <td>{money(p.price_cents)}</td>
               <td style={{ display: "flex", gap: 6 }}>
-                <a className="btn ghost" href={`/shipper/label/${encodeURIComponent(p.code)}`} target="_blank" rel="noreferrer">🖨 {t("Label", "Étiquette")}</a>
-                {editable(p) ? <button className="btn ghost" onClick={() => openEdit(p)}>{t("Edit", "Modifier")}</button> : null}
+                <a className="btn ghost" href={`/shipper/label/${encodeURIComponent(p.code)}`} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Printer size={14} strokeWidth={2} /> {t("Label", "Étiquette")}</a>
+                {editable(p) ? <button className="btn ghost" style={{ display: "inline-flex", alignItems: "center", gap: 5 }} onClick={() => openEdit(p)}><Pencil size={13} strokeWidth={2} /> {t("Edit", "Modifier")}</button> : null}
               </td>
             </tr>
           ))}

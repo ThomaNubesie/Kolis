@@ -54,22 +54,43 @@ Deno.serve(async (req) => {
     if (!org?.stripe_customer_id || !org?.stripe_default_pm) return json({ error: "no_card" }, 402);
 
     const amount = (p.price_cents ?? 0) + (p.insurance_premium_cents ?? 0);
+
+    // Apply any prepaid org credit first (atomic — safe under concurrent bulk charges).
+    let creditApplied = 0;
+    if (amount > 0) {
+      const { data: used } = await admin.rpc("kolis_org_consume_credit", { p_org: org_id, p_want_cents: amount });
+      creditApplied = Number(used || 0);
+    }
+    let net = amount - creditApplied;
+    // Stripe's minimum charge is 50¢; if credit leaves a sub-minimum remainder,
+    // absorb it (treat as fully covered) rather than fail the shipment.
+    if (net > 0 && net < 50) net = 0;
+
+    // Fully covered by credit → no card charge. Mark paid with a credit sentinel.
+    if (net <= 0) {
+      await admin.from("kolis_parcels").update({ stripe_payment_intent_id: `credit_${p.id}`, credit_applied_cents: creditApplied }).eq("id", p.id);
+      return json({ ok: true, charged_cents: 0, credit_applied_cents: creditApplied });
+    }
+
     try {
       const pi = await stripe.paymentIntents.create({
-        amount, currency: "cad",
+        amount: net, currency: "cad",
         customer: org.stripe_customer_id as string,
         payment_method: org.stripe_default_pm as string,
         off_session: true, confirm: true,
-        description: `Kolis shipment ${p.code} · ${org.name}`,
-        metadata: { product: "kolis-org-payg", parcel_id: p.id as string, org_id },
+        description: `Kolis shipment ${p.code} · ${org.name}${creditApplied ? ` (−$${(creditApplied / 100).toFixed(2)} credit)` : ""}`,
+        metadata: { product: "kolis-org-payg", parcel_id: p.id as string, org_id, credit_applied_cents: String(creditApplied) },
       }, { idempotencyKey: `payg_${p.id}` });
       if (pi.status === "succeeded") {
-        await admin.from("kolis_parcels").update({ stripe_payment_intent_id: pi.id }).eq("id", p.id);
-        return json({ ok: true, charged_cents: amount });
+        await admin.from("kolis_parcels").update({ stripe_payment_intent_id: pi.id, credit_applied_cents: creditApplied }).eq("id", p.id);
+        return json({ ok: true, charged_cents: net, credit_applied_cents: creditApplied });
       }
-      // Requires extra authentication (rare for a saved card) — surface for the portal.
+      // Needs extra auth — give back the credit we consumed and surface for the portal.
+      if (creditApplied > 0) await admin.rpc("kolis_org_add_credit", { p_org: org_id, p_cents: creditApplied });
       return json({ error: "authentication_required", status: pi.status, clientSecret: pi.client_secret }, 402);
     } catch (e) {
+      // Charge failed → refund the consumed credit so it isn't lost.
+      if (creditApplied > 0) await admin.rpc("kolis_org_add_credit", { p_org: org_id, p_cents: creditApplied });
       const err = e as { code?: string; message?: string };
       return json({ error: "payment_failed", code: err?.code, detail: err?.message }, 402);
     }

@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
         amount,
         currency: "cad",
         capture_method: "manual",
+        statement_descriptor_suffix: "KOLIS",
         description: `Kolis parcel ${parcel.code}`,
         metadata: { product: "kolis", parcel_id: parcel.id, code: parcel.code, sender_id: user.id, insurance_premium_cents: String(parcel.insurance_premium_cents ?? 0) },
       });

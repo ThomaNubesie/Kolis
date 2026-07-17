@@ -60,7 +60,7 @@ Deno.serve(async (req) => {
       try {
         const pi = await stripe.paymentIntents.create({
           amount: delta, currency: "cad", customer: org.stripe_customer_id as string, payment_method: org.stripe_default_pm as string,
-          off_session: true, confirm: true, description: `Kolis shipment ${parcel_id} · edit upcharge`,
+          off_session: true, confirm: true, statement_descriptor_suffix: "KOLIS", description: `Kolis shipment ${parcel_id} · edit upcharge`,
           metadata: { product: "kolis-org-payg-adjust", parcel_id, org_id },
         }, { idempotencyKey: `payg_adjust_${parcel_id}_${newPrice}` });
         if (pi.status !== "succeeded") return json({ ok: false, error: "payment_failed", status: pi.status });

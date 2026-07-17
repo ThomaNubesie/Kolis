@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
 
     try {
       const pi = await stripe.paymentIntents.create({
-        amount: net, currency: "cad",
+        amount: net, currency: "cad", statement_descriptor_suffix: "KOLIS",
         customer: org.stripe_customer_id as string,
         payment_method: org.stripe_default_pm as string,
         off_session: true, confirm: true,

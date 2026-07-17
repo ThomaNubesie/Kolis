@@ -36,18 +36,21 @@ export default function Label() {
   return (
     <div className="page" style={{ background: "#141318", minHeight: "100vh", padding: 24 }}>
       <style>{`
-        @page { size: auto; margin: 12mm; }
+        @page { size: auto; margin: 0; }
         @media print {
-          /* Print ONLY the label — hide the entire dashboard shell — and centre it */
+          /* Print ONLY the label — hide the dashboard shell — and fill the whole page */
           html, body { background: #fff !important; margin: 0 !important; padding: 0 !important; height: auto !important; }
           body * { visibility: hidden !important; }
           .label, .label * { visibility: visible !important; }
           .label {
-            position: absolute !important; left: 50% !important; top: 0 !important;
-            transform: translateX(-50%) !important;
-            margin: 0 !important; box-shadow: none !important;
-            width: 150mm !important; max-width: 150mm !important; page-break-inside: avoid;
+            position: absolute !important; inset: 0 !important; left: 0 !important; top: 0 !important;
+            transform: none !important; margin: 0 !important; box-shadow: none !important; border: none !important;
+            width: 100% !important; max-width: none !important; min-height: 100vh !important; border-radius: 0 !important;
+            display: flex !important; flex-direction: column !important; page-break-inside: avoid;
           }
+          /* The QR row grows to fill the page; the codes scale up with it. */
+          .qrrow { flex: 1 1 auto !important; align-items: center !important; }
+          .qrrow img { width: 62mm !important; height: 62mm !important; }
           .noprint { display: none !important; }
           * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
         }
@@ -75,7 +78,7 @@ export default function Label() {
             <div style={{ fontSize: 11.5, color: "#b9b4c2", marginTop: 2 }}>{p.dropoff_addr || p.to_city}{p.recipient_phone ? <><br />📱 {p.recipient_phone}</> : null}</div>
           </div>
         </div>
-        <div style={{ display: "flex" }}>
+        <div className="qrrow" style={{ display: "flex" }}>
           <div style={{ flex: 1, padding: "16px 12px", textAlign: "center", borderRight: `1px dashed ${LINE}` }}>
             <QrChip data={pickupData} alt="pickup QR" />
             <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: 2, textTransform: "uppercase", color: MAG_L, marginTop: 9 }}>Pickup</div>

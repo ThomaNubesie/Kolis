@@ -40,7 +40,7 @@ export default function DashLayout({ children }: { children: React.ReactNode }) 
         const [r, c] = await Promise.all([api.role(), api.caps().catch(() => [] as string[])]);
         if (!r) { await supabase.auth.signOut(); router.replace("/login"); return; }
         setRole(r); setCaps(c || []);
-        supabase.rpc("kolis_my_orgs").then(({ data }) => setHasBiz(((data ?? []) as { type: string }[]).some((o) => o.type === "shipper" || o.type === "both"))).catch(() => {});
+        try { const { data: myOrgs } = await supabase.rpc("kolis_my_orgs"); setHasBiz(((myOrgs ?? []) as { type: string }[]).some((o) => o.type === "shipper" || o.type === "both")); } catch { /* */ }
         // Defense in depth: bounce a staffer who deep-links into a section they lack.
         const hit = NAV.find((n) => n.href !== "/admin" && path.startsWith(n.href));
         if (hit && !(hit.owner ? r === "owner" : (c || []).includes(hit.cap!))) { router.replace("/admin"); return; }

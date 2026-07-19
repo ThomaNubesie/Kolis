@@ -61,9 +61,12 @@ export function TrackingPanel({ code, t }: { code: string; t: (en: string, fr: s
   return <LiveTracking data={data} t={t} />;
 }
 
-// Builds the OSM embed URL centered on the driver, with a marker on the driver.
-function osmUrl(lat: number, lng: number) {
-  const bbox = `${lng - 0.15}%2C${lat - 0.1}%2C${lng + 0.15}%2C${lat + 0.1}`;
+// OSM embed URL with a marker. `tight` = street-level zoom (house/number visible),
+// used once delivered; otherwise a wider view that follows the driver's route.
+function osmUrl(lat: number, lng: number, tight = false) {
+  const dLng = tight ? 0.0016 : 0.15;
+  const dLat = tight ? 0.0011 : 0.1;
+  const bbox = `${lng - dLng}%2C${lat - dLat}%2C${lng + dLng}%2C${lat + dLat}`;
   return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lng}`;
 }
 
@@ -159,7 +162,7 @@ export function LiveTracking({
           </div>
           <iframe
             title="map"
-            src={osmUrl(mapLat as number, mapLng as number)}
+            src={osmUrl(mapLat as number, mapLng as number, isDelivered)}
             style={{ width: "100%", flex: 1, minHeight: 210, border: 0, borderRadius: 12 }}
             loading="lazy"
           />

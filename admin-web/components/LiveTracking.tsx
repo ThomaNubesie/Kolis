@@ -115,10 +115,10 @@ export function LiveTracking({
 
   return (
     <div>
-      {/* Timeline + map, side by side and aligned */}
-      <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
+      {/* Timeline + map, side by side; map stretches to the timeline's height */}
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "stretch" }}>
         {/* Status timeline */}
-        <div style={{ flex: "1 1 220px", minWidth: 200 }}>
+        <div style={{ flex: "0 1 190px", minWidth: 170 }}>
           {steps.map((s, i) => {
             const done = cur >= 0 && i < cur;
             const active = i === cur;
@@ -140,14 +140,8 @@ export function LiveTracking({
 
         {/* Map — beside the timeline; always shown (driver in transit, destination once delivered) */}
         {hasMap ? (
-          <div style={{ flex: "2 1 320px", minWidth: 260 }}>
-          <iframe
-            title="map"
-            src={osmUrl(mapLat as number, mapLng as number)}
-            style={{ width: "100%", height: 280, border: 0, borderRadius: 12 }}
-            loading="lazy"
-          />
-          <div style={{ fontSize: 12.5, color: "#5A6B63", marginTop: 6 }}>
+          <div style={{ flex: "3 1 380px", minWidth: 300, display: "flex", flexDirection: "column" }}>
+          <div style={{ fontSize: 12.5, color: "#5A6B63", marginBottom: 6 }}>
             {isDelivered ? (
               <span style={{ color: "#178a5e", fontWeight: 700 }}>📍 {t("Delivered", "Livré")}{data.to_city ? ` · ${data.to_city}` : ""}</span>
             ) : hasDriver && data.driver_first_name ? (
@@ -163,6 +157,12 @@ export function LiveTracking({
               <span>📍 {t("Destination", "Destination")}{data.to_city ? ` · ${data.to_city}` : ""}</span>
             )}
           </div>
+          <iframe
+            title="map"
+            src={osmUrl(mapLat as number, mapLng as number)}
+            style={{ width: "100%", flex: 1, minHeight: 210, border: 0, borderRadius: 12 }}
+            loading="lazy"
+          />
           </div>
         ) : null}
       </div>

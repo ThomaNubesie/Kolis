@@ -115,9 +115,10 @@ export function LiveTracking({
 
   return (
     <div>
-      {/* Status timeline */}
-      <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 4 }}>
-        <div style={{ flex: 1 }}>
+      {/* Timeline + map, side by side and aligned */}
+      <div style={{ display: "flex", gap: 18, flexWrap: "wrap", alignItems: "flex-start" }}>
+        {/* Status timeline */}
+        <div style={{ flex: "1 1 220px", minWidth: 200 }}>
           {steps.map((s, i) => {
             const done = cur >= 0 && i < cur;
             const active = i === cur;
@@ -136,11 +137,10 @@ export function LiveTracking({
             );
           })}
         </div>
-      </div>
 
-      {/* Map — always shown: live driver while in transit, destination once delivered */}
-      {hasMap ? (
-        <div style={{ marginTop: 14 }}>
+        {/* Map — beside the timeline; always shown (driver in transit, destination once delivered) */}
+        {hasMap ? (
+          <div style={{ flex: "2 1 320px", minWidth: 260 }}>
           <iframe
             title="map"
             src={osmUrl(mapLat as number, mapLng as number)}
@@ -163,8 +163,9 @@ export function LiveTracking({
               <span>📍 {t("Destination", "Destination")}{data.to_city ? ` · ${data.to_city}` : ""}</span>
             )}
           </div>
-        </div>
-      ) : null}
+          </div>
+        ) : null}
+      </div>
 
       {/* Facts: ETA · distance left — only while in progress */}
       {showFacts && (data.eta_minutes != null || data.distance_km != null) ? (

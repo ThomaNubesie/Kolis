@@ -10,6 +10,9 @@ const STATUS: Record<string, string> = {
   requested: "pgrey", received_at_hub: "pgold", matched: "pmag", dispatched: "pblue",
   picked_up: "pblue", in_transit: "pblue", delivered: "pg", cancelled: "pred",
 };
+// Click a code/recipient → the recipient's profile with this shipment's tracking open.
+const parcelHref = (p: any) => p.client_id ? `/shipper/clients/${p.client_id}?open=${encodeURIComponent(p.code)}` : `/track/${encodeURIComponent(p.code)}`;
+const codeLink: React.CSSProperties = { color: "#B81558", fontWeight: 800, textDecoration: "none" };
 
 export default function ShipperOverview() {
   const { active } = useOrg();
@@ -37,7 +40,7 @@ export default function ShipperOverview() {
         <thead><tr><th>{t("Code", "Code")}</th><th>{t("Route", "Trajet")}</th><th>{t("Recipient", "Destinataire")}</th><th>{t("Status", "Statut")}</th></tr></thead>
         <tbody>
           {rows.map((p) => (
-            <tr key={p.id}><td>{p.code}</td><td>{p.from_city} → {p.to_city}</td><td>{p.recipient_name || "—"}</td>
+            <tr key={p.id}><td><a href={parcelHref(p)} style={codeLink}>{p.code}</a></td><td>{p.from_city} → {p.to_city}</td><td><a href={parcelHref(p)} style={codeLink}>{p.recipient_name || "—"}</a></td>
               <td><span className={"pill " + (STATUS[p.status] || "pgrey")}>{p.status.replace(/_/g, " ")}</span></td></tr>
           ))}
           {rows.length === 0 && <tr><td colSpan={4} style={{ color: "var(--t3)" }}>{t("No shipments yet.", "Aucun envoi pour l’instant.")}</td></tr>}

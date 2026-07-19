@@ -29,6 +29,16 @@ export default function ClientProfile() {
     org.clientHistory(active.org_id, id).then((h) => setHist(h || [])).catch(() => setHist([]));
   }, [active.org_id, id]);
 
+  // Arriving from a parcel code (Shipments/Overview) → auto-open that shipment's tracking + scroll to it.
+  useEffect(() => {
+    if (!hist.length || typeof window === "undefined") return;
+    const code = new URLSearchParams(window.location.search).get("open");
+    if (code && hist.some((p) => p.code === code)) {
+      setOpenCode(code);
+      setTimeout(() => document.getElementById(`row-${code}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 250);
+    }
+  }, [hist]);
+
   const stats = useMemo(() => {
     const total = hist.reduce((s, p) => s + (p.price_cents || 0), 0);
     const last = hist[0]?.created_at;
@@ -80,7 +90,7 @@ export default function ClientProfile() {
           <tbody>
             {hist.map((p) => (
               <Fragment key={p.id}>
-                <tr onClick={() => setOpenCode(openCode === p.code ? null : p.code)} style={{ cursor: "pointer", background: openCode === p.code ? "rgba(225,29,107,0.05)" : undefined }}>
+                <tr id={`row-${p.code}`} onClick={() => setOpenCode(openCode === p.code ? null : p.code)} style={{ cursor: "pointer", background: openCode === p.code ? "rgba(225,29,107,0.05)" : undefined }}>
                   <td style={{ whiteSpace: "nowrap" }}>{when(p.created_at)}</td>
                   <td><b>{p.code}</b> <span style={{ color: "#B81558", fontSize: 11 }}>{openCode === p.code ? "▾" : "▸"}</span></td>
                   <td>{p.from_city} → {p.to_city}{p.dropoff_type === "hub" ? " · hub" : ""}</td>

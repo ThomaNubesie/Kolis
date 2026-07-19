@@ -31,6 +31,10 @@ export default function Shipments() {
   const toggleSel = (code: string) => setSelected((s) => { const n = new Set(s); n.has(code) ? n.delete(code) : n.add(code); return n; });
   const allOn = rows.length > 0 && rows.every((p) => selected.has(p.code));
   const toggleAll = () => setSelected(() => (allOn ? new Set<string>() : new Set(rows.map((p) => p.code))));
+  // Click a code/recipient → the recipient's profile with this shipment's tracking open
+  // (falls back to the public track page when the recipient isn't a saved client).
+  const parcelHref = (p: any) => p.client_id ? `/shipper/clients/${p.client_id}?open=${encodeURIComponent(p.code)}` : `/track/${encodeURIComponent(p.code)}`;
+  const codeLink: React.CSSProperties = { color: "#B81558", fontWeight: 800, textDecoration: "none", cursor: "pointer" };
   const printSelected = () => {
     const codes = Array.from(selected);
     if (!codes.length) return;
@@ -95,7 +99,7 @@ export default function Shipments() {
             <tr key={p.id} style={{ background: selected.has(p.code) ? "rgba(225,29,107,0.05)" : undefined }}>
               <td><input type="checkbox" checked={selected.has(p.code)} onChange={() => toggleSel(p.code)} /></td>
               <td style={{ whiteSpace: "nowrap", color: "var(--t2)" }}>{when(p.created_at)}</td>
-              <td>{p.code}</td><td>{p.from_city} → {p.to_city}{p.dropoff_type === "hub" ? " · hub" : ""}</td><td>{p.recipient_name || "—"}</td><td>{p.size}</td>
+              <td><a href={parcelHref(p)} style={codeLink}>{p.code}</a></td><td>{p.from_city} → {p.to_city}{p.dropoff_type === "hub" ? " · hub" : ""}</td><td><a href={parcelHref(p)} style={codeLink}>{p.recipient_name || "—"}</a></td><td>{p.size}</td>
               <td><span className={"pill " + (STATUS[p.status] || "pgrey")}>{p.status.replace(/_/g, " ")}</span></td>
               <td>{money(p.price_cents)}</td>
               <td style={{ display: "flex", gap: 6 }}>

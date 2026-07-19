@@ -4,7 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase, api } from "@/lib/supabase";
 import { useLang, LangToggle } from "@/lib/i18n";
-import { LayoutDashboard, Building2, CircleDollarSign, Package, ShieldCheck, Users, Target, Phone, Truck, KeyRound, LogOut, BellOff } from "lucide-react";
+import { LayoutDashboard, Building2, CircleDollarSign, Package, ShieldCheck, Users, Target, Phone, Truck, KeyRound, LogOut, BellOff, Store } from "lucide-react";
 
 // `cap` = the capability a section requires; `owner` = owner-only (Team & access).
 const NAV = [
@@ -27,6 +27,7 @@ export default function DashLayout({ children }: { children: React.ReactNode }) 
   const { t, lang } = useLang();
   const [role, setRole] = useState<string | null | undefined>(undefined);
   const [caps, setCaps] = useState<string[]>([]);
+  const [hasBiz, setHasBiz] = useState(false); // staff who also own a shipper org can jump to /shipper
 
   const allowed = (n: { cap?: string; owner?: boolean }) =>
     (!n.cap && !n.owner) || (n.owner ? role === "owner" : caps.includes(n.cap!));
@@ -39,6 +40,7 @@ export default function DashLayout({ children }: { children: React.ReactNode }) 
         const [r, c] = await Promise.all([api.role(), api.caps().catch(() => [] as string[])]);
         if (!r) { await supabase.auth.signOut(); router.replace("/login"); return; }
         setRole(r); setCaps(c || []);
+        supabase.rpc("kolis_my_orgs").then(({ data }) => setHasBiz(((data ?? []) as { type: string }[]).some((o) => o.type === "shipper" || o.type === "both"))).catch(() => {});
         // Defense in depth: bounce a staffer who deep-links into a section they lack.
         const hit = NAV.find((n) => n.href !== "/admin" && path.startsWith(n.href));
         if (hit && !(hit.owner ? r === "owner" : (c || []).includes(hit.cap!))) { router.replace("/admin"); return; }
@@ -60,6 +62,7 @@ export default function DashLayout({ children }: { children: React.ReactNode }) 
           </Link>
         ))}
         <div className="who">
+          {hasBiz ? <Link href="/shipper" className="nav" style={{ marginBottom: 8, color: "#fff", background: "rgba(225,29,107,.22)" }}><Store size={15} strokeWidth={2} style={{ flex: "none" }} />{t("Business portal", "Portail entreprise")}</Link> : null}
           <div style={{ marginBottom: 8 }}><LangToggle /></div>
           {role?.toUpperCase()}<br />
           <button className="nav" style={{ padding: "6px 0", marginTop: 6 }} onClick={async () => { await supabase.auth.signOut(); router.replace("/login"); }}><LogOut size={15} strokeWidth={2} style={{ flex: "none" }} />{t("Sign out", "Déconnexion")}</button>

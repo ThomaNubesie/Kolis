@@ -105,7 +105,9 @@ export default function ParcelDetail() {
                 : <div className="warn">{t("Reroute changes the destination; couriers + sender are re-notified, the code stays valid.", "Le réacheminement change la destination ; les chauffeurs et l’expéditeur sont avisés à nouveau, le code reste valide.")}</div>}
             </div>
           )}
-          {canMoney && <button className="btn red" disabled={busy} onClick={doCancel}>{t("Cancel & refund", "Annuler et rembourser")}</button>}
+          {/* Cancel & refund only up until pickup — once picked up/in transit/delivered it's locked. */}
+          {canMoney && !["picked_up", "in_transit", "delivered", "cancelled"].includes(String(p.status)) &&
+            <button className="btn red" disabled={busy} onClick={doCancel}>{t("Cancel & refund", "Annuler et rembourser")}</button>}
         </div>
       </div>
 

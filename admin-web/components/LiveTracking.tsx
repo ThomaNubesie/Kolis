@@ -91,8 +91,12 @@ export function LiveTracking({
     } as Record<string, string>)[s] || s);
 
   const steps = data.dropoff_type === "hub" ? STEPS_HUB : STEPS_DOOR;
-  const cur = data.status === "cancelled" ? -1 : steps.indexOf(data.status);
+  const isDone = data.status === "delivered" || data.status === "cancelled";
+  // Delivered is terminal: push `cur` past the last step so every step (incl.
+  // "Delivered") renders as done/✓ rather than the last one showing "In progress".
+  const cur = data.status === "cancelled" ? -1 : data.status === "delivered" ? steps.length : steps.indexOf(data.status);
   const hasDriver = data.driver_lat != null && data.driver_lng != null;
+  const showLive = hasDriver && !isDone; // no live map/ETA once delivered/cancelled
 
   return (
     <div>
@@ -119,8 +123,8 @@ export function LiveTracking({
         </div>
       </div>
 
-      {/* Map — only when a driver GPS position exists */}
-      {hasDriver ? (
+      {/* Map — only for an in-progress parcel with a driver GPS position */}
+      {showLive ? (
         <div style={{ marginTop: 14 }}>
           <iframe
             title="map"
@@ -142,8 +146,8 @@ export function LiveTracking({
         </div>
       ) : null}
 
-      {/* Facts: ETA · distance left */}
-      {(data.eta_minutes != null || data.distance_km != null) ? (
+      {/* Facts: ETA · distance left — only while in progress */}
+      {showLive && (data.eta_minutes != null || data.distance_km != null) ? (
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 16 }}>
           {data.eta_minutes != null ? (
             <div style={{ flex: "1 1 130px" }}>
@@ -160,7 +164,7 @@ export function LiveTracking({
         </div>
       ) : null}
 
-      {hasDriver && data.stale ? (
+      {showLive && data.stale ? (
         <div className="warn" style={{ marginTop: 14 }}>
           ⚠️ {t("The driver's GPS hasn't updated recently — the position and ETA are a best estimate from the last known fix.", "Le GPS du chauffeur n'a pas été mis à jour récemment — la position et l'estimation sont basées sur la dernière position connue.")}
         </div>

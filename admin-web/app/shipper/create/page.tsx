@@ -21,6 +21,19 @@ export default function CreateShipment() {
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
   // Default the recipient's notification language to the sender's current language.
   useEffect(() => { setF((s) => ({ ...s, p_recipient_lang: lang })); }, [lang]);
+  // Prefill when "resending" a past shipment (from a client's package history).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const sp = new URLSearchParams(window.location.search);
+    if (![...sp.keys()].length) return;
+    const g = (k: string) => sp.get(k);
+    setF((s) => ({ ...s,
+      p_recipient_name: g("name") ?? s.p_recipient_name, p_recipient_phone: g("phone") ?? s.p_recipient_phone,
+      p_recipient_email: g("email") ?? s.p_recipient_email, p_to_city: g("city") ?? s.p_to_city,
+      p_dropoff_addr: g("addr") ?? s.p_dropoff_addr, p_size: g("size") ?? s.p_size,
+      p_dropoff_type: g("type") ?? s.p_dropoff_type, p_contents: g("contents") ?? s.p_contents,
+    }));
+  }, []);
 
   const submit = async () => {
     if (!f.p_to_city.trim()) { setErr(t("Destination city is required.", "La ville de destination est requise.")); return; }

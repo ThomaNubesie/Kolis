@@ -66,12 +66,15 @@ export default function BulkShip() {
     setHistFor(null);
   };
 
-  // Preselect a client when arriving from their profile (/shipper/bulk?client=…)
+  // Preselect a client when arriving from their profile (/shipper/bulk?client=…),
+  // optionally prefilling a specific past shipment's size/city/address (&size&city&addr).
   useEffect(() => {
-    const cid = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("client") : null;
-    if (cid && clients.length) {
+    if (typeof window === "undefined" || !clients.length) return;
+    const sp = new URLSearchParams(window.location.search);
+    const cid = sp.get("client");
+    if (cid) {
       const c = clients.find((x) => x.id === cid);
-      if (c) setRows((s) => (s[cid] ? s : { ...s, [cid]: { size: "small", to_city: c.city || "", to_address: c.address || "" } }));
+      if (c) setRows((s) => (s[cid] ? s : { ...s, [cid]: { size: sp.get("size") || "small", to_city: sp.get("city") || c.city || "", to_address: sp.get("addr") || c.address || "" } }));
     }
     // eslint-disable-next-line
   }, [clients]);

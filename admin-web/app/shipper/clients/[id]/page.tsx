@@ -4,7 +4,7 @@ import { useParams } from "next/navigation";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
-import { Mail, Smartphone, Home, Briefcase, MapPin, StickyNote, Send, Package, ArrowLeft } from "lucide-react";
+import { Mail, Smartphone, Home, Briefcase, MapPin, StickyNote, Send, Package, ArrowLeft, RotateCw, PackagePlus } from "lucide-react";
 import { TrackingPanel } from "@/components/LiveTracking";
 
 const money = (c: number) => "$" + ((c || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -23,6 +23,9 @@ export default function ClientProfile() {
   const [hist, setHist] = useState<any[]>([]);
   const [openCode, setOpenCode] = useState<string | null>(null);
   const when = (s?: string) => s ? new Date(s).toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { year: "numeric", month: "short", day: "numeric" }) : "—";
+  // Repeat a past shipment: prefill the Create form, or preselect it in Bulk.
+  const resendHref = (p: any) => "/shipper/create?" + new URLSearchParams({ name: c?.full_name || "", phone: c?.mobile || "", email: c?.email || "", city: p.to_city || "", addr: p.dropoff_addr || c?.address || "", size: p.size || "small", type: p.dropoff_type || "door", contents: p.contents || "" }).toString();
+  const bulkHref = (p: any) => "/shipper/bulk?" + new URLSearchParams({ client: String(c?.id || id), size: p.size || "small", city: p.to_city || "", addr: p.dropoff_addr || c?.address || "" }).toString();
 
   useEffect(() => {
     org.clientGet(active.org_id, id).then(setC).catch(() => setC(null));
@@ -99,7 +102,14 @@ export default function ClientProfile() {
                   <td style={{ textAlign: "right", fontWeight: 800, color: "var(--green,#178a5e)" }}>{money(p.price_cents)}</td>
                 </tr>
                 {openCode === p.code && (
-                  <tr><td colSpan={6} style={{ background: "#faf8f4" }}><TrackingPanel code={p.code} t={t} /></td></tr>
+                  <tr><td colSpan={6} style={{ background: "#faf8f4" }}>
+                    {p.contents ? <div style={{ marginBottom: 10, fontSize: 13 }}><b>{t("Contents", "Contenu")}:</b> {p.contents}</div> : null}
+                    <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+                      <a className="btn" href={resendHref(p)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><RotateCw size={14} strokeWidth={2} /> {t("Resend this shipment", "Renvoyer cet envoi")}</a>
+                      <a className="btn ghost" href={bulkHref(p)} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><PackagePlus size={15} strokeWidth={2} /> {t("Add to bulk", "Ajouter au lot")}</a>
+                    </div>
+                    <TrackingPanel code={p.code} t={t} />
+                  </td></tr>
                 )}
               </Fragment>
             ))}

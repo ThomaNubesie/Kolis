@@ -52,6 +52,15 @@ export function useTracking(code: string | null | undefined) {
   return data;
 }
 
+// Self-contained panel: fetches tracking for a code and renders the map + timeline.
+// Used by the sender's client profile (click a package to see its current state).
+export function TrackingPanel({ code, t }: { code: string; t: (en: string, fr: string) => string }) {
+  const data = useTracking(code);
+  if (data === undefined) return <div className="sub" style={{ padding: "8px 0" }}>{t("Loading…", "Chargement…")}</div>;
+  if (data === null) return <div className="sub" style={{ padding: "8px 0" }}>{t("No tracking available.", "Aucun suivi disponible.")}</div>;
+  return <LiveTracking data={data} t={t} />;
+}
+
 // Builds the OSM embed URL centered on the driver, with a marker on the driver.
 function osmUrl(lat: number, lng: number) {
   const bbox = `${lng - 0.15}%2C${lat - 0.1}%2C${lng + 0.15}%2C${lat + 0.1}`;
@@ -91,12 +100,18 @@ export function LiveTracking({
     } as Record<string, string>)[s] || s);
 
   const steps = data.dropoff_type === "hub" ? STEPS_HUB : STEPS_DOOR;
-  const isDone = data.status === "delivered" || data.status === "cancelled";
+  const isDelivered = data.status === "delivered";
+  const isDone = isDelivered || data.status === "cancelled";
   // Delivered is terminal: push `cur` past the last step so every step (incl.
   // "Delivered") renders as done/✓ rather than the last one showing "In progress".
-  const cur = data.status === "cancelled" ? -1 : data.status === "delivered" ? steps.length : steps.indexOf(data.status);
+  const cur = data.status === "cancelled" ? -1 : isDelivered ? steps.length : steps.indexOf(data.status);
   const hasDriver = data.driver_lat != null && data.driver_lng != null;
-  const showLive = hasDriver && !isDone; // no live map/ETA once delivered/cancelled
+  // The map is ALWAYS shown when we have any coordinate: the live driver while in
+  // transit, or the delivery destination once delivered (never the stale GPS).
+  const mapLat = isDelivered ? data.dest_lat : (hasDriver ? data.driver_lat : data.dest_lat);
+  const mapLng = isDelivered ? data.dest_lng : (hasDriver ? data.driver_lng : data.dest_lng);
+  const hasMap = mapLat != null && mapLng != null;
+  const showFacts = hasDriver && !isDone; // ETA / distance / stale-GPS only while in transit
 
   return (
     <div>
@@ -123,31 +138,36 @@ export function LiveTracking({
         </div>
       </div>
 
-      {/* Map — only for an in-progress parcel with a driver GPS position */}
-      {showLive ? (
+      {/* Map — always shown: live driver while in transit, destination once delivered */}
+      {hasMap ? (
         <div style={{ marginTop: 14 }}>
           <iframe
             title="map"
-            src={osmUrl(data.driver_lat as number, data.driver_lng as number)}
+            src={osmUrl(mapLat as number, mapLng as number)}
             style={{ width: "100%", height: 280, border: 0, borderRadius: 12 }}
             loading="lazy"
           />
-          {data.driver_first_name ? (
-            <div style={{ fontSize: 12.5, color: "#5A6B63", marginTop: 6 }}>
-              🚐 {data.driver_first_name}{" "}
-              {data.driver_updated_at ? (
-                <span style={{ color: data.stale ? "#b07a00" : "#178a5e", fontWeight: 700 }}>
-                  · {data.stale ? t("position may be stale", "position possiblement périmée") + " — " : ""}
-                  {t(`updated ${minsAgo(data.driver_updated_at)} min ago`, `mis à jour il y a ${minsAgo(data.driver_updated_at)} min`)}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
+          <div style={{ fontSize: 12.5, color: "#5A6B63", marginTop: 6 }}>
+            {isDelivered ? (
+              <span style={{ color: "#178a5e", fontWeight: 700 }}>📍 {t("Delivered", "Livré")}{data.to_city ? ` · ${data.to_city}` : ""}</span>
+            ) : hasDriver && data.driver_first_name ? (
+              <>🚐 {data.driver_first_name}{" "}
+                {data.driver_updated_at ? (
+                  <span style={{ color: data.stale ? "#b07a00" : "#178a5e", fontWeight: 700 }}>
+                    · {data.stale ? t("position may be stale", "position possiblement périmée") + " — " : ""}
+                    {t(`updated ${minsAgo(data.driver_updated_at)} min ago`, `mis à jour il y a ${minsAgo(data.driver_updated_at)} min`)}
+                  </span>
+                ) : null}
+              </>
+            ) : (
+              <span>📍 {t("Destination", "Destination")}{data.to_city ? ` · ${data.to_city}` : ""}</span>
+            )}
+          </div>
         </div>
       ) : null}
 
       {/* Facts: ETA · distance left — only while in progress */}
-      {showLive && (data.eta_minutes != null || data.distance_km != null) ? (
+      {showFacts && (data.eta_minutes != null || data.distance_km != null) ? (
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginTop: 16 }}>
           {data.eta_minutes != null ? (
             <div style={{ flex: "1 1 130px" }}>
@@ -164,7 +184,7 @@ export function LiveTracking({
         </div>
       ) : null}
 
-      {showLive && data.stale ? (
+      {showFacts && data.stale ? (
         <div className="warn" style={{ marginTop: 14 }}>
           ⚠️ {t("The driver's GPS hasn't updated recently — the position and ETA are a best estimate from the last known fix.", "Le GPS du chauffeur n'a pas été mis à jour récemment — la position et l'estimation sont basées sur la dernière position connue.")}
         </div>

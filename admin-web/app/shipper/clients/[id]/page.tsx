@@ -1,10 +1,11 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
 import { Mail, Smartphone, Home, Briefcase, MapPin, StickyNote, Send, Package, ArrowLeft } from "lucide-react";
+import { TrackingPanel } from "@/components/LiveTracking";
 
 const money = (c: number) => "$" + ((c || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const STATUS: Record<string, string> = {
@@ -20,6 +21,7 @@ export default function ClientProfile() {
   const { t, lang } = useLang();
   const [c, setC] = useState<any | undefined>(undefined);
   const [hist, setHist] = useState<any[]>([]);
+  const [openCode, setOpenCode] = useState<string | null>(null);
   const when = (s?: string) => s ? new Date(s).toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { year: "numeric", month: "short", day: "numeric" }) : "—";
 
   useEffect(() => {
@@ -77,14 +79,19 @@ export default function ClientProfile() {
           <thead><tr><th>{t("Date", "Date")}</th><th>{t("Code", "Code")}</th><th>{t("Route", "Trajet")}</th><th>{t("Size", "Taille")}</th><th>{t("Status", "Statut")}</th><th style={{ textAlign: "right" }}>{t("Cost", "Coût")}</th></tr></thead>
           <tbody>
             {hist.map((p) => (
-              <tr key={p.id}>
-                <td style={{ whiteSpace: "nowrap" }}>{when(p.created_at)}</td>
-                <td><b>{p.code}</b></td>
-                <td>{p.from_city} → {p.to_city}{p.dropoff_type === "hub" ? " · hub" : ""}</td>
-                <td>{p.size}</td>
-                <td><span className={"pill " + (STATUS[p.status] || "pgrey")}>{(p.status || "").replace(/_/g, " ")}</span></td>
-                <td style={{ textAlign: "right", fontWeight: 800, color: "var(--green,#178a5e)" }}>{money(p.price_cents)}</td>
-              </tr>
+              <Fragment key={p.id}>
+                <tr onClick={() => setOpenCode(openCode === p.code ? null : p.code)} style={{ cursor: "pointer", background: openCode === p.code ? "rgba(225,29,107,0.05)" : undefined }}>
+                  <td style={{ whiteSpace: "nowrap" }}>{when(p.created_at)}</td>
+                  <td><b>{p.code}</b> <span style={{ color: "#B81558", fontSize: 11 }}>{openCode === p.code ? "▾" : "▸"}</span></td>
+                  <td>{p.from_city} → {p.to_city}{p.dropoff_type === "hub" ? " · hub" : ""}</td>
+                  <td>{p.size}</td>
+                  <td><span className={"pill " + (STATUS[p.status] || "pgrey")}>{(p.status || "").replace(/_/g, " ")}</span></td>
+                  <td style={{ textAlign: "right", fontWeight: 800, color: "var(--green,#178a5e)" }}>{money(p.price_cents)}</td>
+                </tr>
+                {openCode === p.code && (
+                  <tr><td colSpan={6} style={{ background: "#faf8f4" }}><TrackingPanel code={p.code} t={t} /></td></tr>
+                )}
+              </Fragment>
             ))}
             {hist.length === 0 && <tr><td colSpan={6} style={{ color: "var(--t3)" }}>{t("No packages sent to this customer yet.", "Aucun colis envoyé à ce client pour l’instant.")}</td></tr>}
           </tbody>

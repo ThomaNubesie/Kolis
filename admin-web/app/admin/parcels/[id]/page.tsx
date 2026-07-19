@@ -40,6 +40,8 @@ export default function ParcelDetail() {
   // Status display label + colour (backend status keys unchanged).
   const statusLabel = (s: string) => lang === "fr" ? (({ requested: "demandé", received_at_hub: "reçu au relais", matched: "jumelé", dispatched: "réparti", picked_up: "ramassé", in_transit: "en transit", delivered: "livré", cancelled: "annulé" } as Record<string, string>)[s] || String(s).replace(/_/g, " ")) : String(s).replace(/_/g, " ");
   const tone = (s: string) => (({ requested: "pmag", received_at_hub: "pgrey", matched: "pblue", dispatched: "pblue", picked_up: "pblue", in_transit: "pblue", delivered: "pg", cancelled: "pred" } as Record<string, string>)[s] || "pgrey");
+  // Terminal parcels can't be re-dispatched: greys out Change / Unassign / Reroute.
+  const locked = !!p && ["delivered", "cancelled"].includes(String(p.status));
 
   const openCands = async () => setCands(await api.candidates(id));
   const pickDriver = (d: any) => {
@@ -87,8 +89,8 @@ export default function ParcelDetail() {
                 {p.driver_id ? (
                   <>
                     <button className="btn green" disabled>✓ {t("Accepted", "Accepté")} · {p.driver_name || t("driver", "chauffeur")}</button>
-                    <button className="btn blue" disabled={busy} onClick={openCands}>{t("Change", "Changer")}</button>
-                    <button className="btn ghost" disabled={busy} onClick={() => run(() => api.unassign(id), t("Unassigned", "Désassigné"))}>{t("Unassign", "Désassigner")}</button>
+                    <button className="btn blue" disabled={busy || locked} onClick={openCands}>{t("Change", "Changer")}</button>
+                    <button className="btn ghost" disabled={busy || locked} onClick={() => run(() => api.unassign(id), t("Unassigned", "Désassigné"))}>{t("Unassign", "Désassigner")}</button>
                   </>
                 ) : p.preferred_driver_id ? (
                   <>
@@ -98,7 +100,7 @@ export default function ParcelDetail() {
                 ) : (
                   <button className="btn blue" disabled={busy} onClick={openCands}>{t("Assign driver", "Assigner un chauffeur")}</button>
                 )}
-                <button className="btn ghost" disabled={busy} onClick={() => setReroute(true)}>{t("Reroute", "Réacheminer")}</button>
+                <button className="btn ghost" disabled={busy || locked} onClick={() => setReroute(true)}>{t("Reroute", "Réacheminer")}</button>
               </div>
               {p.preferred_driver_id && !p.driver_id
                 ? <div className="sub" style={{ marginTop: 8 }}>⏳ {t(`Request sent — awaiting ${p.preferred_driver_name || "the driver"} to accept.`, `Demande envoyée — en attente de l’acceptation de ${p.preferred_driver_name || "du chauffeur"}.`)}</div>

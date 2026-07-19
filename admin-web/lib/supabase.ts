@@ -17,6 +17,8 @@ const r = async <T,>(fn: string, args?: any): Promise<T> => {
 export const api = {
   role: () => r<string | null>("kolis_admin_role"),
   isStaff: () => r<boolean>("kolis_is_staff"),
+  deadNotifications: () => r<any[]>("kolis_admin_dead_notifications"),
+  retryNotification: (id: string) => r("kolis_admin_retry_notification", { p_id: id }),
   overview: () => r<any>("kolis_admin_overview"),
   parcels: (filter = "all", search: string | null = null) => r<any[]>("kolis_admin_parcels", { p_filter: filter, p_search: search }),
   parcel: (id: string) => r<any>("kolis_admin_parcel", { p_id: id }),

@@ -37,8 +37,9 @@ export default function ParcelDetail() {
 
   const KV = ({ k, v }: { k: string; v: string }) => <div className="kv"><span className="k">{k}</span><span className="v">{v}</span></div>;
 
-  // Status display label (backend status keys unchanged).
+  // Status display label + colour (backend status keys unchanged).
   const statusLabel = (s: string) => lang === "fr" ? (({ requested: "demandé", received_at_hub: "reçu au relais", matched: "jumelé", dispatched: "réparti", picked_up: "ramassé", in_transit: "en transit", delivered: "livré", cancelled: "annulé" } as Record<string, string>)[s] || String(s).replace(/_/g, " ")) : String(s).replace(/_/g, " ");
+  const tone = (s: string) => (({ requested: "pmag", received_at_hub: "pgrey", matched: "pblue", dispatched: "pblue", picked_up: "pblue", in_transit: "pblue", delivered: "pg", cancelled: "pred" } as Record<string, string>)[s] || "pgrey");
 
   const openCands = async () => setCands(await api.candidates(id));
   const pickDriver = (d: any) => {
@@ -59,7 +60,7 @@ export default function ParcelDetail() {
   return (
     <>
       <button className="btn ghost" onClick={() => router.back()}>← {t("Back", "Retour")}</button>
-      <h1 style={{ marginTop: 12 }}>#{p.code} <span className="pill pblue" style={{ fontSize: 12 }}>{statusLabel(String(p.status))}</span></h1>
+      <h1 style={{ marginTop: 12 }}>#{p.code} <span className={"pill " + tone(String(p.status))} style={{ fontSize: 12 }}>{statusLabel(String(p.status))}</span></h1>
       <div className="sub">{p.from_city} → {p.to_city} · {p.dropoff_type === "hub" ? t("Hub", "Point relais") : t("Door-to-door", "Porte-à-porte")} · {p.size}</div>
 
       <div className="cols">

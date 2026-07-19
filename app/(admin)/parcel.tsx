@@ -78,7 +78,9 @@ export default function AdminParcel() {
         <Pressable onPress={() => router.back()}><Text style={{ color: Colors.t2, fontSize: 15, marginBottom: 6 }}>←</Text></Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
           <Text style={{ fontSize: 22, fontWeight: "800", color: Colors.ink }}>#{p.code}</Text>
-          <View style={{ backgroundColor: "rgba(59,110,165,0.14)", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}><Text style={{ color: "#2b5580", fontWeight: "800", fontSize: 11 }}>{String(p.status).replace(/_/g, " ")}</Text></View>
+          {(() => { const st = String(p.status); const c = st === "delivered" ? { bg: "rgba(23,138,94,0.15)", fg: "#178a5e" } : st === "cancelled" ? { bg: "rgba(224,29,58,0.14)", fg: "#c0182e" } : { bg: "rgba(59,110,165,0.14)", fg: "#2b5580" }; return (
+          <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}><Text style={{ color: c.fg, fontWeight: "800", fontSize: 11 }}>{st.replace(/_/g, " ")}</Text></View>
+          ); })()}
         </View>
 
         <Card title="Route"><Text style={{ fontWeight: "800", color: Colors.ink }}>{p.from_city} → {p.to_city}</Text><Text style={{ color: Colors.t2, fontSize: 12, marginTop: 2 }}>{p.dropoff_type === "hub" ? "Hub" : "Door-to-door"} · {p.size}</Text></Card>

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
-import { Printer, History, Save, FolderOpen, Pencil, Trash2, FilePlus2, Layers } from "lucide-react";
+import { Printer, History, Save, FolderOpen, Pencil, Trash2, FilePlus2, Layers, UserPlus, X, Check } from "lucide-react";
 
 const money = (c: number) => "$" + ((c || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 type Row = { size: string; to_city: string; to_address: string; contents: string };
@@ -33,6 +33,7 @@ export default function BulkShip() {
   const [draftName, setDraftName] = useState("");
   const [curDraft, setCurDraft] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [pickerOpen, setPickerOpen] = useState(false); // show the searchable client list to add recipients
   const loadDrafts = () => org.bulkDrafts(active.org_id).then((d) => setDrafts(d || [])).catch(() => setDrafts([]));
   const printAllLabels = () => {
     if (!batchCodes.length) return;
@@ -104,6 +105,9 @@ export default function BulkShip() {
     return n;
   });
   const setRow = (id: string, k: keyof Row, v: string) => setRows((s) => ({ ...s, [id]: { ...s[id], [k]: v } }));
+  const removeFromBatch = (id: string) => setRows((s) => { const n = { ...s }; delete n[id]; return n; });
+  const openPicker = () => { setPickerOpen(true); setTimeout(() => document.getElementById("client-picker")?.scrollIntoView({ behavior: "smooth", block: "start" }), 60); };
+  const showPicker = pickerOpen || selectedIds.length === 0; // fresh batch → show the list to start
 
   // Validate the batch, then open the review modal (no shipment is created yet).
   const openPreview = () => {
@@ -165,8 +169,9 @@ export default function BulkShip() {
       const known = Object.keys(map).filter((id) => clients.some((c) => c.id === id));
       const dropped = Object.keys(map).length - known.length;
       const clean: Record<string, Row> = {}; known.forEach((id) => (clean[id] = map[id]));
-      setRows(clean); setCurDraft(d.id); setDraftName(d.name); setShowDrafts(false); setResult("");
-      setNotice(t(`Loaded “${d.name}”${dropped ? ` — ${dropped} removed client(s) skipped` : ""}.`, `« ${d.name} » chargé${dropped ? ` — ${dropped} client(s) supprimé(s) ignoré(s)` : ""}.`));
+      setRows(clean); setCurDraft(d.id); setDraftName(d.name); setShowDrafts(false); setPickerOpen(false); setResult("");
+      setNotice(t(`Loaded “${d.name}” — ${known.length} recipient(s)${dropped ? `, ${dropped} removed client(s) skipped` : ""}.`, `« ${d.name} » chargé — ${known.length} destinataire(s)${dropped ? `, ${dropped} client(s) supprimé(s) ignoré(s)` : ""}.`));
+      if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "smooth" });
     } catch { setErr(t("Couldn’t load that batch.", "Impossible de charger ce lot.")); }
     setBusy(false);
   };
@@ -263,10 +268,47 @@ export default function BulkShip() {
         )}
       </div>
 
-      {/* Clients */}
+      {/* ── This batch (focused list of chosen recipients) ── */}
+      {selectedIds.length > 0 && (
+        <div className="card" style={{ marginTop: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8, flexWrap: "wrap" }}>
+            <Layers size={16} strokeWidth={2} /><b>{curDraft ? draftName : t("This batch", "Ce lot")}</b>
+            <span className="pill pmag" style={{ fontSize: 11 }}>{selectedIds.length} {t("recipients", "destinataires")}</span>
+            <button className="btn" style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }} onClick={openPicker}>
+              <UserPlus size={15} strokeWidth={2} /> {t("Add clients", "Ajouter des clients")}
+            </button>
+          </div>
+          <table>
+            <thead><tr><th>{t("Recipient", "Destinataire")}</th><th>{t("Delivery address", "Adresse de livraison")}</th><th>{t("Destination", "Destination")}</th><th>{t("Size", "Taille")}</th><th>{t("Contents", "Contenu")}</th><th>{t("Price", "Prix")}</th><th></th></tr></thead>
+            <tbody>
+              {selectedIds.map((id, i) => {
+                const c = clients.find((x) => x.id === id); const o = rows[id];
+                const price = quote?.rows.find((q) => q.index === i + 1)?.price_cents;
+                const inp: React.CSSProperties = { padding: "6px 9px", fontSize: 12.5 };
+                return (
+                  <tr key={id}>
+                    <td><a href={`/shipper/clients/${id}`} style={{ color: "#B81558", fontWeight: 800, textDecoration: "none" }}>{c?.full_name || "—"}</a>{c?.mobile ? <div className="sub" style={{ fontSize: 12 }}>{c.mobile}</div> : null}</td>
+                    <td><input className="input" style={inp} value={o.to_address} onChange={(e) => setRow(id, "to_address", e.target.value)} /></td>
+                    <td><input className="input" style={{ ...inp, width: 120 }} value={o.to_city} onChange={(e) => setRow(id, "to_city", e.target.value)} /></td>
+                    <td><select className="input" style={inp} value={o.size} onChange={(e) => setRow(id, "size", e.target.value)}><option value="envelope">{t("Envelope", "Enveloppe")}</option><option value="small">{t("Small", "Petit")}</option><option value="large">{t("Large", "Grand")}</option></select></td>
+                    <td><input className="input" style={{ ...inp, width: 130 }} value={o.contents} onChange={(e) => setRow(id, "contents", e.target.value)} placeholder={t("What's inside", "Contenu")} /></td>
+                    <td style={{ color: "var(--green)", fontWeight: 800, whiteSpace: "nowrap" }}>{price != null ? money(price) : "…"}</td>
+                    <td><button className="btn ghost" title={t("Remove from batch", "Retirer du lot")} style={{ padding: "5px 9px", color: "var(--red,#c0263a)" }} onClick={() => removeFromBatch(id)}><X size={14} strokeWidth={2.6} /></button></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* ── Add clients (searchable database) ── */}
+      <div id="client-picker" />
+      {showPicker && (<>
       <div className="toolbar" style={{ marginTop: 14 }}>
         <input className="search" placeholder={t("Search your clients…", "Rechercher vos clients…")} value={search} onChange={(e) => setSearch(e.target.value)} />
         <span className="sub">{selectedIds.length} {t("selected", "sélectionnés")}</span>
+        {selectedIds.length > 0 && <button className="btn ghost" style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 6 }} onClick={() => setPickerOpen(false)}><Check size={15} strokeWidth={2.2} /> {t("Done adding", "Terminé")}</button>}
       </div>
       <table>
         <thead><tr><th></th><th>{t("Client", "Client")}</th><th>{t("Delivery address", "Adresse de livraison")}</th><th>{t("Destination", "Destination")}</th><th>{t("Size", "Taille")}</th><th>{t("Contents", "Contenu")}</th><th>{t("Price", "Prix")}</th></tr></thead>
@@ -311,6 +353,7 @@ export default function BulkShip() {
           {filtered.length === 0 && <tr><td colSpan={7} style={{ color: "var(--t3)" }}>{t("No clients — add some in the Clients tab first.", "Aucun client — ajoutez-en dans l’onglet Clients.")}</td></tr>}
         </tbody>
       </table>
+      </>)}
 
       {/* Summary bar */}
       {selectedIds.length > 0 && (

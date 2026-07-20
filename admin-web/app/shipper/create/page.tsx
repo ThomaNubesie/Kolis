@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
+import { MapPin, Check } from "lucide-react";
 
 export default function CreateShipment() {
   const { active } = useOrg();
@@ -12,13 +13,43 @@ export default function CreateShipment() {
   const [f, setF] = useState({
     p_dropoff_type: "door", p_size: "small", p_from_city: "Ottawa", p_to_city: "",
     p_recipient_name: "", p_recipient_phone: "", p_recipient_email: "", p_dropoff_addr: "", p_contents: "",
-    p_recipient_lang: "en",
+    p_recipient_lang: "en", p_pickup_addr: "",
   });
   const [busy, setBusy] = useState(false);
   const [saveClient, setSaveClient] = useState(false);
   const [done, setDone] = useState<{ code: string; payg?: boolean; charged?: number; needCard?: boolean } | null>(null);
   const [err, setErr] = useState("");
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
+
+  // ── LoadQ zone pickup picker (city → zones with distance from me) ──
+  const [zones, setZones] = useState<any[]>([]);
+  const [zoneCity, setZoneCity] = useState("");
+  const [zoneId, setZoneId] = useState("");
+  const [myPos, setMyPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoBusy, setGeoBusy] = useState(false);
+  const [geoErr, setGeoErr] = useState("");
+  useEffect(() => { org.pickupZones().then((z) => setZones(z || [])).catch(() => setZones([])); }, []);
+  const titleCity = (s: string) => (s || "").split(/[\s-]+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  const zoneCities = Array.from(new Set(zones.map((z) => z.region).filter(Boolean))).sort();
+  const km = (a: { lat: number; lng: number }, z: any) => {
+    const R = 6371, toR = (d: number) => (d * Math.PI) / 180;
+    const dLat = toR(z.latitude - a.lat), dLng = toR(z.longitude - a.lng);
+    const s = Math.sin(dLat / 2) ** 2 + Math.cos(toR(a.lat)) * Math.cos(toR(z.latitude)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+  };
+  const cityZones = (() => { const l = zones.filter((z) => z.region === zoneCity); return myPos ? [...l].sort((a, b) => km(myPos, a) - km(myPos, b)) : l; })();
+  const useMyLocation = () => {
+    setGeoErr("");
+    if (typeof navigator === "undefined" || !navigator.geolocation) { setGeoErr(t("Location isn't available on this device.", "La localisation n’est pas disponible sur cet appareil.")); return; }
+    setGeoBusy(true);
+    navigator.geolocation.getCurrentPosition(
+      (p) => { setMyPos({ lat: p.coords.latitude, lng: p.coords.longitude }); setGeoBusy(false); },
+      () => { setGeoErr(t("Couldn’t get your location — allow location access to see distances.", "Localisation impossible — autorisez l’accès pour voir les distances.")); setGeoBusy(false); },
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  };
+  const selectZone = (z: any) => { setZoneId(z.id); setF((s) => ({ ...s, p_pickup_addr: `${z.name} · ${z.address || ""}`.trim(), p_from_city: titleCity(z.region) })); };
+  const setPickupType = (v: string) => { setF((s) => ({ ...s, p_dropoff_type: v, ...(v === "zone" ? {} : { p_pickup_addr: "" }) })); if (v !== "zone") { setZoneId(""); setZoneCity(""); } };
   // Default the recipient's notification language to the sender's current language.
   useEffect(() => { setF((s) => ({ ...s, p_recipient_lang: lang })); }, [lang]);
   // Prefill when "resending" a past shipment (from a client's package history).
@@ -37,6 +68,7 @@ export default function CreateShipment() {
 
   const submit = async () => {
     if (!f.p_to_city.trim()) { setErr(t("Destination city is required.", "La ville de destination est requise.")); return; }
+    if (f.p_dropoff_type === "zone" && !zoneId) { setErr(t("Pick a LoadQ zone (choose a city, then a zone).", "Choisissez une zone LoadQ (choisissez une ville, puis une zone).")); return; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.p_recipient_email.trim())) { setErr(t("A valid recipient email is required — we use it to notify them about the shipment.", "Un courriel valide du destinataire est requis — il sert à l’informer de l’envoi.")); return; }
     setBusy(true); setErr("");
     try {
@@ -103,7 +135,7 @@ export default function CreateShipment() {
         <div className="row" style={{ gap: 16 }}>
           <div style={{ flex: 1 }}>
             <p className="mono">{t("Pickup type", "Type de ramassage")}</p>
-            <select className="input" value={f.p_dropoff_type} onChange={(e) => set("p_dropoff_type", e.target.value)}>
+            <select className="input" value={f.p_dropoff_type} onChange={(e) => setPickupType(e.target.value)}>
               <option value="door">{t("Door pickup", "Ramassage à domicile")}</option><option value="hub">{t("Drop at hub", "Dépôt au point relais")}</option><option value="zone">{t("LoadQ zone", "Zone LoadQ")}</option>
             </select>
           </div>
@@ -118,6 +150,43 @@ export default function CreateShipment() {
           <div style={{ flex: 1 }}><p className="mono">{t("From city", "Ville de départ")}</p><input className="input" value={f.p_from_city} onChange={(e) => set("p_from_city", e.target.value)} /></div>
           <div style={{ flex: 1 }}><p className="mono">{t("To city", "Ville de destination")}</p><input className="input" value={f.p_to_city} onChange={(e) => set("p_to_city", e.target.value)} placeholder="Montréal" /></div>
         </div>
+
+        {f.p_dropoff_type === "zone" && (
+          <div style={{ marginTop: 12, padding: 12, border: "1px solid #E4E0D8", borderRadius: 12, background: "#FBF9F6" }}>
+            <div className="row" style={{ gap: 10, alignItems: "flex-end" }}>
+              <div style={{ flex: 1 }}>
+                <p className="mono" style={{ marginTop: 0 }}>{t("LoadQ zone — which city?", "Zone LoadQ — quelle ville ?")}</p>
+                <select className="input" value={zoneCity} onChange={(e) => { setZoneCity(e.target.value); setZoneId(""); }}>
+                  <option value="">{t("Select a city…", "Choisir une ville…")}</option>
+                  {zoneCities.map((c) => <option key={c} value={c}>{titleCity(c)}</option>)}
+                </select>
+              </div>
+              <button type="button" className="btn ghost" style={{ display: "inline-flex", alignItems: "center", gap: 6 }} disabled={geoBusy} onClick={useMyLocation}>
+                <MapPin size={15} strokeWidth={2} /> {myPos ? t("Location on", "Localisation activée") : geoBusy ? t("Locating…", "Localisation…") : t("Show distance from me", "Distance depuis moi")}
+              </button>
+            </div>
+            {geoErr ? <div className="sub" style={{ color: "var(--red)", fontSize: 12, marginTop: 4 }}>{geoErr}</div> : null}
+            {zoneCity && (
+              <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                {cityZones.length === 0 ? <div className="sub" style={{ fontSize: 12.5 }}>{t("No active LoadQ zones in this city yet.", "Aucune zone LoadQ active dans cette ville.")}</div> : null}
+                {cityZones.map((z) => {
+                  const on = zoneId === z.id; const dist = myPos ? km(myPos, z) : null;
+                  return (
+                    <button key={z.id} type="button" onClick={() => selectZone(z)} style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 11, cursor: "pointer", background: on ? "rgba(225,29,107,0.06)" : "#fff", border: on ? "1.5px solid #E11D6B" : "1px solid #E4E0D8" }}>
+                      <MapPin size={16} strokeWidth={2} style={{ flex: "none", color: on ? "#E11D6B" : "#8a8594" }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 800 }}>{z.name}</div>
+                        <div className="sub" style={{ fontSize: 12 }}>{z.address}</div>
+                      </div>
+                      {dist != null ? <div style={{ textAlign: "right", flex: "none" }}><div style={{ fontWeight: 800, color: "#178a5e" }}>{dist < 10 ? dist.toFixed(1) : Math.round(dist)} km</div><div className="sub" style={{ fontSize: 11 }}>{t("away", "de vous")}</div></div> : null}
+                      {on ? <Check size={18} strokeWidth={2.6} style={{ flex: "none", color: "#E11D6B" }} /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
         <p className="mono" style={{ marginTop: 12 }}>{t("Recipient", "Destinataire")}</p>
         <input className="input" value={f.p_recipient_name} onChange={(e) => set("p_recipient_name", e.target.value)} placeholder={t("Name", "Nom")} />
         <div className="row" style={{ gap: 16, marginTop: 12 }}>

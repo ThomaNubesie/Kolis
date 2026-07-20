@@ -6,6 +6,7 @@ import { useLang } from "@/lib/i18n";
 import { Printer, History, Save, FolderOpen, Pencil, Trash2, FilePlus2, Layers, UserPlus, X, Check, MapPin } from "lucide-react";
 
 const money = (c: number) => "$" + ((c || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const pct = (r: number) => (r * 100).toFixed(3).replace(/\.?0+$/, "") + "%";
 type Row = { size: string; to_city: string; to_address: string; contents: string };
 
 export default function BulkShip() {
@@ -26,7 +27,8 @@ export default function BulkShip() {
   const [pickupAddr, setPickupAddr] = useState("");
   const [fromCity, setFromCity] = useState("Ottawa");
   const [hubId, setHubId] = useState("");
-  const [quote, setQuote] = useState<{ rows: any[]; total_cents: number } | null>(null);
+  const [quote, setQuote] = useState<{ rows: any[]; total_cents: number; subtotal_cents?: number; tax_cents?: number; grand_total_cents?: number } | null>(null);
+  const [taxLabel, setTaxLabel] = useState<{ label: string; rate: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<string>("");
   const [err, setErr] = useState("");
@@ -51,6 +53,7 @@ export default function BulkShip() {
     org.clients(active.org_id).then(setClients).catch(() => {});
     org.hubs(active.org_id).then(setHubs).catch(() => {});
     org.pickupZones().then((z) => setZones(z || [])).catch(() => setZones([]));
+    org.tax(active.org_id).then((tx) => setTaxLabel({ label: tx.label, rate: tx.rate })).catch(() => {});
     loadDrafts();
     // eslint-disable-next-line
   }, [active.org_id]);
@@ -431,7 +434,8 @@ export default function BulkShip() {
       {selectedIds.length > 0 && (
         <div className="card" style={{ marginTop: 16, background: "#1A1F36", color: "#fff", display: "flex", alignItems: "center", gap: 20 }}>
           <div><div className="sub" style={{ color: "#c9c4d4" }}>{selectedIds.length} {t("clients selected", "clients sélectionnés")}</div>
-            <div style={{ fontSize: 24, fontWeight: 900 }}>{quote ? money(quote.total_cents) : "…"} {t("total", "au total")}</div></div>
+            <div style={{ fontSize: 24, fontWeight: 900 }}>{quote ? money(quote.grand_total_cents ?? quote.total_cents) : "…"} {t("total", "au total")}</div>
+            {quote && (quote.tax_cents ?? 0) > 0 ? <div className="sub" style={{ color: "#c9c4d4", fontSize: 11.5 }}>{money(quote.subtotal_cents ?? quote.total_cents)} + {taxLabel?.label || t("tax", "taxe")}{taxLabel ? ` ${pct(taxLabel.rate)}` : ""} {money(quote.tax_cents ?? 0)}</div> : null}</div>
           {err ? <div className="warn" style={{ marginLeft: "auto", marginRight: 12 }}>{err}</div> : null}
           <button className="btn ghost" style={{ marginLeft: err ? 0 : "auto", display: "inline-flex", alignItems: "center", gap: 7, background: "rgba(255,255,255,.12)", color: "#fff", borderColor: "rgba(255,255,255,.28)" }} disabled={busy} onClick={openSave}>
             <Save size={16} strokeWidth={2} /> {curDraft ? t("Update saved batch", "Mettre à jour le lot") : t("Save batch", "Enregistrer le lot")}
@@ -489,8 +493,13 @@ export default function BulkShip() {
               </tbody>
             </table>
             <div className="card" style={{ marginTop: 14, background: "#1A1F36", color: "#fff", display: "flex", alignItems: "center", gap: 16 }}>
-              <div><div className="sub" style={{ color: "#c9c4d4" }}>{selectedIds.length} {t("shipments", "envois")}</div>
-                <div style={{ fontSize: 22, fontWeight: 900 }}>{quote ? money(quote.total_cents) : "…"} {t("total", "au total")}</div></div>
+              <div>
+                <div className="sub" style={{ color: "#c9c4d4" }}>{selectedIds.length} {t("shipments", "envois")}</div>
+                {quote && (quote.tax_cents ?? 0) > 0 ? (
+                  <div className="sub" style={{ color: "#c9c4d4", fontSize: 12 }}>
+                    {t("Subtotal", "Sous-total")} {money(quote.subtotal_cents ?? quote.total_cents)} · {taxLabel?.label || t("Tax", "Taxe")}{taxLabel ? ` ${pct(taxLabel.rate)}` : ""} {money(quote.tax_cents ?? 0)}
+                  </div>) : null}
+                <div style={{ fontSize: 22, fontWeight: 900 }}>{quote ? money(quote.grand_total_cents ?? quote.total_cents) : "…"} {t("total", "au total")}</div></div>
               <div className="sub" style={{ marginLeft: "auto", maxWidth: 260, color: "#c9c4d4", fontSize: 12 }}>💳 {t("For pay-as-you-go accounts, the card on file is charged when you confirm.", "Pour les comptes à l’usage, la carte enregistrée est débitée à la confirmation.")}</div>
             </div>
             {err ? <div className="warn" style={{ marginTop: 10 }}>{err}</div> : null}

@@ -175,7 +175,7 @@ export const org = {
   // ── Bulk shipping from the client database ──
   hubs: (o: string) => r<any[]>("kolis_org_hubs", { p_org: o }),
   pickupZones: () => r<any[]>("kolis_pickup_zones"),
-  bulkQuote: (o: string, pickup: any, rows: any[]) => r<{ rows: any[]; total_cents: number }>("kolis_org_bulk_quote", { p_org: o, p_pickup: pickup, p_rows: rows }),
+  bulkQuote: (o: string, pickup: any, rows: any[]) => r<{ rows: any[]; total_cents: number; subtotal_cents: number; tax_cents: number; tax_rate: number; grand_total_cents: number }>("kolis_org_bulk_quote", { p_org: o, p_pickup: pickup, p_rows: rows }),
   bulkShip: (o: string, pickup: any, rows: any[]) => r<{ results: any[]; payg: boolean }>("kolis_org_bulk_ship", { p_org: o, p_pickup: pickup, p_rows: rows }),
   label: (o: string, code: string) => r<any>("kolis_org_label", { p_org: o, p_code: code }),
   // ── Saved bulk batches (drafts): name a selection, reuse it later ──
@@ -195,8 +195,10 @@ export const org = {
   async chargeShipment(o: string, parcelId: string) {
     const { data, error } = await supabase.functions.invoke("kolis-org-charge", { body: { org_id: o, parcel_id: parcelId } });
     if (error) throw error;
-    return data as { ok?: boolean; already?: boolean; charged_cents?: number; error?: string; detail?: string; code?: string };
+    return data as { ok?: boolean; already?: boolean; charged_cents?: number; credit_applied_cents?: number; subtotal_cents?: number; tax_cents?: number; total_cents?: number; error?: string; detail?: string; code?: string };
   },
+  // Org sales-tax rate + label (HST/GST/QST/VAT) for showing tax on prices.
+  tax: (o: string) => r<{ rate: number; province: string; country: string; label: string }>("kolis_org_tax", { p_org: o }),
   bulkCreate: (o: string, rows: any[]) => r<any[]>("kolis_org_bulk_create", { p_org: o, p_rows: rows }),
   addresses: (o: string) => r<any[]>("kolis_org_addresses", { p_org: o }),
   saveAddress: (o: string, a: any) =>

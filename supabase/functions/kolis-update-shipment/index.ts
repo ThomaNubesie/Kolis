@@ -46,7 +46,13 @@ Deno.serve(async (req) => {
     const newCity = (String(fields.p_to_city ?? "").trim() || p.to_city);
     const { data: newPrice } = await admin.rpc("kolis_org_price_cents",
       { p_org: org_id, p_size: newSize, p_dropoff_type: newDtype, p_from_city: p.from_city, p_to_city: newCity });
-    const delta = (newPrice ?? p.price_cents) - p.price_cents;
+    // Tax-inclusive delta: charge/refund on the total (subtotal + org-province tax), not bare price.
+    const oldPrice = p.price_cents; const newP = (newPrice ?? oldPrice);
+    const { data: orgTax } = await admin.from("kolis_orgs").select("province, country").eq("id", org_id).maybeSingle();
+    const { data: rate } = await admin.rpc("kolis_tax_rate", { p_country: orgTax?.country ?? "CA", p_province: orgTax?.province ?? "ON" });
+    const R = Number(rate ?? 0);
+    const newTax = Math.round(newP * R);
+    const delta = (newP + newTax) - (oldPrice + Math.round(oldPrice * R));
 
     const isCard = p.billing_mode === "card";
     const stripe = resolveStripe();
@@ -80,6 +86,8 @@ Deno.serve(async (req) => {
       p_pickup_addr: fields.p_pickup_addr ?? null, p_contents: fields.p_contents ?? null,
     });
     if (rpcErr) return json({ ok: false, error: rpcErr.message });
+    // Keep the stored tax line in sync with the new price.
+    await admin.from("kolis_parcels").update({ tax_cents: newTax }).eq("id", parcel_id);
 
     // Refund the decrease after commit (best-effort; original hold on the parcel).
     if (isCard && delta < 0 && stripe && p.stripe_payment_intent_id) {

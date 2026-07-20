@@ -55,10 +55,14 @@ Deno.serve(async (req) => {
     if (p.stripe_payment_intent_id) return json({ ok: true, already: true }); // idempotent
 
     const { data: org } = await admin.from("kolis_orgs")
-      .select("stripe_customer_id, stripe_default_pm, name").eq("id", org_id).maybeSingle();
+      .select("stripe_customer_id, stripe_default_pm, name, province, country").eq("id", org_id).maybeSingle();
     if (!org?.stripe_customer_id || !org?.stripe_default_pm) return json({ error: "no_card" }, 402);
 
-    const amount = (p.price_cents ?? 0) + (p.insurance_premium_cents ?? 0);
+    // Sales tax at the org's province rate. price_cents is pre-tax; total = subtotal + tax.
+    const subtotal = (p.price_cents ?? 0) + (p.insurance_premium_cents ?? 0);
+    const { data: rate } = await admin.rpc("kolis_tax_rate", { p_country: org.country ?? "CA", p_province: org.province ?? "ON" });
+    const taxCents = Math.round(subtotal * Number(rate ?? 0));
+    const amount = subtotal + taxCents;
 
     // Apply any prepaid org credit first (atomic — safe under concurrent bulk charges).
     let creditApplied = 0;
@@ -73,8 +77,8 @@ Deno.serve(async (req) => {
 
     // Fully covered by credit → no card charge. Mark paid with a credit sentinel.
     if (net <= 0) {
-      await admin.from("kolis_parcels").update({ stripe_payment_intent_id: `credit_${p.id}`, credit_applied_cents: creditApplied }).eq("id", p.id);
-      return json({ ok: true, charged_cents: 0, credit_applied_cents: creditApplied });
+      await admin.from("kolis_parcels").update({ stripe_payment_intent_id: `credit_${p.id}`, credit_applied_cents: creditApplied, tax_cents: taxCents }).eq("id", p.id);
+      return json({ ok: true, charged_cents: 0, credit_applied_cents: creditApplied, subtotal_cents: subtotal, tax_cents: taxCents, total_cents: amount });
     }
 
     try {
@@ -87,8 +91,8 @@ Deno.serve(async (req) => {
         metadata: { product: "kolis-org-payg", parcel_id: p.id as string, org_id, credit_applied_cents: String(creditApplied) },
       }, { idempotencyKey: `payg_${p.id}` });
       if (pi.status === "succeeded") {
-        await admin.from("kolis_parcels").update({ stripe_payment_intent_id: pi.id, credit_applied_cents: creditApplied }).eq("id", p.id);
-        return json({ ok: true, charged_cents: net, credit_applied_cents: creditApplied });
+        await admin.from("kolis_parcels").update({ stripe_payment_intent_id: pi.id, credit_applied_cents: creditApplied, tax_cents: taxCents }).eq("id", p.id);
+        return json({ ok: true, charged_cents: net, credit_applied_cents: creditApplied, subtotal_cents: subtotal, tax_cents: taxCents, total_cents: amount });
       }
       // Needs extra auth — give back the credit we consumed and surface for the portal.
       if (creditApplied > 0) await admin.rpc("kolis_org_add_credit", { p_org: org_id, p_cents: creditApplied });

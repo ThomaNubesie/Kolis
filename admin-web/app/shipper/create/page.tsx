@@ -17,7 +17,7 @@ export default function CreateShipment() {
   });
   const [busy, setBusy] = useState(false);
   const [saveClient, setSaveClient] = useState(false);
-  const [done, setDone] = useState<{ code: string; payg?: boolean; charged?: number; needCard?: boolean } | null>(null);
+  const [done, setDone] = useState<{ code: string; payg?: boolean; charged?: number; needCard?: boolean; subtotal?: number; tax?: number; total?: number } | null>(null);
   const [err, setErr] = useState("");
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
 
@@ -85,7 +85,7 @@ export default function CreateShipment() {
           const c = await org.chargeShipment(active.org_id, res.id);
           if (c?.error === "no_card") setDone({ code: res.code, payg: true, needCard: true });
           else if (c?.error) { setDone({ code: res.code, payg: true }); setErr(t("Shipment created, but the card charge failed: ", "Envoi créé, mais le débit de la carte a échoué : ") + (c.detail || c.error)); }
-          else setDone({ code: res.code, payg: true, charged: c?.charged_cents });
+          else setDone({ code: res.code, payg: true, charged: c?.charged_cents, subtotal: c?.subtotal_cents, tax: c?.tax_cents, total: c?.total_cents });
         }
       } else setDone({ code: res.code });
     } catch (e: any) { setErr(e?.message || t("Failed to create shipment.", "Échec de la création de l’envoi.")); }
@@ -116,6 +116,13 @@ export default function CreateShipment() {
                 ? t(`Charged to the card on file.`, `Débité sur la carte enregistrée.`)
                 : t(`Added to ${active.name}’s invoice cycle (net terms).`, `Ajouté au cycle de facturation de ${active.name} (conditions nettes).`)}
         </div>
+        {done.total != null && (done.tax ?? 0) > 0 ? (
+          <div style={{ marginTop: 12, borderTop: "1px solid var(--line,#eee)", paddingTop: 10, fontSize: 13 }}>
+            <div className="row" style={{ justifyContent: "space-between" }}><span className="sub">{t("Subtotal", "Sous-total")}</span><span>${((done.subtotal ?? 0) / 100).toFixed(2)}</span></div>
+            <div className="row" style={{ justifyContent: "space-between" }}><span className="sub">{t("Tax", "Taxe")}</span><span>${((done.tax ?? 0) / 100).toFixed(2)}</span></div>
+            <div className="row" style={{ justifyContent: "space-between", fontWeight: 800, marginTop: 3 }}><span>{t("Total", "Total")}</span><span>${((done.total ?? 0) / 100).toFixed(2)}</span></div>
+          </div>
+        ) : null}
         {err ? <div style={{ color: "var(--red)", fontSize: 12.5, marginTop: 10 }}>{err}</div> : null}
         <div className="row" style={{ marginTop: 12 }}>
           {done.needCard

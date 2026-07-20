@@ -46,13 +46,14 @@ Deno.serve(async (req) => {
     const newCity = (String(fields.p_to_city ?? "").trim() || p.to_city);
     const { data: newPrice } = await admin.rpc("kolis_org_price_cents",
       { p_org: org_id, p_size: newSize, p_dropoff_type: newDtype, p_from_city: p.from_city, p_to_city: newCity });
-    // Tax-inclusive delta: charge/refund on the total (subtotal + org-province tax), not bare price.
+    // Tax-inclusive delta by DESTINATION province (old city vs new city rate).
     const oldPrice = p.price_cents; const newP = (newPrice ?? oldPrice);
-    const { data: orgTax } = await admin.from("kolis_orgs").select("province, country").eq("id", org_id).maybeSingle();
-    const { data: rate } = await admin.rpc("kolis_tax_rate", { p_country: orgTax?.country ?? "CA", p_province: orgTax?.province ?? "ON" });
-    const R = Number(rate ?? 0);
-    const newTax = Math.round(newP * R);
-    const delta = (newP + newTax) - (oldPrice + Math.round(oldPrice * R));
+    const { data: orgTax } = await admin.from("kolis_orgs").select("country").eq("id", org_id).maybeSingle();
+    const ctry = orgTax?.country ?? "CA";
+    const { data: newRate } = await admin.rpc("kolis_dest_tax_rate", { p_city: newCity, p_country: ctry });
+    const { data: oldRate } = await admin.rpc("kolis_dest_tax_rate", { p_city: p.to_city, p_country: ctry });
+    const newTax = Math.round(newP * Number(newRate ?? 0));
+    const delta = (newP + newTax) - (oldPrice + Math.round(oldPrice * Number(oldRate ?? 0)));
 
     const isCard = p.billing_mode === "card";
     const stripe = resolveStripe();

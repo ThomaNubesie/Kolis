@@ -18,8 +18,6 @@ export default function Shipments() {
   const { t, lang } = useLang();
   const when = (s?: string) => s ? new Date(s).toLocaleString(lang === "fr" ? "fr-CA" : "en-CA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
   const [rows, setRows] = useState<any[]>([]);
-  const [tax, setTax] = useState<{ rate: number; label: string } | null>(null);
-  const withTax = (c: number) => (c || 0) + Math.round((c || 0) * (tax?.rate ?? 0)); // subtotal → total incl. tax
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [msg, setMsg] = useState("");
@@ -45,7 +43,6 @@ export default function Shipments() {
   };
 
   const load = () => org.shipments(active.org_id, filter, search || null).then(setRows).catch(() => {});
-  useEffect(() => { org.tax(active.org_id).then((tx) => setTax({ rate: tx.rate, label: tx.label })).catch(() => {}); }, [active.org_id]);
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [active.org_id, filter]);
   const flash = (m: string) => { setMsg(m); setTimeout(() => setMsg(""), 4000); };
 
@@ -105,7 +102,7 @@ export default function Shipments() {
               <td style={{ whiteSpace: "nowrap", color: "var(--t2)" }}>{when(p.created_at)}</td>
               <td><a href={parcelHref(p)} style={codeLink}>{p.code}</a></td><td>{p.from_city} → {p.to_city}{p.dropoff_type === "hub" ? " · hub" : ""}</td><td><a href={parcelHref(p)} style={codeLink}>{p.recipient_name || "—"}</a></td><td>{p.size}</td>
               <td><span className={"pill " + (STATUS[p.status] || "pgrey")}>{p.status.replace(/_/g, " ")}</span></td>
-              <td style={{ whiteSpace: "nowrap" }}><b>{money(withTax(p.price_cents))}</b>{(tax?.rate ?? 0) > 0 ? <div className="sub" style={{ fontSize: 11 }}>{money(p.price_cents)} + {money(Math.round(p.price_cents * (tax?.rate ?? 0)))} {tax?.label}</div> : null}</td>
+              <td style={{ whiteSpace: "nowrap" }}><b>{money(p.price_cents + (p.tax_cents ?? 0))}</b>{(p.tax_cents ?? 0) > 0 ? <div className="sub" style={{ fontSize: 11 }}>{money(p.price_cents)} + {money(p.tax_cents)} {t("tax", "taxe")}</div> : null}</td>
               <td style={{ display: "flex", gap: 6 }}>
                 <a className="btn ghost" href={`/shipper/label/${encodeURIComponent(p.code)}`} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Printer size={14} strokeWidth={2} /> {t("Label", "Étiquette")}</a>
                 {editable(p) ? <button className="btn ghost" style={{ display: "inline-flex", alignItems: "center", gap: 5 }} onClick={() => openEdit(p)}><Pencil size={13} strokeWidth={2} /> {t("Edit", "Modifier")}</button> : null}

@@ -50,17 +50,17 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE);
     const { data: p } = await admin.from("kolis_parcels")
-      .select("id, org_id, price_cents, insurance_premium_cents, stripe_payment_intent_id, code").eq("id", parcel_id).maybeSingle();
+      .select("id, org_id, price_cents, insurance_premium_cents, stripe_payment_intent_id, code, to_city").eq("id", parcel_id).maybeSingle();
     if (!p || p.org_id !== org_id) return json({ error: "not found" }, 404);
     if (p.stripe_payment_intent_id) return json({ ok: true, already: true }); // idempotent
 
     const { data: org } = await admin.from("kolis_orgs")
-      .select("stripe_customer_id, stripe_default_pm, name, province, country").eq("id", org_id).maybeSingle();
+      .select("stripe_customer_id, stripe_default_pm, name, country").eq("id", org_id).maybeSingle();
     if (!org?.stripe_customer_id || !org?.stripe_default_pm) return json({ error: "no_card" }, 402);
 
-    // Sales tax at the org's province rate. price_cents is pre-tax; total = subtotal + tax.
+    // Sales tax follows the DESTINATION province (place of supply). price_cents is pre-tax.
     const subtotal = (p.price_cents ?? 0) + (p.insurance_premium_cents ?? 0);
-    const { data: rate } = await admin.rpc("kolis_tax_rate", { p_country: org.country ?? "CA", p_province: org.province ?? "ON" });
+    const { data: rate } = await admin.rpc("kolis_dest_tax_rate", { p_city: p.to_city ?? "", p_country: org.country ?? "CA" });
     const taxCents = Math.round(subtotal * Number(rate ?? 0));
     const amount = subtotal + taxCents;
 

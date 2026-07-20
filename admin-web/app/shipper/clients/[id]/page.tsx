@@ -21,8 +21,6 @@ export default function ClientProfile() {
   const { t, lang } = useLang();
   const [c, setC] = useState<any | undefined>(undefined);
   const [hist, setHist] = useState<any[]>([]);
-  const [tax, setTax] = useState<{ rate: number; label: string } | null>(null);
-  const withTax = (v: number) => (v || 0) + Math.round((v || 0) * (tax?.rate ?? 0));
   const [openCode, setOpenCode] = useState<string | null>(null);
   const when = (s?: string) => s ? new Date(s).toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { year: "numeric", month: "short", day: "numeric" }) : "—";
   // Repeat a past shipment: prefill the Create form, or preselect it in Bulk.
@@ -32,7 +30,6 @@ export default function ClientProfile() {
   useEffect(() => {
     org.clientGet(active.org_id, id).then(setC).catch(() => setC(null));
     org.clientHistory(active.org_id, id).then((h) => setHist(h || [])).catch(() => setHist([]));
-    org.tax(active.org_id).then((tx) => setTax({ rate: tx.rate, label: tx.label })).catch(() => {});
   }, [active.org_id, id]);
 
   // Arriving from a parcel code (Shipments/Overview) → auto-open that shipment's tracking + scroll to it.
@@ -46,7 +43,7 @@ export default function ClientProfile() {
   }, [hist]);
 
   const stats = useMemo(() => {
-    const total = hist.reduce((s, p) => s + (p.price_cents || 0), 0);
+    const total = hist.reduce((s, p) => s + (p.price_cents || 0) + (p.tax_cents || 0), 0);
     const last = hist[0]?.created_at;
     const routeCount: Record<string, number> = {};
     hist.forEach((p) => { const k = `${p.from_city} → ${p.to_city}`; routeCount[k] = (routeCount[k] || 0) + 1; });
@@ -82,7 +79,7 @@ export default function ClientProfile() {
       {/* Stats */}
       <div style={{ display: "flex", gap: 14, margin: "16px 0", flexWrap: "wrap" }}>
         <div className="card" style={{ flex: 1, minWidth: 150 }}><div className="mono">{t("Packages sent", "Colis envoyés")}</div><div style={{ fontSize: 26, fontWeight: 900, marginTop: 3 }}>{stats.count}</div></div>
-        <div className="card" style={{ flex: 1, minWidth: 150 }}><div className="mono">{t("Total billed (incl. tax)", "Total facturé (taxe incl.)")}</div><div style={{ fontSize: 26, fontWeight: 900, marginTop: 3, color: "var(--green,#178a5e)" }}>{money(withTax(stats.total))}</div></div>
+        <div className="card" style={{ flex: 1, minWidth: 150 }}><div className="mono">{t("Total billed (incl. tax)", "Total facturé (taxe incl.)")}</div><div style={{ fontSize: 26, fontWeight: 900, marginTop: 3, color: "var(--green,#178a5e)" }}>{money(stats.total)}</div></div>
         <div className="card" style={{ flex: 1, minWidth: 150 }}><div className="mono">{t("Last shipment", "Dernier envoi")}</div><div style={{ fontSize: 19, fontWeight: 900, marginTop: 3 }}>{stats.last ? when(stats.last) : "—"}</div></div>
         <div className="card" style={{ flex: 1, minWidth: 150 }}><div className="mono">{t("Usual route", "Trajet habituel")}</div><div style={{ fontSize: 19, fontWeight: 900, marginTop: 3 }}>{stats.usual}</div></div>
       </div>
@@ -102,7 +99,7 @@ export default function ClientProfile() {
                   <td>{p.from_city} → {p.to_city}{p.dropoff_type === "hub" ? " · hub" : ""}</td>
                   <td>{p.size}</td>
                   <td><span className={"pill " + (STATUS[p.status] || "pgrey")}>{(p.status || "").replace(/_/g, " ")}</span></td>
-                  <td style={{ textAlign: "right", fontWeight: 800, color: "var(--green,#178a5e)", whiteSpace: "nowrap" }}>{money(withTax(p.price_cents))}{(tax?.rate ?? 0) > 0 ? <div className="sub" style={{ fontSize: 10.5, fontWeight: 500 }}>{money(p.price_cents)} + {tax?.label}</div> : null}</td>
+                  <td style={{ textAlign: "right", fontWeight: 800, color: "var(--green,#178a5e)", whiteSpace: "nowrap" }}>{money(p.price_cents + (p.tax_cents || 0))}{(p.tax_cents || 0) > 0 ? <div className="sub" style={{ fontSize: 10.5, fontWeight: 500 }}>{money(p.price_cents)} + {money(p.tax_cents)} {t("tax", "taxe")}</div> : null}</td>
                 </tr>
                 {openCode === p.code && (
                   <tr><td colSpan={6} style={{ background: "#faf8f4" }}>

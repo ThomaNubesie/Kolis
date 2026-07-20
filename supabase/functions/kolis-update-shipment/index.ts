@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
       p_dropoff_type: fields.p_dropoff_type ?? null, p_size: fields.p_size ?? null, p_to_city: fields.p_to_city ?? null,
       p_recipient_name: fields.p_recipient_name ?? null, p_recipient_phone: fields.p_recipient_phone ?? null,
       p_recipient_email: fields.p_recipient_email ?? null, p_dropoff_addr: fields.p_dropoff_addr ?? null,
-      p_pickup_addr: fields.p_pickup_addr ?? null,
+      p_pickup_addr: fields.p_pickup_addr ?? null, p_contents: fields.p_contents ?? null,
     });
     if (rpcErr) return json({ ok: false, error: rpcErr.message });
 

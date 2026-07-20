@@ -53,6 +53,7 @@ export default function Shipments() {
       p_recipient_name: p.recipient_name ?? "", p_recipient_phone: p.recipient_phone ?? "",
       p_recipient_email: p.recipient_email ?? "", p_dropoff_addr: p.dropoff_addr ?? "",
       p_to_city: p.to_city ?? "", p_dropoff_type: p.dropoff_type ?? "door", p_size: p.size ?? "small",
+      p_contents: p.contents ?? "",
     });
   };
   const set = (k: string, v: string) => setF((s: any) => ({ ...s, [k]: v }));
@@ -141,6 +142,8 @@ export default function Shipments() {
             </div>
             <div className="mono" style={{ marginTop: 10 }}>{t("Delivery address", "Adresse de livraison")}</div>
             <input className="input" value={f.p_dropoff_addr} onChange={(e) => set("p_dropoff_addr", e.target.value)} placeholder={t("Street, unit, postal code", "Rue, unité, code postal")} />
+            <div className="mono" style={{ marginTop: 10 }}>{t("Contents", "Contenu")}</div>
+            <input className="input" value={f.p_contents} onChange={(e) => set("p_contents", e.target.value)} placeholder={t("What's inside", "Ce qu’il y a à l’intérieur")} />
 
             {err ? <div className="warn" style={{ marginTop: 10 }}>{err}</div> : null}
             <div className="row" style={{ marginTop: 14 }}>

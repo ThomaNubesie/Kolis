@@ -6,7 +6,7 @@ import { useLang } from "@/lib/i18n";
 import { Printer, History, Save, FolderOpen, Pencil, Trash2, FilePlus2, Layers } from "lucide-react";
 
 const money = (c: number) => "$" + ((c || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-type Row = { size: string; to_city: string; to_address: string };
+type Row = { size: string; to_city: string; to_address: string; contents: string };
 
 export default function BulkShip() {
   const { active } = useOrg();
@@ -53,7 +53,7 @@ export default function BulkShip() {
 
   const shipRows = () => selectedIds.map((id) => {
     const c = clients.find((x) => x.id === id); const o = rows[id];
-    return { client_id: id, to_name: c?.full_name, to_email: c?.email, to_phone: c?.mobile, to_address: o.to_address, to_city: o.to_city, size: o.size, lang };
+    return { client_id: id, to_name: c?.full_name, to_email: c?.email, to_phone: c?.mobile, to_address: o.to_address, to_city: o.to_city, size: o.size, contents: o.contents, lang };
   });
   const when = (s?: string) => s ? new Date(s).toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { month: "short", day: "numeric" }) : "";
 
@@ -72,7 +72,7 @@ export default function BulkShip() {
     }
   };
   const applyHistory = (clientId: string, h: any) => {
-    setRows((s) => ({ ...s, [clientId]: { size: h.size || "small", to_city: h.to_city || "", to_address: h.dropoff_addr || (s[clientId]?.to_address || "") } }));
+    setRows((s) => ({ ...s, [clientId]: { size: h.size || "small", to_city: h.to_city || "", to_address: h.dropoff_addr || (s[clientId]?.to_address || ""), contents: h.contents || (s[clientId]?.contents || "") } }));
     setHistFor(null);
   };
 
@@ -84,7 +84,7 @@ export default function BulkShip() {
     const cid = sp.get("client");
     if (cid) {
       const c = clients.find((x) => x.id === cid);
-      if (c) setRows((s) => (s[cid] ? s : { ...s, [cid]: { size: sp.get("size") || "small", to_city: sp.get("city") || c.city || "", to_address: sp.get("addr") || c.address || "" } }));
+      if (c) setRows((s) => (s[cid] ? s : { ...s, [cid]: { size: sp.get("size") || "small", to_city: sp.get("city") || c.city || "", to_address: sp.get("addr") || c.address || "", contents: sp.get("contents") || "" } }));
     }
     // eslint-disable-next-line
   }, [clients]);
@@ -100,7 +100,7 @@ export default function BulkShip() {
   const toggle = (c: any) => setRows((s) => {
     const n = { ...s };
     if (n[c.id]) delete n[c.id];
-    else n[c.id] = { size: "small", to_city: c.city || "", to_address: c.address || "" };
+    else n[c.id] = { size: "small", to_city: c.city || "", to_address: c.address || "", contents: "" };
     return n;
   });
   const setRow = (id: string, k: keyof Row, v: string) => setRows((s) => ({ ...s, [id]: { ...s[id], [k]: v } }));
@@ -117,7 +117,7 @@ export default function BulkShip() {
   // Per-line preview details (client, destination, size, price) for the modal.
   const previewLines = selectedIds.map((id, i) => {
     const c = clients.find((x) => x.id === id); const o = rows[id];
-    return { id, name: c?.full_name || "—", to_address: o.to_address, to_city: o.to_city, size: o.size,
+    return { id, name: c?.full_name || "—", to_address: o.to_address, to_city: o.to_city, size: o.size, contents: o.contents,
       price_cents: quote?.rows.find((q) => q.index === i + 1)?.price_cents ?? null };
   });
   const pickupLabel = ptype === "hub" ? (hubs.find((h) => h.id === hubId)?.name || t("Hub", "Point relais")) : `${pickupAddr}${fromCity ? ` · ${fromCity}` : ""}`;
@@ -140,7 +140,7 @@ export default function BulkShip() {
 
   // ── Saved batches ──
   const whenLong = (s?: string) => s ? new Date(s).toLocaleString(lang === "fr" ? "fr-CA" : "en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
-  const draftRows = () => selectedIds.map((id) => ({ client_id: id, size: rows[id].size, to_city: rows[id].to_city, to_address: rows[id].to_address }));
+  const draftRows = () => selectedIds.map((id) => ({ client_id: id, size: rows[id].size, to_city: rows[id].to_city, to_address: rows[id].to_address, contents: rows[id].contents }));
   const defaultName = () => `${t("Batch", "Lot")} · ${new Date().toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { month: "short", day: "numeric" })}`;
   const openSave = () => { setDraftName(curDraft ? draftName : defaultName()); setErr(""); setSaveOpen(true); };
   const saveDraft = async () => {
@@ -161,7 +161,7 @@ export default function BulkShip() {
       const p = full.pickup || {};
       setPtype((p.dropoff_type as any) || "door"); setHubId(p.hub_id || ""); setPickupAddr(p.pickup_addr || ""); setFromCity(p.from_city || "Ottawa");
       const map: Record<string, Row> = {};
-      (full.rows || []).forEach((rw: any) => { if (rw.client_id) map[rw.client_id] = { size: rw.size || "small", to_city: rw.to_city || "", to_address: rw.to_address || "" }; });
+      (full.rows || []).forEach((rw: any) => { if (rw.client_id) map[rw.client_id] = { size: rw.size || "small", to_city: rw.to_city || "", to_address: rw.to_address || "", contents: rw.contents || "" }; });
       const known = Object.keys(map).filter((id) => clients.some((c) => c.id === id));
       const dropped = Object.keys(map).length - known.length;
       const clean: Record<string, Row> = {}; known.forEach((id) => (clean[id] = map[id]));
@@ -269,7 +269,7 @@ export default function BulkShip() {
         <span className="sub">{selectedIds.length} {t("selected", "sélectionnés")}</span>
       </div>
       <table>
-        <thead><tr><th></th><th>{t("Client", "Client")}</th><th>{t("Delivery address", "Adresse de livraison")}</th><th>{t("Destination", "Destination")}</th><th>{t("Size", "Taille")}</th><th>{t("Price", "Prix")}</th></tr></thead>
+        <thead><tr><th></th><th>{t("Client", "Client")}</th><th>{t("Delivery address", "Adresse de livraison")}</th><th>{t("Destination", "Destination")}</th><th>{t("Size", "Taille")}</th><th>{t("Contents", "Contenu")}</th><th>{t("Price", "Prix")}</th></tr></thead>
         <tbody>
           {filtered.map((c) => {
             const on = !!rows[c.id]; const idx = selectedIds.indexOf(c.id);
@@ -303,11 +303,12 @@ export default function BulkShip() {
                   <select className="input" style={{ padding: "6px 9px", fontSize: 12.5 }} value={rows[c.id].size} onChange={(e) => setRow(c.id, "size", e.target.value)}>
                     <option value="envelope">{t("Envelope", "Enveloppe")}</option><option value="small">{t("Small", "Petit")}</option><option value="large">{t("Large", "Grand")}</option>
                   </select>) : <span className="sub">—</span>}</td>
+                <td>{on ? <input className="input" style={{ padding: "6px 9px", fontSize: 12.5, width: 130 }} value={rows[c.id].contents} onChange={(e) => setRow(c.id, "contents", e.target.value)} placeholder={t("What's inside", "Contenu")} /> : <span className="sub" style={{ fontSize: 12 }}>—</span>}</td>
                 <td style={{ color: "var(--green)", fontWeight: 800 }}>{price != null ? money(price) : (on ? "…" : "")}</td>
               </tr>
             );
           })}
-          {filtered.length === 0 && <tr><td colSpan={6} style={{ color: "var(--t3)" }}>{t("No clients — add some in the Clients tab first.", "Aucun client — ajoutez-en dans l’onglet Clients.")}</td></tr>}
+          {filtered.length === 0 && <tr><td colSpan={7} style={{ color: "var(--t3)" }}>{t("No clients — add some in the Clients tab first.", "Aucun client — ajoutez-en dans l’onglet Clients.")}</td></tr>}
         </tbody>
       </table>
 
@@ -364,7 +365,7 @@ export default function BulkShip() {
                 {previewLines.map((l, i) => (
                   <tr key={l.id}>
                     <td style={{ color: "var(--t3)" }}>{i + 1}</td>
-                    <td><b>{l.name}</b>{l.to_address ? <div className="sub" style={{ fontSize: 11.5 }}>{l.to_address}</div> : null}</td>
+                    <td><b>{l.name}</b>{l.to_address ? <div className="sub" style={{ fontSize: 11.5 }}>{l.to_address}</div> : null}{l.contents ? <div className="sub" style={{ fontSize: 11.5 }}>📦 {l.contents}</div> : null}</td>
                     <td>{l.to_city || "—"}</td>
                     <td>{l.size}</td>
                     <td style={{ textAlign: "right", color: "var(--green)", fontWeight: 800 }}>{l.price_cents != null ? money(l.price_cents) : "…"}</td>

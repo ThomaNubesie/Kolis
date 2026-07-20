@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
           from: `${fromName} <${fromEmail}>`, to: toEmail, subject: subj,
           text: `${bodyLine}\n\n${rlang === "fr" ? "Suivez-le" : "Track it"}: ${link}\n\n${dlText}`,
           html: `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px">
-            ${bLogo ? `<img src="${bLogo}" alt="${bName}" style="max-height:46px;margin-bottom:8px"/>` : ""}
+            ${bLogo ? `<img src="${bLogo}" alt="${bName}" style="max-height:46px;margin-bottom:8px"/>` : `<img src="https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand/kolis-logo.png" width="46" height="46" alt="Kolis" style="border-radius:11px;margin-bottom:10px;display:block"/>`}
             <h2 style="color:${bColor}">${subj}</h2>
             <p>${strip(bodyLine)}</p>
             ${pin ? `<div style="background:${bColor}14;border:1px solid ${bColor};border-radius:12px;padding:14px 18px;margin:6px 0 14px;text-align:center">

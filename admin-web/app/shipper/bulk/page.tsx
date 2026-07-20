@@ -32,6 +32,7 @@ export default function BulkShip() {
   const [result, setResult] = useState<string>("");
   const [err, setErr] = useState("");
   const [preview, setPreview] = useState(false);
+  const [account, setAccount] = useState<any>(null); // org billing address for the receipt header
   const [batchCodes, setBatchCodes] = useState<string[]>([]);
   // ── Saved batches (drafts) ──
   const [drafts, setDrafts] = useState<any[]>([]);
@@ -52,6 +53,7 @@ export default function BulkShip() {
     org.clients(active.org_id).then(setClients).catch(() => {});
     org.hubs(active.org_id).then(setHubs).catch(() => {});
     org.pickupZones().then((z) => setZones(z || [])).catch(() => setZones([]));
+    org.account(active.org_id).then(setAccount).catch(() => {});
     loadDrafts();
     // eslint-disable-next-line
   }, [active.org_id]);
@@ -465,46 +467,84 @@ export default function BulkShip() {
         </div>
       )}
 
-      {/* Review before final submit */}
+      {/* Review before final submit — branded receipt */}
       {preview && (
         <div className="modalbg" onClick={() => !busy && setPreview(false)}>
-          <div className="modal" style={{ maxWidth: 640, maxHeight: "86vh", overflow: "auto" }} onClick={(e) => e.stopPropagation()}>
-            <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
-              <h2 style={{ margin: 0 }}>{t("Review batch", "Vérifier le lot")}</h2>
-              <button className="btn ghost" onClick={() => !busy && setPreview(false)}>✕</button>
+          <div className="modal" style={{ maxWidth: 680, maxHeight: "88vh", overflow: "auto", padding: 0 }} onClick={(e) => e.stopPropagation()}>
+            {/* Receipt header */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, padding: "20px 24px", borderBottom: "2px solid #E11D6B" }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                <span style={{ width: 42, height: 42, borderRadius: 11, background: "#E11D6B", color: "#fff", display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 20, letterSpacing: -0.5, flex: "none" }}>Ko</span>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 18, lineHeight: 1 }}>Kolis <span style={{ color: "#E11D6B" }}>Business</span></div>
+                  <div className="sub" style={{ fontSize: 11.5, marginTop: 3 }}>{t("Operated by Concord Express Co Inc.", "Exploité par Concord Express Co Inc.")}</div>
+                </div>
+              </div>
+              <div style={{ textAlign: "right" }}>
+                <div style={{ fontWeight: 800, letterSpacing: 1, color: "#E11D6B", fontSize: 11.5 }}>{t("ORDER PREVIEW", "APERÇU DE COMMANDE")}</div>
+                <div className="sub" style={{ fontSize: 12 }}>{new Date().toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { year: "numeric", month: "long", day: "numeric" })}</div>
+                {curDraft ? <div className="sub" style={{ fontSize: 12 }}>{draftName}</div> : null}
+              </div>
             </div>
-            <div className="sub" style={{ marginTop: 4 }}>
-              {t("Nothing is created until you confirm. Pickup for the whole batch:", "Rien n’est créé avant votre confirmation. Ramassage pour tout le lot :")} <b>{ptype === "hub" ? t("Drop at hub", "Dépôt au point relais") : ptype === "zone" ? t("LoadQ zone", "Zone LoadQ") : t("Door pickup", "Ramassage à l’adresse")} · {pickupLabel}</b>
-            </div>
-            <table style={{ marginTop: 12 }}>
-              <thead><tr><th>#</th><th>{t("Recipient", "Destinataire")}</th><th>{t("Destination", "Destination")}</th><th>{t("Size", "Taille")}</th><th style={{ textAlign: "right" }}>{t("Price", "Prix")}</th></tr></thead>
-              <tbody>
-                {previewLines.map((l, i) => (
-                  <tr key={l.id}>
-                    <td style={{ color: "var(--t3)" }}>{i + 1}</td>
-                    <td><b>{l.name}</b>{l.to_address ? <div className="sub" style={{ fontSize: 11.5 }}>{l.to_address}</div> : null}{l.contents ? <div className="sub" style={{ fontSize: 11.5 }}>📦 {l.contents}</div> : null}</td>
-                    <td>{l.to_city || "—"}</td>
-                    <td>{l.size}</td>
-                    <td style={{ textAlign: "right", color: "var(--green)", fontWeight: 800 }}>{l.price_cents != null ? money(l.price_cents) : "…"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <div className="card" style={{ marginTop: 14, background: "#1A1F36", color: "#fff", display: "flex", alignItems: "center", gap: 16 }}>
-              <div>
-                <div className="sub" style={{ color: "#c9c4d4" }}>{selectedIds.length} {t("shipments", "envois")}</div>
-                {quote && (quote.tax_cents ?? 0) > 0 ? (
-                  <div className="sub" style={{ color: "#c9c4d4", fontSize: 12 }}>
-                    {t("Subtotal", "Sous-total")} {money(quote.subtotal_cents ?? quote.total_cents)} · {t("Tax", "Taxe")}{quote.tax_rate ? ` ${pct(quote.tax_rate)}` : ""} {money(quote.tax_cents ?? 0)}
-                    {!quote.tax_rate ? <span> · {t("varies by destination", "varie selon la destination")}</span> : null}
-                  </div>) : null}
-                <div style={{ fontSize: 22, fontWeight: 900 }}>{quote ? money(quote.grand_total_cents ?? quote.total_cents) : "…"} {t("total", "au total")}</div></div>
-              <div className="sub" style={{ marginLeft: "auto", maxWidth: 260, color: "#c9c4d4", fontSize: 12 }}>💳 {t("For pay-as-you-go accounts, the card on file is charged when you confirm.", "Pour les comptes à l’usage, la carte enregistrée est débitée à la confirmation.")}</div>
-            </div>
-            {err ? <div className="warn" style={{ marginTop: 10 }}>{err}</div> : null}
-            <div className="row" style={{ marginTop: 14 }}>
-              <button className="btn" disabled={busy} onClick={create}>{busy ? t("Creating…", "Création…") : t(`✓ Confirm & create ${selectedIds.length}`, `✓ Confirmer et créer ${selectedIds.length}`)}</button>
-              <button className="btn ghost" disabled={busy} onClick={() => setPreview(false)}>{t("← Back / edit", "← Retour / modifier")}</button>
+
+            <div style={{ padding: "16px 24px 22px" }}>
+              {/* Billed to + pickup */}
+              <div style={{ display: "flex", gap: 20, flexWrap: "wrap" }}>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div className="mono" style={{ marginBottom: 2 }}>{t("Billed to", "Facturé à")}</div>
+                  <div style={{ fontWeight: 800 }}>{active.name}</div>
+                  {account?.address ? <div className="sub" style={{ fontSize: 12 }}>{[account.address, account.city, account.postal].filter(Boolean).join(", ")}</div> : null}
+                  {account?.email ? <div className="sub" style={{ fontSize: 12 }}>{account.email}</div> : null}
+                </div>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div className="mono" style={{ marginBottom: 2 }}>{t("Pickup for the batch", "Ramassage du lot")}</div>
+                  <div style={{ fontWeight: 800 }}>{ptype === "hub" ? t("Drop at hub", "Dépôt au point relais") : ptype === "zone" ? t("LoadQ zone", "Zone LoadQ") : t("Door pickup", "Ramassage à l’adresse")}</div>
+                  <div className="sub" style={{ fontSize: 12 }}>{pickupLabel}</div>
+                </div>
+              </div>
+
+              {/* Line items */}
+              <table style={{ marginTop: 16 }}>
+                <thead><tr><th>#</th><th>{t("Recipient", "Destinataire")}</th><th>{t("Destination", "Destination")}</th><th>{t("Size", "Taille")}</th><th style={{ textAlign: "right" }}>{t("Price", "Prix")}</th></tr></thead>
+                <tbody>
+                  {previewLines.map((l, i) => (
+                    <tr key={l.id}>
+                      <td style={{ color: "var(--t3)" }}>{i + 1}</td>
+                      <td><b>{l.name}</b>{l.to_address ? <div className="sub" style={{ fontSize: 11.5 }}>{l.to_address}</div> : null}{l.contents ? <div className="sub" style={{ fontSize: 11.5 }}>📦 {l.contents}</div> : null}</td>
+                      <td>{l.to_city || "—"}</td>
+                      <td>{l.size}</td>
+                      <td style={{ textAlign: "right", fontWeight: 700 }}>{l.price_cents != null ? money(l.price_cents) : "…"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Totals — receipt style */}
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+                <div style={{ width: 280, maxWidth: "100%" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 13.5 }}><span className="sub">{t("Subtotal", "Sous-total")}</span><span>{quote ? money(quote.subtotal_cents ?? quote.total_cents) : "…"}</span></div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "5px 0", fontSize: 13.5 }}>
+                    <span className="sub">{t("Tax", "Taxe")}{quote?.tax_rate ? ` (${pct(quote.tax_rate)})` : ""}{!quote?.tax_rate && (quote?.tax_cents ?? 0) > 0 ? ` · ${t("by destination", "selon destination")}` : ""}</span>
+                    <span>{quote ? money(quote.tax_cents ?? 0) : "…"}</span>
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 0 0", marginTop: 6, borderTop: "1.5px solid #1A1F36", fontWeight: 900, fontSize: 18 }}><span>{t("Total", "Total")}</span><span>{quote ? money(quote.grand_total_cents ?? quote.total_cents) : "…"}</span></div>
+                  <div className="sub" style={{ fontSize: 11, textAlign: "right", marginTop: 2 }}>{selectedIds.length} {t("shipments · CAD", "envois · CAD")}</div>
+                </div>
+              </div>
+
+              {/* Payment + footer */}
+              <div style={{ marginTop: 16, padding: 12, borderRadius: 11, background: "#FBF3F7", border: "1px solid #f0d8e5", fontSize: 12.5, color: "#6b1440" }}>
+                💳 {t("Pay-as-you-go: the card on file is charged when you confirm. Invoice accounts are added to the billing cycle. Nothing is created or charged until you confirm.", "À l’usage : la carte enregistrée est débitée à la confirmation. Les comptes sur facture sont ajoutés au cycle. Rien n’est créé ni débité avant votre confirmation.")}
+              </div>
+              <div className="sub" style={{ fontSize: 11, marginTop: 12, textAlign: "center" }}>
+                {t("Concord Express Co Inc.", "Concord Express Co Inc.")} · support@concordexpress.ca · {t("Tax by destination province", "Taxe selon la province de destination")}
+              </div>
+
+              {err ? <div className="warn" style={{ marginTop: 10 }}>{err}</div> : null}
+              <div className="row" style={{ marginTop: 14 }}>
+                <button className="btn" disabled={busy} onClick={create}>{busy ? t("Creating…", "Création…") : t(`✓ Confirm & create ${selectedIds.length}`, `✓ Confirmer et créer ${selectedIds.length}`)}</button>
+                <button className="btn ghost" disabled={busy} onClick={() => setPreview(false)}>{t("← Back / edit", "← Retour / modifier")}</button>
+              </div>
             </div>
           </div>
         </div>

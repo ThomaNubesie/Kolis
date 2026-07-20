@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
         "You've been given access to the Kolis admin console",
         `You've been granted ${role} access to the Kolis admin console.\n\nSign in at ${ADMIN_PORTAL} using this email address (${e}). We'll email you a 6-digit code — no password needed.`,
         `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px">
+          <div style="margin:0 0 14px"><img src="https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand/kolis-logo.png" width="46" height="46" alt="Kolis" style="border-radius:11px;display:block"/></div>
           <h2 style="color:#E11D6B">Kolis admin access</h2>
           <p>You've been granted <b>${role}</b> access to the Kolis admin console.</p>
           <p>Sign in with this email (<b>${e}</b>):</p>
@@ -92,6 +93,7 @@ Deno.serve(async (req) => {
         subject: `You've been invited to ${orgName} on Kolis`,
         text: `You've been added to ${orgName} on Kolis as ${role}.\n\nTo accept, sign in at ${PORTAL} using this email address (${e}). We'll email you a 6-digit code to sign in — no password needed.\n\nIf you weren't expecting this, you can ignore this email.`,
         html: `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px">
+          <div style="margin:0 0 14px"><img src="https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand/kolis-logo.png" width="46" height="46" alt="Kolis" style="border-radius:11px;display:block"/></div>
           <h2 style="color:#E11D6B">You're invited to ${orgName}</h2>
           <p>You've been added to <b>${orgName}</b> on Kolis as <b>${role}</b>.</p>
           <p>To accept, sign in with this email address (<b>${e}</b>):</p>

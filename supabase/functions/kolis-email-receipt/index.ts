@@ -34,6 +34,7 @@ Deno.serve(async (req) => {
     const rows = (lines || []).map((l: any) =>
       `<tr><td style="padding:6px 0;color:#5A6B63">${l.label}</td><td style="padding:6px 0;text-align:right;color:#0F1A17">${l.amount}</td></tr>`).join("");
     const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:460px;margin:0 auto;padding:24px">
+      <div style="margin:0 0 16px"><img src="https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand/kolis-logo.png" width="46" height="46" alt="Kolis" style="border-radius:11px;display:block"/></div>
       <h2 style="color:#0F1A17;margin:0 0 4px">Your Kolis receipt</h2>
       <p style="color:#8A978F;font-size:12px;margin:0 0 18px">Receipt ${receiptId || ""} · ${date || ""}</p>
       <table style="width:100%;border-collapse:collapse;font-size:14px">${rows}

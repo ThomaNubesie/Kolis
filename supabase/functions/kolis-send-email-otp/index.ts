@@ -39,6 +39,7 @@ Deno.serve(async (req) => {
             subject: "Your Kolis verification code",
             text: `Your Kolis verification code is ${otp}. Valid for 10 minutes.`,
             html: `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:420px;margin:0 auto;padding:24px">
+              <div style="margin:0 0 16px"><img src="https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand/kolis-logo.png" width="46" height="46" alt="Kolis" style="border-radius:11px;display:block"/></div>
               <h2 style="color:#0F1A17;margin:0 0 8px">Verify your email</h2>
               <p style="color:#5A6B63;margin:0 0 16px">Use this code to continue signing up to Kolis.</p>
               <div style="font-size:32px;font-weight:800;letter-spacing:8px;color:#E11D6B;text-align:center;padding:16px;background:#fdeef4;border-radius:12px">${otp}</div>

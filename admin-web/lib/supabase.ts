@@ -177,6 +177,12 @@ export const org = {
   bulkQuote: (o: string, pickup: any, rows: any[]) => r<{ rows: any[]; total_cents: number }>("kolis_org_bulk_quote", { p_org: o, p_pickup: pickup, p_rows: rows }),
   bulkShip: (o: string, pickup: any, rows: any[]) => r<{ results: any[]; payg: boolean }>("kolis_org_bulk_ship", { p_org: o, p_pickup: pickup, p_rows: rows }),
   label: (o: string, code: string) => r<any>("kolis_org_label", { p_org: o, p_code: code }),
+  // ── Saved bulk batches (drafts): name a selection, reuse it later ──
+  bulkDrafts: (o: string) => r<any[]>("kolis_org_bulk_drafts_list", { p_org: o }),
+  bulkDraftGet: (o: string, id: string) => r<any>("kolis_org_bulk_draft_get", { p_org: o, p_id: id }),
+  bulkDraftSave: (o: string, d: { id?: string | null; name: string; pickup?: any; rows?: any[] }) =>
+    r<string>("kolis_org_bulk_draft_save", { p_org: o, p_id: d.id ?? null, p_name: d.name, p_pickup: d.pickup ?? null, p_rows: d.rows ?? null }),
+  bulkDraftDelete: (o: string, id: string) => r("kolis_org_bulk_draft_delete", { p_org: o, p_id: id }),
   // Edit an already-requested shipment (editable until a courier is assigned).
   // Recomputes org-aware price + auto charges/refunds the difference for PAYG.
   async updateShipment(o: string, parcelId: string, fields: Record<string, any>) {

@@ -174,6 +174,7 @@ export const org = {
     r<any>("kolis_org_account_save", { p_org: o, p_phone: a.phone, p_email: a.email, p_address: a.address, p_city: a.city ?? null, p_postal: a.postal ?? null, p_country: a.country ?? "CA" }),
   // ── Bulk shipping from the client database ──
   hubs: (o: string) => r<any[]>("kolis_org_hubs", { p_org: o }),
+  pickupZones: () => r<any[]>("kolis_pickup_zones"),
   bulkQuote: (o: string, pickup: any, rows: any[]) => r<{ rows: any[]; total_cents: number }>("kolis_org_bulk_quote", { p_org: o, p_pickup: pickup, p_rows: rows }),
   bulkShip: (o: string, pickup: any, rows: any[]) => r<{ results: any[]; payg: boolean }>("kolis_org_bulk_ship", { p_org: o, p_pickup: pickup, p_rows: rows }),
   label: (o: string, code: string) => r<any>("kolis_org_label", { p_org: o, p_code: code }),

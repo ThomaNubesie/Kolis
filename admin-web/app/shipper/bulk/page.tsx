@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
-import { Printer, History, Save, FolderOpen, Pencil, Trash2, FilePlus2, Layers, UserPlus, X, Check } from "lucide-react";
+import { Printer, History, Save, FolderOpen, Pencil, Trash2, FilePlus2, Layers, UserPlus, X, Check, MapPin } from "lucide-react";
 
 const money = (c: number) => "$" + ((c || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 type Row = { size: string; to_city: string; to_address: string; contents: string };
@@ -13,6 +13,12 @@ export default function BulkShip() {
   const { t, lang } = useLang();
   const [clients, setClients] = useState<any[]>([]);
   const [hubs, setHubs] = useState<any[]>([]);
+  const [zones, setZones] = useState<any[]>([]);
+  const [zoneCity, setZoneCity] = useState("");        // chosen LoadQ region/city
+  const [zoneId, setZoneId] = useState("");            // chosen zone
+  const [myPos, setMyPos] = useState<{ lat: number; lng: number } | null>(null);
+  const [geoBusy, setGeoBusy] = useState(false);
+  const [geoErr, setGeoErr] = useState("");
   const [search, setSearch] = useState("");
   const [rows, setRows] = useState<Record<string, Row>>({});
   // batch pickup
@@ -44,6 +50,7 @@ export default function BulkShip() {
   useEffect(() => {
     org.clients(active.org_id).then(setClients).catch(() => {});
     org.hubs(active.org_id).then(setHubs).catch(() => {});
+    org.pickupZones().then((z) => setZones(z || [])).catch(() => setZones([]));
     loadDrafts();
     // eslint-disable-next-line
   }, [active.org_id]);
@@ -51,6 +58,32 @@ export default function BulkShip() {
   const filtered = clients.filter((c) => !search || `${c.full_name} ${c.email} ${c.city}`.toLowerCase().includes(search.toLowerCase()));
   const selectedIds = Object.keys(rows);
   const pickup = useMemo(() => ({ dropoff_type: ptype, hub_id: ptype === "hub" ? hubId : "", pickup_addr: ptype !== "hub" ? pickupAddr : "", from_city: fromCity }), [ptype, hubId, pickupAddr, fromCity]);
+
+  // ── LoadQ zone picker ──
+  const titleCity = (s: string) => (s || "").split(/[\s-]+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+  const zoneCities = useMemo(() => Array.from(new Set(zones.map((z) => z.region).filter(Boolean))).sort(), [zones]);
+  const km = (a: { lat: number; lng: number }, z: any) => {
+    const R = 6371, toR = (d: number) => (d * Math.PI) / 180;
+    const dLat = toR(z.latitude - a.lat), dLng = toR(z.longitude - a.lng);
+    const s = Math.sin(dLat / 2) ** 2 + Math.cos(toR(a.lat)) * Math.cos(toR(z.latitude)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s));
+  };
+  const cityZones = useMemo(() => {
+    const list = zones.filter((z) => z.region === zoneCity);
+    if (myPos) return [...list].sort((a, b) => km(myPos, a) - km(myPos, b));
+    return list;
+  }, [zones, zoneCity, myPos]);
+  const useMyLocation = () => {
+    setGeoErr("");
+    if (typeof navigator === "undefined" || !navigator.geolocation) { setGeoErr(t("Location isn't available on this device.", "La localisation n’est pas disponible sur cet appareil.")); return; }
+    setGeoBusy(true);
+    navigator.geolocation.getCurrentPosition(
+      (p) => { setMyPos({ lat: p.coords.latitude, lng: p.coords.longitude }); setGeoBusy(false); },
+      () => { setGeoErr(t("Couldn’t get your location — allow location access to see distances.", "Localisation impossible — autorisez l’accès pour voir les distances.")); setGeoBusy(false); },
+      { enableHighAccuracy: true, timeout: 8000 },
+    );
+  };
+  const selectZone = (z: any) => { setZoneId(z.id); setPickupAddr(`${z.name} · ${z.address || ""}`.trim()); setFromCity(titleCity(z.region)); };
 
   const shipRows = () => selectedIds.map((id) => {
     const c = clients.find((x) => x.id === id); const o = rows[id];
@@ -112,7 +145,8 @@ export default function BulkShip() {
   // Validate the batch, then open the review modal (no shipment is created yet).
   const openPreview = () => {
     if (ptype === "hub" && !hubId) { setErr(t("Choose a pickup hub.", "Choisissez un point relais.")); return; }
-    if (ptype !== "hub" && !pickupAddr.trim()) { setErr(t("Enter the pickup address.", "Entrez l’adresse de ramassage.")); return; }
+    if (ptype === "zone" && !zoneId) { setErr(t("Pick a LoadQ zone (choose a city, then a zone).", "Choisissez une zone LoadQ (choisissez une ville, puis une zone).")); return; }
+    if (ptype === "door" && !pickupAddr.trim()) { setErr(t("Enter the pickup address.", "Entrez l’adresse de ramassage.")); return; }
     if (selectedIds.length === 0) { setErr(t("Select at least one client.", "Sélectionnez au moins un client.")); return; }
     if (selectedIds.some((id) => !rows[id].to_city.trim())) { setErr(t("Every selected client needs a destination city.", "Chaque client doit avoir une ville de destination.")); return; }
     setErr(""); setPreview(true);
@@ -164,6 +198,9 @@ export default function BulkShip() {
       const full = await org.bulkDraftGet(active.org_id, d.id);
       const p = full.pickup || {};
       setPtype((p.dropoff_type as any) || "door"); setHubId(p.hub_id || ""); setPickupAddr(p.pickup_addr || ""); setFromCity(p.from_city || "Ottawa");
+      // Re-select the saved LoadQ zone (matched by its stored pickup label) so the picker highlights it.
+      if (p.dropoff_type === "zone") { const z = zones.find((x) => (p.pickup_addr || "").startsWith(x.name)); setZoneCity(z?.region || ""); setZoneId(z?.id || ""); }
+      else { setZoneCity(""); setZoneId(""); }
       const map: Record<string, Row> = {};
       (full.rows || []).forEach((rw: any) => { if (rw.client_id) map[rw.client_id] = { size: rw.size || "small", to_city: rw.to_city || "", to_address: rw.to_address || "", contents: rw.contents || "" }; });
       const known = Object.keys(map).filter((id) => clients.some((c) => c.id === id));
@@ -188,7 +225,7 @@ export default function BulkShip() {
     if (curDraft === d.id) setCurDraft(null);
     loadDrafts();
   };
-  const newBatch = () => { setRows({}); setCurDraft(null); setDraftName(""); setResult(""); setNotice(""); setErr(""); };
+  const newBatch = () => { setRows({}); setCurDraft(null); setDraftName(""); setResult(""); setNotice(""); setErr(""); setZoneId(""); setZoneCity(""); };
 
   return (
     <>
@@ -260,6 +297,41 @@ export default function BulkShip() {
             <option value="">{t("Select a hub…", "Choisir un point relais…")}</option>
             {hubs.map((h) => <option key={h.id} value={h.id}>{h.name}{h.city ? ` · ${h.city}` : ""}</option>)}
           </select>
+        ) : ptype === "zone" ? (
+          <div>
+            <div className="row" style={{ gap: 10, alignItems: "flex-end" }}>
+              <div style={{ flex: 1 }}>
+                <div className="mono">{t("Which city?", "Quelle ville ?")}</div>
+                <select className="input" value={zoneCity} onChange={(e) => { setZoneCity(e.target.value); setZoneId(""); }}>
+                  <option value="">{t("Select a city…", "Choisir une ville…")}</option>
+                  {zoneCities.map((c) => <option key={c} value={c}>{titleCity(c)}</option>)}
+                </select>
+              </div>
+              <button type="button" className="btn ghost" style={{ display: "inline-flex", alignItems: "center", gap: 6 }} disabled={geoBusy} onClick={useMyLocation}>
+                <MapPin size={15} strokeWidth={2} /> {myPos ? t("Location on", "Localisation activée") : geoBusy ? t("Locating…", "Localisation…") : t("Show distance from me", "Distance depuis moi")}
+              </button>
+            </div>
+            {geoErr ? <div className="sub" style={{ color: "var(--red)", fontSize: 12, marginTop: 4 }}>{geoErr}</div> : null}
+            {zoneCity && (
+              <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
+                {cityZones.length === 0 ? <div className="sub" style={{ fontSize: 12.5 }}>{t("No active LoadQ zones in this city yet.", "Aucune zone LoadQ active dans cette ville.")}</div> : null}
+                {cityZones.map((z) => {
+                  const on = zoneId === z.id; const dist = myPos ? km(myPos, z) : null;
+                  return (
+                    <button key={z.id} type="button" onClick={() => selectZone(z)} style={{ textAlign: "left", display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 11, cursor: "pointer", background: on ? "rgba(225,29,107,0.06)" : "#fff", border: on ? "1.5px solid #E11D6B" : "1px solid #E4E0D8" }}>
+                      <MapPin size={16} strokeWidth={2} style={{ flex: "none", color: on ? "#E11D6B" : "#8a8594" }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 800 }}>{z.name}</div>
+                        <div className="sub" style={{ fontSize: 12 }}>{z.address}</div>
+                      </div>
+                      {dist != null ? <div style={{ textAlign: "right", flex: "none" }}><div style={{ fontWeight: 800, color: "#178a5e" }}>{dist < 10 ? dist.toFixed(1) : Math.round(dist)} km</div><div className="sub" style={{ fontSize: 11 }}>{t("away", "de vous")}</div></div> : null}
+                      {on ? <Check size={18} strokeWidth={2.6} style={{ flex: "none", color: "#E11D6B" }} /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         ) : (
           <div className="row" style={{ gap: 10 }}>
             <div style={{ flex: 2 }}><div className="mono">{t("Pickup address", "Adresse de ramassage")}</div><input className="input" value={pickupAddr} onChange={(e) => setPickupAddr(e.target.value)} placeholder={t("Where the courier collects", "Où le coursier récupère")} /></div>

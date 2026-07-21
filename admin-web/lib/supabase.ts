@@ -184,6 +184,15 @@ export const org = {
   productDelete: (o: string, id: string) => r("kolis_org_product_delete", { p_org: o, p_id: id }),
   productsBulkImport: (o: string, rows: any[]) =>
     r<{ created: number; failed: number; errors: any[] }>("kolis_org_products_bulk_import", { p_org: o, p_rows: rows }),
+  // Product → client → shipping order (Phase 2)
+  shipQuote: (o: string, size: string, dropoff: string, from: string, to: string) =>
+    r<number>("kolis_org_ship_quote", { p_org: o, p_size: size, p_dropoff_type: dropoff, p_from_city: from, p_to_city: to }),
+  createProductOrder: (o: string, a: { client_id: string; dropoff_type: string; size: string; from_city: string; to_city: string; dropoff_addr?: string | null; pickup_addr?: string | null; items: { product_id: string; qty: number }[]; insured?: boolean }) =>
+    r<{ id: string; code: string; payg?: boolean; has_card?: boolean; goods_value_cents?: number; item_count?: number }>("kolis_org_create_product_order", {
+      p_org: o, p_client_id: a.client_id, p_dropoff_type: a.dropoff_type, p_size: a.size, p_from_city: a.from_city, p_to_city: a.to_city,
+      p_dropoff_addr: a.dropoff_addr ?? null, p_pickup_addr: a.pickup_addr ?? null, p_items: a.items, p_insured: a.insured ?? false,
+    }),
+  shipmentItems: (o: string, parcelId: string) => r<any[]>("kolis_org_shipment_items", { p_org: o, p_parcel_id: parcelId }),
   // ── Business account details (required: phone, email, business address) ──
   account: (o: string) => r<any>("kolis_org_account_get", { p_org: o }),
   accountSave: (o: string, a: { phone: string; email: string; address: string; city?: string; postal?: string; country?: string }) =>

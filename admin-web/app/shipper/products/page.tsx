@@ -135,6 +135,7 @@ export default function Products() {
               <td>{p.qty_in_stock}{p.allow_backorder ? <div className="sub" style={{ fontSize: 11 }}>{t("backorder ok", "commande en attente")}</div> : null}</td>
               <td>{statusPill(p, t)}</td>
               <td style={{ display: "flex", gap: 6 }}>
+                <a className="btn ghost" href={`/shipper/products/order?product=${p.id}`}>{t("→ Order", "→ Commander")}</a>
                 <button className="btn ghost" onClick={() => { setErr(""); setEdit(toEdit(p)); }}>{t("Edit", "Modifier")}</button>
                 <button className="btn ghost" onClick={() => del(p)}>{t("Delete", "Supprimer")}</button>
               </td>

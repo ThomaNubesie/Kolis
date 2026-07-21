@@ -202,6 +202,9 @@ export const org = {
   campaigns: (o: string) => r<any[]>("kolis_org_campaigns_list", { p_org: o }),
   campaignSave: (o: string, c: any) => r<any>("kolis_org_campaign_save", { p_org: o, p_id: c.id ?? null, p_promotion_id: c.promotion_id ?? null, p_subject: c.subject, p_body_html: c.body_html, p_audience: c.audience ?? "all_consented" }),
   campaignRecipients: (o: string, id: string) => r<any[]>("kolis_org_campaign_recipients_list", { p_org: o, p_campaign_id: id }),
+  campaignStats: (o: string, id: string) => r<{ sent: number; opened: number; clicked: number; bounced: number; failed: number }>("kolis_org_campaign_stats", { p_org: o, p_campaign_id: id }),
+  satisfactionSummary: (o: string) => r<{ count: number; avg: number; sent: number }>("kolis_org_satisfaction_summary", { p_org: o }),
+  satisfactionList: (o: string) => r<any[]>("kolis_org_satisfaction_list", { p_org: o }),
   async composeEmail(o: string, args: { promotion_id?: string | null; product_ids?: string[]; tone?: string; audience?: string }) {
     const { data, error } = await supabase.functions.invoke("kolis-email-composer", { body: { org_id: o, ...args } });
     if (error) throw error; return data as { ok?: boolean; subject?: string; html?: string; error?: string; message?: string };

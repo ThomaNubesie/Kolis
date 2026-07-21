@@ -29,10 +29,19 @@ function Campaigns() {
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
   const [result, setResult] = useState<{ sent: number; failed: number; recipients: number } | null>(null);
+  const [stats, setStats] = useState<Record<string, { opened: number; clicked: number; sent: number }>>({});
+  const [sat, setSat] = useState<{ count: number; avg: number; sent: number } | null>(null);
+  const [ratings, setRatings] = useState<any[]>([]);
 
-  const loadList = () => org.campaigns(active.org_id).then(setList).catch(() => {});
+  const loadList = () => org.campaigns(active.org_id).then((cs) => {
+    setList(cs);
+    cs.filter((c: Campaign) => c.status === "sent").forEach((c: Campaign) =>
+      org.campaignStats(active.org_id, c.id).then((s) => setStats((m) => ({ ...m, [c.id]: s }))).catch(() => {}));
+  }).catch(() => {});
   useEffect(() => {
     org.promotions(active.org_id).then(setPromos).catch(() => {});
+    org.satisfactionSummary(active.org_id).then(setSat).catch(() => {});
+    org.satisfactionList(active.org_id).then(setRatings).catch(() => {});
     loadList();
     // eslint-disable-next-line
   }, [active.org_id]);
@@ -123,20 +132,45 @@ function Campaigns() {
       {/* Past campaigns */}
       <h2 style={{ fontSize: 15, marginTop: 28 }}>{t("Sent & drafts", "Envoyées et brouillons")}</h2>
       <table style={{ marginTop: 8 }}>
-        <thead><tr><th>{t("Subject", "Sujet")}</th><th>{t("Audience", "Public")}</th><th>{t("Status", "Statut")}</th><th>{t("Sent", "Envoyés")}</th><th>{t("Created", "Créée")}</th></tr></thead>
+        <thead><tr><th>{t("Subject", "Sujet")}</th><th>{t("Audience", "Public")}</th><th>{t("Status", "Statut")}</th><th>{t("Sent", "Envoyés")}</th><th>{t("Opens / Clicks", "Ouvertures / Clics")}</th><th>{t("Created", "Créée")}</th></tr></thead>
         <tbody>
-          {list.map((c) => (
+          {list.map((c) => { const s = stats[c.id]; const pct = (n: number) => s && s.sent ? Math.round((n / s.sent) * 100) + "%" : "—"; return (
             <tr key={c.id}>
               <td><b>{c.subject}</b></td>
               <td className="sub" style={{ fontSize: 12 }}>{c.audience === "past_customers" ? t("Past customers", "Anciens clients") : t("All opted-in", "Tous inscrits")}</td>
               <td><span className={"pill " + pill(c.status)}>{c.status}</span></td>
               <td>{c.status === "sent" ? `${c.sent_count}/${c.recipients_count}` : "—"}</td>
+              <td className="sub" style={{ fontSize: 12.5 }}>{c.status === "sent" && s ? `${pct(s.opened)} · ${pct(s.clicked)}` : "—"}</td>
               <td className="sub" style={{ fontSize: 12 }}>{c.created_at?.slice(0, 10)}</td>
             </tr>
-          ))}
-          {list.length === 0 && <tr><td colSpan={5} className="sub">{t("No campaigns yet.", "Aucune campagne.")}</td></tr>}
+          ); })}
+          {list.length === 0 && <tr><td colSpan={6} className="sub">{t("No campaigns yet.", "Aucune campagne.")}</td></tr>}
         </tbody>
       </table>
+
+      {/* Delivery satisfaction */}
+      <h2 style={{ fontSize: 15, marginTop: 28 }}>{t("Delivery satisfaction", "Satisfaction des livraisons")}</h2>
+      <div className="cols" style={{ gap: 16, marginTop: 8 }}>
+        <div className="card" style={{ flex: 1 }}><div style={{ fontSize: 22, fontWeight: 800 }}>{sat?.sent ?? 0}</div><div className="sub">{t("Surveys sent", "Sondages envoyés")}</div></div>
+        <div className="card" style={{ flex: 1 }}><div style={{ fontSize: 22, fontWeight: 800 }}>{sat?.count ?? 0}</div><div className="sub">{t("Ratings received", "Évaluations reçues")}</div></div>
+        <div className="card" style={{ flex: 1 }}><div style={{ fontSize: 22, fontWeight: 800, color: "var(--green)" }}>{sat?.avg ? `${sat.avg}★` : "—"}</div><div className="sub">{t("Average rating", "Note moyenne")}</div></div>
+      </div>
+      {ratings.length > 0 && (
+        <table style={{ marginTop: 12 }}>
+          <thead><tr><th>{t("Shipment", "Envoi")}</th><th>{t("Client", "Client")}</th><th>{t("Rating", "Note")}</th><th>{t("Comment", "Commentaire")}</th><th>{t("When", "Quand")}</th></tr></thead>
+          <tbody>
+            {ratings.map((rr: any, i: number) => (
+              <tr key={i}>
+                <td style={{ fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12, color: "#B81558", fontWeight: 700 }}>{rr.parcel_code}</td>
+                <td>{rr.client_name || "—"}</td>
+                <td style={{ color: "#E8B931" }}>{"★".repeat(rr.rating)}<span style={{ color: "#ddd" }}>{"★".repeat(5 - rr.rating)}</span></td>
+                <td className="sub" style={{ fontSize: 12 }}>{rr.comment || "—"}</td>
+                <td className="sub" style={{ fontSize: 12 }}>{rr.created_at?.slice(0, 10)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </>
   );
 }

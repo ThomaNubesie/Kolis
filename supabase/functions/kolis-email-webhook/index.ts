@@ -7,7 +7,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const WHSEC = Deno.env.get("RESEND_WEBHOOK_SECRET") || "";
+// Dedicated secret for THIS Resend webhook endpoint (separate from the concord
+// webhook's RESEND_WEBHOOK_SECRET — each Resend endpoint has its own signing key).
+const WHSEC = Deno.env.get("KOLIS_RESEND_WEBHOOK_SECRET") || "";
 
 function b64decode(s: string): Uint8Array {
   const bin = atob(s); const out = new Uint8Array(bin.length);

@@ -168,6 +168,22 @@ export const org = {
   clientDelete: (o: string, id: string) => r("kolis_org_client_delete", { p_org: o, p_id: id }),
   clientGet: (o: string, id: string) => r<any>("kolis_org_client_get", { p_org: o, p_id: id }),
   clientHistory: (o: string, id: string) => r<any[]>("kolis_org_client_history", { p_org: o, p_client_id: id }),
+  // ── Products catalog ──
+  products: (o: string, search: string | null = null, status: string | null = null) =>
+    r<any[]>("kolis_org_products_list", { p_org: o, p_search: search, p_status: status }),
+  productGet: (o: string, id: string) => r<any>("kolis_org_product_get", { p_org: o, p_id: id }),
+  productSave: (o: string, p: any) => r<any>("kolis_org_product_save", {
+    p_org: o, p_id: p.id ?? null, p_name: p.name, p_description: p.description ?? null,
+    p_price_cents: Math.round((Number(p.price) || 0) * 100), p_qty: Number(p.qty_in_stock) || 0,
+    p_low_stock_at: Number(p.low_stock_at) || 0, p_sku: p.sku ?? null, p_category: p.category ?? null,
+    p_weight_g: p.weight_g ? Number(p.weight_g) : null, p_default_size: p.default_size ?? null,
+    p_declared_value_cents: p.declared_value != null && p.declared_value !== "" ? Math.round(Number(p.declared_value) * 100) : null,
+    p_handling_notes: p.handling_notes ?? null, p_image_url: p.image_url ?? null,
+    p_active: p.active ?? true, p_allow_backorder: p.allow_backorder ?? false,
+  }),
+  productDelete: (o: string, id: string) => r("kolis_org_product_delete", { p_org: o, p_id: id }),
+  productsBulkImport: (o: string, rows: any[]) =>
+    r<{ created: number; failed: number; errors: any[] }>("kolis_org_products_bulk_import", { p_org: o, p_rows: rows }),
   // ── Business account details (required: phone, email, business address) ──
   account: (o: string) => r<any>("kolis_org_account_get", { p_org: o }),
   accountSave: (o: string, a: { phone: string; email: string; address: string; city?: string; postal?: string; country?: string }) =>

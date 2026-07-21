@@ -73,7 +73,12 @@ export default function ClientProfile() {
           </div>
           {c.notes ? <div className="sub" style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 6 }}><StickyNote size={14} strokeWidth={2} /> {c.notes}</div> : null}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <button className={"pill " + (c.marketing_consent ? "pg" : "pgrey")} title={t("Consent to marketing email (CASL). Required to include this client in promo campaigns.", "Consentement aux courriels marketing (LCAP). Requis pour les campagnes promo.")}
+            style={{ cursor: "pointer", border: "none" }}
+            onClick={async () => { try { await org.clientSetConsent(active.org_id, c.id, !c.marketing_consent); setC({ ...c, marketing_consent: !c.marketing_consent }); } catch { /* */ } }}>
+            {c.marketing_consent ? t("✓ Promo opt-in", "✓ Promos activées") : t("Promo opt-in: off", "Promos : off")}
+          </button>
           <a className="btn ghost" href={`/shipper/bulk?client=${c.id}`} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Send size={15} strokeWidth={2} /> {t("New shipment", "Nouvel envoi")}</a>
           <a className="btn" href={`/shipper/products/order?client=${c.id}`} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><PackagePlus size={15} strokeWidth={2} /> {t("Add products", "Ajouter des produits")}</a>
         </div>

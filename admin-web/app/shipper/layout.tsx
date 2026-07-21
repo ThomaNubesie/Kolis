@@ -5,7 +5,7 @@ import Link from "next/link";
 import { supabase, org } from "@/lib/supabase";
 import { OrgGate, useOrg } from "@/lib/org-context";
 import { useLang, LangToggle } from "@/lib/i18n";
-import { LayoutDashboard, PackagePlus, Upload, Package, Users, Boxes, Send, Truck, TrendingUp, ReceiptText, CreditCard, Star, UsersRound, Palette, Building2, LogOut } from "lucide-react";
+import { LayoutDashboard, PackagePlus, Upload, Package, Users, Boxes, Tag, Megaphone, Send, Truck, TrendingUp, ReceiptText, CreditCard, Star, UsersRound, Palette, Building2, LogOut } from "lucide-react";
 
 const NAV = [
   { href: "/shipper", Icon: LayoutDashboard, label: "Overview", fr: "Aperçu" },
@@ -14,6 +14,8 @@ const NAV = [
   { href: "/shipper/shipments", Icon: Package, label: "Shipments", fr: "Envois" },
   { href: "/shipper/clients", Icon: Users, label: "Clients", fr: "Clients" },
   { href: "/shipper/products", Icon: Boxes, label: "Products", fr: "Produits" },
+  { href: "/shipper/promotions", Icon: Tag, label: "Promotions", fr: "Promotions" },
+  { href: "/shipper/campaigns", Icon: Megaphone, label: "Campaigns", fr: "Campagnes" },
   { href: "/shipper/bulk", Icon: Send, label: "Bulk shipment", fr: "Envoi en lot" },
   { href: "/freight", Icon: Truck, label: "Freight · pallets", fr: "Fret · palettes" },
   { href: "/shipper/analytics", Icon: TrendingUp, label: "Analytics", fr: "Statistiques" },

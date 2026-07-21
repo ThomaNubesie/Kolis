@@ -193,6 +193,23 @@ export const org = {
       p_dropoff_addr: a.dropoff_addr ?? null, p_pickup_addr: a.pickup_addr ?? null, p_items: a.items, p_insured: a.insured ?? false,
     }),
   shipmentItems: (o: string, parcelId: string) => r<any[]>("kolis_org_shipment_items", { p_org: o, p_parcel_id: parcelId }),
+  // Promotions + AI promo campaigns (Phase 3)
+  promotions: (o: string) => r<any[]>("kolis_org_promotions_list", { p_org: o }),
+  promotionSave: (o: string, p: any) => r<any>("kolis_org_promotion_save", { p_org: o, p_id: p.id ?? null, p_name: p.name, p_discount_pct: p.discount_pct ? Number(p.discount_pct) : null, p_product_ids: p.product_ids ?? [], p_starts: p.starts_at || null, p_ends: p.ends_at || null, p_active: p.active ?? true }),
+  promotionDelete: (o: string, id: string) => r("kolis_org_promotion_delete", { p_org: o, p_id: id }),
+  clientSetConsent: (o: string, clientId: string, consent: boolean) => r("kolis_org_client_set_consent", { p_org: o, p_client_id: clientId, p_consent: consent }),
+  campaignAudience: (o: string, audience: string) => r<number>("kolis_org_campaign_audience", { p_org: o, p_audience: audience }),
+  campaigns: (o: string) => r<any[]>("kolis_org_campaigns_list", { p_org: o }),
+  campaignSave: (o: string, c: any) => r<any>("kolis_org_campaign_save", { p_org: o, p_id: c.id ?? null, p_promotion_id: c.promotion_id ?? null, p_subject: c.subject, p_body_html: c.body_html, p_audience: c.audience ?? "all_consented" }),
+  campaignRecipients: (o: string, id: string) => r<any[]>("kolis_org_campaign_recipients_list", { p_org: o, p_campaign_id: id }),
+  async composeEmail(o: string, args: { promotion_id?: string | null; product_ids?: string[]; tone?: string; audience?: string }) {
+    const { data, error } = await supabase.functions.invoke("kolis-email-composer", { body: { org_id: o, ...args } });
+    if (error) throw error; return data as { ok?: boolean; subject?: string; html?: string; error?: string; message?: string };
+  },
+  async sendCampaign(o: string, campaignId: string) {
+    const { data, error } = await supabase.functions.invoke("kolis-campaign-send", { body: { org_id: o, campaign_id: campaignId } });
+    if (error) throw error; return data as { ok?: boolean; recipients?: number; sent?: number; failed?: number; error?: string };
+  },
   // ── Business account details (required: phone, email, business address) ──
   account: (o: string) => r<any>("kolis_org_account_get", { p_org: o }),
   accountSave: (o: string, a: { phone: string; email: string; address: string; city?: string; postal?: string; country?: string }) =>

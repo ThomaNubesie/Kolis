@@ -140,6 +140,7 @@ Deno.serve(async (req) => {
             </div>
             <p style="color:#9b97a6;font-size:12px;text-align:center;margin-top:18px">${rlang === "fr" ? "Envoyé via" : "Sent via"} <b style="color:${bColor}">Kolis</b> — <a href="https://kolis.ca" style="color:${bColor};text-decoration:none;font-weight:700">kolis.ca</a></p>
             ${bName !== "Kolis" ? `<p style="color:#9b97a6;font-size:11px;text-align:center">${bName}${bPowered ? " · powered by Kolis" : ""}</p>` : ""}
+            <p style="color:#b7b3c0;font-size:11px;text-align:center;margin-top:10px">Operated by Concord Express Co Inc. · support@concordexpress.ca</p>
           </div>`,
         }),
       });

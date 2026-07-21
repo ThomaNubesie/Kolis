@@ -22,9 +22,17 @@ async function sms(to: string, body: string) {
   const f = new URLSearchParams({ To: n, Body: body }); TW_FROM.startsWith("MG") ? f.set("MessagingServiceSid", TW_FROM) : f.set("From", TW_FROM);
   await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TW_SID}/Messages.json`, { method: "POST", headers: { Authorization: "Basic " + btoa(`${TW_SID}:${TW_TOKEN}`), "Content-Type": "application/x-www-form-urlencoded" }, body: f.toString() }).catch(() => {});
 }
+const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+const brandedHtml = (subject: string, text: string) =>
+  `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px">
+    <div style="margin:0 0 16px"><img src="https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand/kolis-logo.png" width="46" height="46" alt="Kolis" style="border-radius:11px;display:block"/></div>
+    <h2 style="color:#0F1A17;margin:0 0 8px">${esc(subject)}</h2>
+    <p style="color:#3d4a44;font-size:14px;line-height:1.5;margin:0">${esc(text).replace(/\n/g, "<br>")}</p>
+    <p style="color:#8A978F;font-size:12px;margin:18px 0 0">Operated by Concord Express Co Inc. · support@concordexpress.ca</p>
+  </div>`;
 async function email(to: string, subject: string, text: string) {
   if (!RESEND || !to) return;
-  await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${RESEND}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: FROM, to, subject, text }) }).catch(() => {});
+  await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${RESEND}`, "Content-Type": "application/json" }, body: JSON.stringify({ from: FROM, to, subject, text, html: brandedHtml(subject, text) }) }).catch(() => {});
 }
 
 Deno.serve(async (req) => {

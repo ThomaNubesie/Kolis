@@ -58,6 +58,7 @@ Deno.serve(async (req) => {
           <p>Sign in with this email (<b>${e}</b>):</p>
           <p><a href="${ADMIN_PORTAL}" style="display:inline-block;background:#E11D6B;color:#fff;text-decoration:none;padding:11px 18px;border-radius:10px;font-weight:700">Open the admin console →</a></p>
           <p style="color:#6B6675;font-size:13px">We'll email you a 6-digit code to sign in — no password needed.</p>
+          <p style="color:#8A978F;font-size:12px;margin:18px 0 0">Operated by Concord Express Co Inc. · support@concordexpress.ca</p>
         </div>`);
       return json({ ok: true, emailed: m.ok, error: m.detail });
     }
@@ -99,6 +100,7 @@ Deno.serve(async (req) => {
           <p>To accept, sign in with this email address (<b>${e}</b>):</p>
           <p><a href="${PORTAL}" style="display:inline-block;background:#E11D6B;color:#fff;text-decoration:none;padding:11px 18px;border-radius:10px;font-weight:700">Open the Kolis portal →</a></p>
           <p style="color:#6B6675;font-size:13px">We'll email you a 6-digit code to sign in — no password needed. If you weren't expecting this, you can ignore this email.</p>
+          <p style="color:#8A978F;font-size:12px;margin:18px 0 0">Operated by Concord Express Co Inc. · support@concordexpress.ca</p>
         </div>`,
       }),
     });

@@ -43,7 +43,8 @@ Deno.serve(async (req) => {
               <h2 style="color:#0F1A17;margin:0 0 8px">Verify your email</h2>
               <p style="color:#5A6B63;margin:0 0 16px">Use this code to continue signing up to Kolis.</p>
               <div style="font-size:32px;font-weight:800;letter-spacing:8px;color:#E11D6B;text-align:center;padding:16px;background:#fdeef4;border-radius:12px">${otp}</div>
-              <p style="color:#8A978F;font-size:12px;margin:16px 0 0">Expires in 10 minutes.</p></div>`,
+              <p style="color:#8A978F;font-size:12px;margin:16px 0 0">Expires in 10 minutes.</p>
+              <p style="color:#8A978F;font-size:12px;margin:6px 0 0">Operated by Concord Express Co Inc. · support@concordexpress.ca</p></div>`,
           }),
         });
         const jr = await r.json().catch(() => ({}));

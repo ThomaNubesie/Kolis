@@ -41,7 +41,8 @@ Deno.serve(async (req) => {
         <tr><td style="padding:10px 0;font-weight:800;border-top:1px solid #eee">Total</td>
         <td style="padding:10px 0;text-align:right;font-weight:800;color:#E11D6B;border-top:1px solid #eee">${total}</td></tr>
       </table>
-      <p style="color:#8A978F;font-size:12px;margin:18px 0 0">Thank you for joining Kolis.</p></div>`;
+      <p style="color:#8A978F;font-size:12px;margin:18px 0 0">Thank you for joining Kolis.</p>
+      <p style="color:#8A978F;font-size:12px;margin:6px 0 0">Operated by Concord Express Co Inc. · support@concordexpress.ca</p></div>`;
 
     const r = await fetch("https://api.resend.com/emails", {
       method: "POST",

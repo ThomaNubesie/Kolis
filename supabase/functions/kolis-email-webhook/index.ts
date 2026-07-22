@@ -41,12 +41,15 @@ Deno.serve(async (req) => {
   const admin = createClient(SUPABASE_URL, SERVICE);
   const now = new Date().toISOString();
 
-  // Update the campaign recipient (if this was a campaign email).
-  let orgId: string | null = null, kind = "campaign", refId: string | null = null;
+  // Only log events we can attribute to a Kolis campaign or satisfaction email —
+  // the webhook also receives events for all other loadq.ca mail (receipts, OTP…),
+  // which we deliberately do NOT log here.
+  let orgId: string | null = null, kind = "campaign", refId: string | null = null, attributable = false;
   if (emailId) {
     const { data: rcp } = await admin.from("kolis_campaign_recipients")
       .select("id, campaign_id, kolis_campaigns(org_id)").eq("resend_email_id", emailId).maybeSingle();
     if (rcp) {
+      attributable = true;
       refId = rcp.campaign_id; orgId = (rcp as any).kolis_campaigns?.org_id ?? null;
       const patch: Record<string, unknown> = {};
       if (type === "delivered") patch.status = "delivered";
@@ -55,12 +58,14 @@ Deno.serve(async (req) => {
       if (type === "bounced") patch.status = "bounced";
       if (Object.keys(patch).length) await admin.from("kolis_campaign_recipients").update(patch).eq("id", rcp.id);
     } else {
-      // maybe a satisfaction email — inherit org/kind from its 'sent' log row
+      // maybe a satisfaction email — attributable if we logged its 'sent' row
       const { data: prior } = await admin.from("kolis_email_events").select("org_id, kind, ref_id").eq("resend_email_id", emailId).limit(1).maybeSingle();
-      if (prior) { orgId = prior.org_id; kind = prior.kind; refId = prior.ref_id; }
+      if (prior) { attributable = true; orgId = prior.org_id; kind = prior.kind; refId = prior.ref_id; }
     }
   }
 
-  await admin.from("kolis_email_events").insert({ org_id: orgId, kind, ref_id: refId, email, resend_email_id: emailId, event: type, link });
+  if (attributable) {
+    await admin.from("kolis_email_events").insert({ org_id: orgId, kind, ref_id: refId, email, resend_email_id: emailId, event: type, link });
+  }
   return new Response("ok");
 });

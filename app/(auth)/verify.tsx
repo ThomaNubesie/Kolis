@@ -11,6 +11,7 @@ import * as WebBrowser from "expo-web-browser";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { IdentityAPI } from "../../services/identity";
+import { CreditCard, BookOpen, IdCard, CheckCircle2, AlertTriangle, Check } from "lucide-react-native";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -18,9 +19,9 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 
 type Step = "doc_select" | "scanning" | "confirmed" | "failed";
 const ALL_DOCS = [
-  { id: "dl", labelKey: "vfDocDl", subKey: "vfDocDlSub", icon: "🪪" },
-  { id: "passport", labelKey: "vfDocPassport", subKey: "vfDocPassportSub", icon: "📘" },
-  { id: "id_card", labelKey: "vfDocIdCard", subKey: "vfDocIdCardSub", icon: "🆔" },
+  { id: "dl", labelKey: "vfDocDl", subKey: "vfDocDlSub", Icon: CreditCard },
+  { id: "passport", labelKey: "vfDocPassport", subKey: "vfDocPassportSub", Icon: BookOpen },
+  { id: "id_card", labelKey: "vfDocIdCard", subKey: "vfDocIdCardSub", Icon: IdCard },
 ];
 
 export default function Verify() {
@@ -93,7 +94,8 @@ export default function Verify() {
   );
   const ok = (t: string) => (
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#eafaf3", borderWidth: 1, borderColor: "#bdebd6", borderRadius: 12, padding: 11, marginBottom: 9 }}>
-      <Text style={{ color: "#178a5e", fontWeight: "700", fontSize: 12.5 }}>✅ {t}</Text>
+      <CheckCircle2 size={13} color="#178a5e" strokeWidth={2.2} />
+      <Text style={{ color: "#178a5e", fontWeight: "700", fontSize: 12.5 }}>{t}</Text>
     </View>
   );
 
@@ -110,18 +112,18 @@ export default function Verify() {
             <Text style={{ fontSize: 13, color: Colors.t2, marginTop: 5, marginBottom: 18 }}>
               {isCourier ? t("vfCourierSub") : t("vfChooseIdSub")}
             </Text>
-            {err ? <Text style={{ color: Colors.red, fontSize: 12.5, marginBottom: 10 }}>⚠️ {err}</Text> : null}
+            {err ? <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}><AlertTriangle size={13} color={Colors.red} strokeWidth={2.2} /><Text style={{ color: Colors.red, fontSize: 12.5 }}>{err}</Text></View> : null}
             {docs.map((d, i) => {
               const hot = docType === d.id || (sweeping && sweepIdx === i);
               return (
                 <Pressable key={d.id} disabled={sweeping} onPress={() => { if (!sweeping) setDocType(d.id); }}
                   style={{ flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1.5, borderRadius: 13, padding: 13, marginBottom: 9, backgroundColor: hot ? "#fdeef4" : "#fff", borderColor: hot ? Colors.accent : Colors.line }}>
-                  <View style={{ width: 40, height: 40, borderRadius: 11, backgroundColor: Colors.cardAlt, alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 18 }}>{d.icon}</Text></View>
+                  <View style={{ width: 40, height: 40, borderRadius: 11, backgroundColor: Colors.cardAlt, alignItems: "center", justifyContent: "center" }}><d.Icon size={18} color={hot ? Colors.accentDk : Colors.ink} strokeWidth={2} /></View>
                   <View style={{ flex: 1 }}>
                     <Text style={{ fontWeight: "800", color: hot ? Colors.accentDk : Colors.ink, fontSize: 14 }}>{t(d.labelKey)}</Text>
                     <Text style={{ fontSize: 11, color: Colors.t3 }}>{t(d.subKey)}</Text>
                   </View>
-                  {docType === d.id && <Text style={{ color: Colors.accent, fontWeight: "800" }}>✓</Text>}
+                  {docType === d.id && <Check size={16} color={Colors.accent} strokeWidth={3} />}
                 </Pressable>
               );
             })}
@@ -143,7 +145,7 @@ export default function Verify() {
 
         {step === "confirmed" && (
           <>
-            <Text style={{ fontSize: 52, textAlign: "center", marginTop: 24 }}>✅</Text>
+            <View style={{ alignItems: "center", marginTop: 24 }}><CheckCircle2 size={52} color="#178a5e" strokeWidth={1.8} /></View>
             <Text style={{ fontSize: 24, fontWeight: "900", color: Colors.ink, textAlign: "center", marginVertical: 8 }}>{t("vfConfirmed")}</Text>
             <Text style={{ fontSize: 13, color: Colors.t2, textAlign: "center", marginBottom: 20 }}>{t("vfConfirmedSub")}</Text>
             {ok(t("vfIdVerified"))}{ok(t("vfFaceMatch"))}
@@ -157,7 +159,7 @@ export default function Verify() {
 
         {step === "failed" && (
           <>
-            <Text style={{ fontSize: 52, textAlign: "center", marginTop: 24 }}>⚠️</Text>
+            <View style={{ alignItems: "center", marginTop: 24 }}><AlertTriangle size={52} color={Colors.red} strokeWidth={1.8} /></View>
             <Text style={{ fontSize: 22, fontWeight: "900", color: Colors.ink, textAlign: "center", marginVertical: 8 }}>{t("vfCouldntVerify")}</Text>
             <Text style={{ fontSize: 13, color: Colors.t2, textAlign: "center", marginBottom: 20 }}>{t("vfFailedPre")}<Text style={{ fontWeight: "800" }}>{t("vfNotChargedBold")}</Text>{t("vfFailedPost")}</Text>
             <View style={{ flex: 1, minHeight: 18 }} />

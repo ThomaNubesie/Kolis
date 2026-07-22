@@ -8,6 +8,9 @@ import { initLang } from "../hooks/useStrings";
 import { Colors } from "../constants/colors";
 import { supabase } from "../services/supabase";
 import { PushAPI } from "../services/push";
+// Import registers the background-location TaskManager task at startup (incl. OS
+// background relaunch). stopBackgroundTracking() is called on sign-out.
+import { stopBackgroundTracking } from "../services/backgroundLocation";
 
 const STRIPE_PK = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
 
@@ -21,6 +24,7 @@ export default function RootLayout() {
     supabase.auth.getUser().then(({ data }) => { if (data.user) PushAPI.register(); });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       if (session?.user) PushAPI.register();
+      else stopBackgroundTracking();
     });
     return () => sub.subscription.unsubscribe();
   }, []);

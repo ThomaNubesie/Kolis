@@ -2,6 +2,7 @@ import { useState } from "react";
 import { View, Text, TextInput, Pressable, Alert, ActivityIndicator, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { MapPin } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { HubsAPI } from "../../services/hubs";
@@ -79,7 +80,7 @@ export default function AddHub() {
           placeholder="Gare du Palais · Bay 1"
           country="ca"
         />
-        {coords ? <Text style={{ fontSize: 11, color: Colors.green, marginTop: -4, marginBottom: 10, fontWeight: "700" }}>📍 Location set ({coords.lat.toFixed(4)}, {coords.lng.toFixed(4)})</Text> : null}
+        {coords ? <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: -4, marginBottom: 10 }}><MapPin size={11} color={Colors.green} strokeWidth={2.2} /><Text style={{ fontSize: 11, color: Colors.green, fontWeight: "700" }}>Location set ({coords.lat.toFixed(4)}, {coords.lng.toFixed(4)})</Text></View> : null}
 
         <Field label={t("fHours")} value={hours} onChange={setHours} />
 

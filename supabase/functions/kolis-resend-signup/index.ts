@@ -45,11 +45,13 @@ Deno.serve(async (req) => {
         subject: "Finish setting up your Kolis account",
         text: `You started creating a Kolis account but didn't finish.\n\nOpen the Kolis app and sign in with this email (${e}) — you'll get a 6-digit code to verify and complete your profile. The first 100 members per role get founding status free (you just need to verify your identity).\n\nIf you didn't start this, you can ignore this email.`,
         html: `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px">
+          <div style="margin:0 0 16px"><img src="https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand/kolis-logo.png" width="46" height="46" alt="Kolis" style="border-radius:11px;display:block"/></div>
           <h2 style="color:#E11D6B">Finish setting up your Kolis account</h2>
           <p>You started creating a Kolis account but didn't finish.</p>
           <p>Open the <b>Kolis app</b> and sign in with this email (<b>${e}</b>) — you'll get a 6-digit code to verify and complete your profile.</p>
           <p style="background:#fdf6e6;border:1px solid #e8b54a88;border-radius:10px;padding:11px;color:#8a6d2a;font-size:13px">The first 100 members per role get <b>founding status free</b> — you just need to verify your identity.</p>
           <p style="color:#6B6675;font-size:12.5px">If you didn't start this, you can ignore this email.</p>
+          <p style="color:#8A978F;font-size:12px;margin:18px 0 0">Operated by Concord Express Co Inc. · support@concordexpress.ca</p>
         </div>`,
       }),
     });

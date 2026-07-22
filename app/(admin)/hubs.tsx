@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { View, Text, Pressable, ScrollView, Switch } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Building2 } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { HubsAPI, Hub } from "../../services/hubs";
@@ -27,7 +28,7 @@ export default function AdminHubs() {
         <Text style={{ fontSize: 12.5, color: Colors.t2, marginBottom: 14 }}>{t("hubsSub")}</Text>
         {hubs.map((h) => (
           <View key={h.id} style={{ flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1.5, borderColor: Colors.line, borderRadius: 14, padding: 13, backgroundColor: "#fff", marginBottom: 9, opacity: h.is_active ? 1 : 0.6 }}>
-            <Text style={{ fontSize: 18 }}>🏢</Text>
+            <Building2 size={18} color={Colors.ink} strokeWidth={1.8} />
             <View style={{ flex: 1 }}>
               <Text style={{ fontWeight: "700", fontSize: 14, color: Colors.ink }}>{h.name}</Text>
               <Text style={{ fontSize: 11.5, color: Colors.t3 }}>{h.address || h.city}</Text>

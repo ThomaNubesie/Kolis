@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { View, Text, Pressable, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Zap, Check } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { AdminAPI, PendingPayout } from "../../services/admin";
@@ -49,10 +50,11 @@ export default function Payouts() {
             </View>
             <View style={{ flexDirection: "row", gap: 8, marginTop: 11 }}>
               <Pressable onPress={() => autoSend(p)} disabled={busyId === p.driver_id || !p.interac_email} style={{ flex: 1, backgroundColor: p.interac_email ? Colors.accent : Colors.line, borderRadius: 10, padding: 11, alignItems: "center" }}>
-                {busyId === p.driver_id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>⚡ {t("autoSend")}</Text>}
+                {busyId === p.driver_id ? <ActivityIndicator color="#fff" /> : <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}><Zap size={15} color="#fff" strokeWidth={2.2} /><Text style={{ color: "#fff", fontWeight: "800", fontSize: 13 }}>{t("autoSend")}</Text></View>}
               </Pressable>
-              <Pressable onPress={() => markPaid(p)} style={{ flex: 1, borderWidth: 1.5, borderColor: Colors.ink, borderRadius: 10, padding: 11, alignItems: "center" }}>
-                <Text style={{ color: Colors.ink, fontWeight: "800", fontSize: 13 }}>✓ {t("markPaid")}</Text>
+              <Pressable onPress={() => markPaid(p)} style={{ flex: 1, borderWidth: 1.5, borderColor: Colors.ink, borderRadius: 10, padding: 11, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 6 }}>
+                <Check size={15} color={Colors.ink} strokeWidth={2.2} />
+                <Text style={{ color: Colors.ink, fontWeight: "800", fontSize: 13 }}>{t("markPaid")}</Text>
               </Pressable>
             </View>
           </View>

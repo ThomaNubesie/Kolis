@@ -23,6 +23,7 @@ export default function OrgDetail() {
   const [net, setNet] = useState("");
   // invite
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteName, setInviteName] = useState("");
   const [invitePhone, setInvitePhone] = useState("");
   const [inviteRole, setInviteRole] = useState("owner");
 
@@ -51,6 +52,7 @@ export default function OrgDetail() {
       flash(t("Saved.", "Enregistré.")); load();
     } catch (e) { fail(e); }
   };
+  const setPayg = async (v: boolean) => { try { await api.orgSetPayg(id, v); flash(v ? t("Pay-as-you-go on", "Paiement à l’usage activé") : t("Invoice / net terms", "Facture / conditions nettes")); load(); } catch (e) { fail(e); } };
   const setKyb = async (s: string) => { try { await api.setOrgKyb(id, s); flash("KYB " + kybLabel(s)); load(); } catch (e) { fail(e); } };
   const setStatus = async (s: string) => { try { await api.setOrgStatus(id, s); flash(statusLabel(s)); load(); } catch (e) { fail(e); } };
   const inviteByEmail = async () => {
@@ -58,10 +60,10 @@ export default function OrgDetail() {
     const emails = Array.from(new Set(inviteEmail.split(/[\s,;]+/).map((e) => e.trim().toLowerCase()).filter(Boolean)));
     if (!emails.length) return;
     const results = await Promise.all(emails.map(async (e) => {
-      try { const r: any = await api.orgInviteEmail(id, e, inviteRole); return { e, ok: true, emailed: !!r?.emailed }; }
+      try { const r: any = await api.orgInviteEmail(id, e, inviteRole, inviteName.trim() || undefined); return { e, ok: true, emailed: !!r?.emailed }; }
       catch (err: any) { return { e, ok: false, emailed: false, err: err?.message }; }
     }));
-    setInviteEmail("");
+    setInviteEmail(""); setInviteName("");
     const emailed = results.filter((r) => r.emailed).length;
     const failed = results.filter((r) => !r.ok);
     if (failed.length) setErr(t(`Couldn't invite: ${failed.map((f) => f.e).join(", ")}`, `Impossible d’inviter : ${failed.map((f) => f.e).join(", ")}`));
@@ -73,6 +75,11 @@ export default function OrgDetail() {
     catch (e: any) { setErr(e?.message?.includes("no_account_for_phone") ? t("No Kolis account with that phone — they must sign in once first.", "Aucun compte Kolis avec ce téléphone — il doit se connecter une première fois.") : (e?.message || t("Failed.", "Échec."))); }
   };
   const remove = async (uid: string) => { if (!confirm(t("Remove this member?", "Retirer ce membre ?"))) return; try { await api.orgRemoveMember(id, uid); load(); } catch (e) { fail(e); } };
+  const editName = async (uid: string, current: string) => {
+    const n = prompt(t("Member name", "Nom du membre"), current || "");
+    if (n === null) return;
+    try { await api.orgSetMemberName(id, uid, n.trim()); flash(t("Saved.", "Enregistré.")); load(); } catch (e) { fail(e); }
+  };
 
   if (!org) return <div className="sub">{t("Loading…", "Chargement…")}</div>;
 
@@ -100,15 +107,26 @@ export default function OrgDetail() {
           <button className="btn" style={{ marginTop: 10 }} onClick={saveProfile}>{t("Save", "Enregistrer")}</button>
         </div>
 
-        {/* Limits & terms */}
+        {/* Billing mode: pay-as-you-go (card per shipment) vs invoice/net-terms */}
         <div className="card" style={{ flex: 1, minWidth: 280 }}>
-          <div className="mono">{t("Credit & terms", "Crédit et conditions")}</div>
-          <div className="row" style={{ gap: 10 }}>
-            <div style={{ flex: 1 }}><div className="mono">{t("Credit limit $", "Limite de crédit $")}</div><input className="input" value={credit} onChange={(e) => setCredit(e.target.value)} inputMode="numeric" /></div>
-            <div style={{ flex: 1 }}><div className="mono">{t("Discount %", "Remise %")}</div><input className="input" value={discount} onChange={(e) => setDiscount(e.target.value)} inputMode="decimal" /></div>
-            <div style={{ flex: 1 }}><div className="mono">{t("Net days", "Jours net")}</div><input className="input" value={net} onChange={(e) => setNet(e.target.value)} inputMode="numeric" /></div>
+          <div className="mono">{t("Billing mode", "Mode de facturation")}</div>
+          <div className="row" style={{ marginTop: 4, marginBottom: 8 }}>
+            <button className={"chip" + (org.payg ? " on" : "")} onClick={() => setPayg(true)}>{t("Pay-as-you-go", "Paiement à l’usage")}</button>
+            <button className={"chip" + (!org.payg ? " on" : "")} onClick={() => setPayg(false)}>{t("Invoice / net terms", "Facture / net")}</button>
           </div>
-          <button className="btn" style={{ marginTop: 10 }} onClick={saveLimits}>{t("Save", "Enregistrer")}</button>
+          <div className="sub" style={{ fontSize: 12 }}>
+            {org.payg
+              ? t(`Card charged per shipment. ${org.stripe_default_pm ? "Card on file ✓" : "No card on file yet."}`, `Carte débitée par envoi. ${org.stripe_default_pm ? "Carte enregistrée ✓" : "Aucune carte enregistrée."}`)
+              : t("Shipments billed to invoice on net terms (uses credit limit below).", "Envois facturés selon les conditions nettes (utilise la limite de crédit ci-dessous).")}
+          </div>
+          {!org.payg && <>
+            <div className="row" style={{ gap: 10, marginTop: 10 }}>
+              <div style={{ flex: 1 }}><div className="mono">{t("Credit limit $", "Limite de crédit $")}</div><input className="input" value={credit} onChange={(e) => setCredit(e.target.value)} inputMode="numeric" /></div>
+              <div style={{ flex: 1 }}><div className="mono">{t("Discount %", "Remise %")}</div><input className="input" value={discount} onChange={(e) => setDiscount(e.target.value)} inputMode="decimal" /></div>
+              <div style={{ flex: 1 }}><div className="mono">{t("Net days", "Jours net")}</div><input className="input" value={net} onChange={(e) => setNet(e.target.value)} inputMode="numeric" /></div>
+            </div>
+            <button className="btn" style={{ marginTop: 10 }} onClick={saveLimits}>{t("Save", "Enregistrer")}</button>
+          </>}
         </div>
 
         {/* KYB + status */}
@@ -131,9 +149,13 @@ export default function OrgDetail() {
       <div className="card">
         <div className="mono">{t("Add owner / member", "Ajouter un propriétaire / membre")}</div>
         <div className="row" style={{ gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 150 }}>
+            <div className="mono">{t("Name", "Nom")}</div>
+            <input className="input" value={inviteName} onChange={(e) => setInviteName(e.target.value)} placeholder={t("Full name", "Nom complet")} />
+          </div>
           <div style={{ flex: 2, minWidth: 200 }}>
             <div className="mono">{t("Invite by email (they sign in with this email)", "Inviter par courriel (connexion avec ce courriel)")}</div>
-            <input className="input" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="owner@company.com, other@company.com" />
+            <input className="input" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="owner@company.com" />
           </div>
           <select className="input" style={{ width: 130 }} value={inviteRole} onChange={(e) => setInviteRole(e.target.value)}>
             {["owner", "admin", "finance", "shipper", "dispatcher", "driver"].map((rr) => <option key={rr} value={rr}>{rr}</option>)}
@@ -155,7 +177,10 @@ export default function OrgDetail() {
           {members.map((m) => (
             <tr key={m.user_id}>
               <td>{m.full_name || "—"}</td><td>{m.email || "—"}</td><td><span className="pill pmag">{m.role}</span></td>
-              <td><button className="btn ghost" onClick={() => remove(m.user_id)}>{t("Remove", "Retirer")}</button></td>
+              <td style={{ display: "flex", gap: 6 }}>
+                <button className="btn ghost" onClick={() => editName(m.user_id, m.full_name)}>{t("Edit name", "Modifier le nom")}</button>
+                <button className="btn ghost" onClick={() => remove(m.user_id)}>{t("Remove", "Retirer")}</button>
+              </td>
             </tr>
           ))}
           {members.length === 0 && <tr><td colSpan={4} style={{ color: "var(--t3)" }}>{t("No members yet — invite the owner above.", "Aucun membre — invitez le propriétaire ci-dessus.")}</td></tr>}

@@ -28,14 +28,23 @@ type PushMsg = {
 // high priority + a dedicated high-importance Android channel + iOS time-sensitive.
 const URGENT = { priority: "high" as const, channelId: "parcel-requests", interruptionLevel: "time-sensitive" as const };
 
-function bi(en: string, fr: string) { return `${en}\n${fr}`; }
+function bi(en: string, fr: string) { return `🇬🇧 ${en}\n\n🇫🇷 ${fr}`; }
 
 async function tokenFor(supabase: ReturnType<typeof createClient>, userId: string): Promise<string | null> {
-  const { data: kp } = await supabase.from("kolis_profiles").select("push_token").eq("id", userId).maybeSingle();
+  const { data: kp } = await supabase.from("kolis_profiles").select("push_token, loadq_driver_id").eq("id", userId).maybeSingle();
   const k = (kp as { push_token: string | null } | null)?.push_token;
   if (k) return k;
+  // Try a LoadQ driver row under the same id...
   const { data: d } = await supabase.from("drivers").select("push_token").eq("id", userId).maybeSingle();
-  return (d as { push_token: string | null } | null)?.push_token ?? null;
+  const dt = (d as { push_token: string | null } | null)?.push_token;
+  if (dt) return dt;
+  // ...otherwise follow the courier→LoadQ-driver link (their token lives there).
+  const linked = (kp as { loadq_driver_id: string | null } | null)?.loadq_driver_id;
+  if (linked) {
+    const { data: ld } = await supabase.from("drivers").select("push_token").eq("id", linked).maybeSingle();
+    return (ld as { push_token: string | null } | null)?.push_token ?? null;
+  }
+  return null;
 }
 
 // Insert an alert row (idempotent via alerts (user_id, ref) unique index); only
@@ -74,7 +83,7 @@ Deno.serve(async (req) => {
 
   let parcel_id = "", event = "";
   try { ({ parcel_id, event } = await req.json()); } catch { /* ignore */ }
-  if (!parcel_id || (event !== "assigned" && event !== "offered")) {
+  if (!parcel_id || (event !== "assigned" && event !== "offered" && event !== "direct")) {
     return new Response(JSON.stringify({ error: "bad request" }), { status: 400 });
   }
 
@@ -98,6 +107,19 @@ Deno.serve(async (req) => {
       bi(`Parcel ${p.code} to ${p.to_city} — ${payout}. Open Kolis to accept or decline.`,
          `Colis ${p.code} vers ${p.to_city} — ${payout}. Ouvrez Kolis pour accepter ou refuser.`),
       { type: "kolis_proposal", parcel_id: p.id }, pushQueue,
+    );
+  } else if (event === "direct") {
+    // Dispatcher force-assigned this driver — no accept step, just go pick up.
+    if (!p.driver_id) {
+      return new Response(JSON.stringify({ ok: true, note: "no driver" }), { headers: { "Content-Type": "application/json" } });
+    }
+    await recordAndQueue(
+      supabase, p.driver_id, "kolis_assigned_direct",
+      `kolis_direct:${p.id}`,
+      "Delivery assigned to you",
+      bi(`Parcel ${p.code} to ${p.to_city} — ${payout}. Assigned to you — please proceed to pickup.`,
+         `Colis ${p.code} vers ${p.to_city} — ${payout}. Vous est assigné — procédez au ramassage.`),
+      { type: "kolis_assigned", parcel_id: p.id }, pushQueue,
     );
   } else {
     // "offered": only meaningful while unassigned and not exclusively targeted.

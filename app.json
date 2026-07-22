@@ -2,7 +2,8 @@
   "expo": {
     "name": "Kolis",
     "slug": "kolis",
-    "version": "1.0.0",
+    "version": "1.1.4",
+    "newArchEnabled": false,
     "orientation": "portrait",
     "scheme": "kolis",
     "userInterfaceStyle": "light",
@@ -35,16 +36,24 @@
       "softwareKeyboardLayoutMode": "pan",
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.CAMERA"
       ]
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
       [
+        "expo-camera",
+        { "cameraPermission": "Kolis uses the camera to scan a parcel's pickup and delivery QR codes." }
+      ],
+      [
         "expo-location",
         {
-          "locationWhenInUsePermission": "Kolis uses your location to find loading zones and drivers near you."
+          "locationWhenInUsePermission": "Kolis uses your location to find loading zones and drivers near you.",
+          "locationAlwaysAndWhenInUsePermission": "Kolis shares your location while you're carrying a parcel so the sender and dispatch can see your position and ETA \u2014 even when the app is in the background.",
+          "isAndroidBackgroundLocationEnabled": false,
+          "isAndroidForegroundServiceEnabled": false
         }
       ],
       [

@@ -29,7 +29,7 @@ export default function AdminMembers() {
       <View style={{ paddingHorizontal: 18, paddingTop: 14 }}>
         <Pressable onPress={() => router.back()}><Text style={{ color: Colors.t2, fontSize: 15, marginBottom: 6 }}>←</Text></Pressable>
         <Text style={{ fontSize: 24, fontWeight: "800", color: Colors.ink, marginBottom: 10 }}>Members</Text>
-        <TextInput value={search} onChangeText={setSearch} onSubmitEditing={() => load()} placeholder="🔍 name, email…" placeholderTextColor={Colors.t3} returnKeyType="search" autoCapitalize="none"
+        <TextInput value={search} onChangeText={setSearch} onSubmitEditing={() => load()} placeholder="name, email…" placeholderTextColor={Colors.t3} returnKeyType="search" autoCapitalize="none"
           style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 11, padding: 10, fontSize: 13, color: Colors.ink, backgroundColor: "#fff", marginBottom: 9 }} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
           {FILTERS.map(([f, label]) => {
@@ -46,7 +46,7 @@ export default function AdminMembers() {
             <View style={{ flex: 1 }}>
               <Text style={{ fontWeight: "800", color: Colors.ink, fontSize: 13.5 }}>{m.full_name || m.email || "—"}</Text>
               <Text style={{ color: Colors.t3, fontSize: 11, marginTop: 1 }}>
-                {m.role || "—"} · {m.identity_verified ? "✓ verified" : "⏳ unverified"}{m.is_founding && m.founding_number ? ` · Founding #${m.founding_number}` : ""}{m.suspended ? " · SUSPENDED" : ""}
+                {m.role || "—"} · {m.identity_verified ? "verified" : "unverified"}{m.is_founding && m.founding_number ? ` · Founding #${m.founding_number}` : ""}{m.suspended ? " · SUSPENDED" : ""}
               </Text>
             </View>
             <Text style={{ color: Colors.t3, fontSize: 10 }}>hold</Text>

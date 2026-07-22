@@ -29,6 +29,13 @@ Deno.serve(async (req) => {
       .select("id, status, price_cents, insurance_premium_cents, stripe_payment_intent_id").eq("id", parcel_id).single();
     if (!p) return json({ error: "not found" }, 404);
 
+    // Cancel & refund is only allowed BEFORE pickup. Once picked up / in transit /
+    // delivered, the shipment is in the driver's hands — no cancel. (Damage
+    // "claim" refunds are handled separately and can happen after delivery.)
+    if (action === "cancel" && ["picked_up", "in_transit", "delivered", "cancelled"].includes(String(p.status))) {
+      return json({ error: "not_cancellable", detail: `Parcel is ${p.status} — cancel is only available up until pickup.` }, 400);
+    }
+
     const full = (p.price_cents ?? 0) + (p.insurance_premium_cents ?? 0);
     const amount = Math.min(amount_cents ?? full, full);
 

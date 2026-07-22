@@ -5,6 +5,7 @@ import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, ActivityI
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Colors } from "../../constants/colors";
+import { ReceiptText } from "lucide-react-native";
 import { useStrings } from "../../hooks/useStrings";
 import { CourierAPI } from "../../services/courier";
 
@@ -67,12 +68,16 @@ export default function Earnings() {
         </View>
         <Text style={{ fontSize: 11.5, color: Colors.t2, marginBottom: 20, lineHeight: 16 }}>{t("payoutHint")}</Text>
 
-        <View style={{ backgroundColor: Colors.cardAlt, borderRadius: 12, padding: 13, marginBottom: 12 }}>
-          <Text style={{ fontSize: 11.5, color: Colors.t2, lineHeight: 17 }}>🧾 {t("contractorNote")}</Text>
+        <View style={{ backgroundColor: Colors.cardAlt, borderRadius: 12, padding: 13, marginBottom: 12, flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <ReceiptText size={12} color={Colors.t2} strokeWidth={2.2} />
+          <Text style={{ fontSize: 11.5, color: Colors.t2, lineHeight: 17, flex: 1 }}>{t("contractorNote")}</Text>
         </View>
 
         <Pressable onPress={() => router.push("/(app)/tax")} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1.5, borderColor: Colors.line, borderRadius: 13, padding: 14, backgroundColor: "#fff" }}>
-          <Text style={{ fontSize: 13.5, fontWeight: "700", color: Colors.ink }}>🧾 {t("taxDocuments")}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <ReceiptText size={14} color={Colors.ink} strokeWidth={2.2} />
+            <Text style={{ fontSize: 13.5, fontWeight: "700", color: Colors.ink }}>{t("taxDocuments")}</Text>
+          </View>
           <Text style={{ fontSize: 16, color: Colors.t3 }}>›</Text>
         </Pressable>
       </ScrollView>

@@ -3,6 +3,7 @@
 // back to a plain text field when no key is configured.
 import { useEffect, useRef, useState } from "react";
 import { View, Text, TextInput, Pressable, ActivityIndicator } from "react-native";
+import { MapPin } from "lucide-react-native";
 import { Colors } from "../constants/colors";
 
 const KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -80,8 +81,9 @@ export function AddressAutocomplete({
       {open && sugs.length > 0 ? (
         <View style={{ borderWidth: 1, borderColor: Colors.line, borderTopWidth: 0, borderBottomLeftRadius: 12, borderBottomRightRadius: 12, backgroundColor: "#fff", overflow: "hidden" }}>
           {sugs.map((s) => (
-            <Pressable key={s.place_id} onPress={() => pick(s)} style={{ paddingVertical: 11, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: Colors.line }}>
-              <Text style={{ fontSize: 12.5, color: Colors.ink }}>📍 {s.description}</Text>
+            <Pressable key={s.place_id} onPress={() => pick(s)} style={{ paddingVertical: 11, paddingHorizontal: 12, borderTopWidth: 1, borderTopColor: Colors.line, flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <MapPin size={12.5} color={Colors.ink} strokeWidth={2.2} />
+              <Text style={{ fontSize: 12.5, color: Colors.ink, flex: 1 }}>{s.description}</Text>
             </Pressable>
           ))}
         </View>

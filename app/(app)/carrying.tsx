@@ -2,21 +2,30 @@
 // (captures the escrow through kolis-finalize-payment). Courier never sees the
 // sender's price — only their own payout.
 import { useCallback, useState } from "react";
-import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, Alert, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ScrollView, RefreshControl, Alert, ActivityIndicator, Linking, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useFocusEffect } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { CourierAPI, CourierParcel } from "../../services/courier";
+import { drainScannedCodes } from "../../services/scanBridge";
 import { DeliveryReceiptModal, DeliveryReceiptData } from "../../components/DeliveryReceiptModal";
+import { Package, Mail, Luggage, Camera, Truck, Building2, DoorOpen, Navigation, Lock, CheckCircle2, MapPin, Phone } from "lucide-react-native";
 
-const SIZE_EMOJI: Record<string, string> = { envelope: "✉️", small: "📦", large: "🧳" };
+const SizeIcon = ({ size, px = 22, color = Colors.ink }: { size: string; px?: number; color?: string }) => {
+  if (size === "envelope") return <Mail size={px} color={color} strokeWidth={2} />;
+  if (size === "large") return <Luggage size={px} color={color} strokeWidth={2} />;
+  return <Package size={px} color={color} strokeWidth={2} />;
+};
 
 export default function Carrying() {
-  const { t } = useStrings();
+  const { t, lang } = useStrings();
+  const fr = lang === "fr";
+  const router = useRouter();
   const [list, setList] = useState<CourierParcel[]>([]);
   const [loading, setLoading] = useState(true);
   const [codes, setCodes] = useState<Record<string, string>>({});
+  const [pcodes, setPcodes] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<DeliveryReceiptData | null>(null);
 
@@ -24,7 +33,46 @@ export default function Carrying() {
     setLoading(true);
     CourierAPI.carrying().then(setList).catch(() => {}).finally(() => setLoading(false));
   }, []);
-  useFocusEffect(useCallback(() => { load(); }, [load]));
+  // On focus: reload, then drain any code the QR scanner stashed while in the
+  // 100 m geofence and auto-fill the matching input. The driver never types it.
+  useFocusEffect(useCallback(() => {
+    load();
+    const drained = drainScannedCodes();
+    const p: Record<string, string> = {}, d: Record<string, string> = {};
+    for (const [id, e] of Object.entries(drained)) {
+      if (e.kind === "pickup") p[id] = e.code; else d[id] = e.code;
+    }
+    if (Object.keys(p).length) setPcodes((c) => ({ ...c, ...p }));
+    if (Object.keys(d).length) setCodes((c) => ({ ...c, ...d }));
+  }, [load]));
+
+  // Open the platform maps app with turn-by-turn directions to an address.
+  const openDirections = async (addr: string) => {
+    const dst = encodeURIComponent(addr);
+    const web = `https://www.google.com/maps/dir/?api=1&destination=${dst}`;
+    const nativeUrl = Platform.select({
+      ios: `http://maps.apple.com/?daddr=${dst}&dirflg=d`,
+      android: `google.navigation:q=${dst}`,
+      default: web,
+    })!;
+    try {
+      const ok = await Linking.canOpenURL(nativeUrl);
+      await Linking.openURL(ok ? nativeUrl : web);
+    } catch {
+      try { await Linking.openURL(web); } catch { Alert.alert("Kolis", addr); }
+    }
+  };
+
+  const pickup = async (p: CourierParcel) => {
+    const code = (pcodes[p.id] || "").trim();
+    if (code.length < 4) return;
+    setBusyId(p.id);
+    const res = await CourierAPI.markPickedUp(p.id, code);
+    setBusyId(null);
+    if (res !== "ok") { Alert.alert("Kolis", res === "bad_code" ? t("badPickupCode") : t("badCode")); return; }
+    setPcodes((c) => ({ ...c, [p.id]: "" }));
+    load();
+  };
 
   const deliver = async (p: CourierParcel) => {
     const code = (codes[p.id] || "").trim();
@@ -32,7 +80,12 @@ export default function Carrying() {
     setBusyId(p.id);
     const { ok, error } = await CourierAPI.deliver(p.id, code);
     setBusyId(null);
-    if (!ok) { Alert.alert("Kolis", error === "bad_code" ? t("badCode") : (error || t("badCode"))); return; }
+    if (!ok) {
+      const m = error === "bad_code" ? t("badCode")
+        : error === "payment_not_captured" ? (fr ? "Paiement non encaissé pour ce colis — contactez la répartition avant de livrer." : "Payment not captured for this parcel — contact dispatch before delivering.")
+        : (error || t("badCode"));
+      Alert.alert("Kolis", m); return;
+    }
     setCodes((c) => ({ ...c, [p.id]: "" }));
     // Walled receipt: courier branch returns payout only.
     const r = await CourierAPI.receipt(p.id).catch(() => null);
@@ -57,41 +110,129 @@ export default function Carrying() {
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={Colors.accent} />}
       >
-        <Text style={{ fontSize: 26, fontWeight: "800", color: Colors.ink, marginBottom: 4 }}>{t("carrying")}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
+          <Text style={{ fontSize: 26, fontWeight: "800", color: Colors.ink, flex: 1 }}>{t("carrying")}</Text>
+          <Pressable onPress={() => router.push("/(app)/scan" as never)} style={{ flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: "#E11D6B", borderRadius: 12, paddingHorizontal: 15, paddingVertical: 10 }}>
+            <Camera size={15} color="#fff" strokeWidth={2.2} /><Text style={{ color: "#fff", fontWeight: "800", fontSize: 13.5 }}>Scan QR</Text>
+          </Pressable>
+        </View>
         <Text style={{ fontSize: 13, color: Colors.t2, marginBottom: 18 }}>{t("carryingSub")}</Text>
 
         {!loading && list.length === 0 && (
           <View style={{ alignItems: "center", marginTop: 60 }}>
-            <Text style={{ fontSize: 40 }}>🚚</Text>
+            <Truck size={40} color={Colors.ink} strokeWidth={1.8} />
             <Text style={{ fontSize: 15, fontWeight: "800", color: Colors.ink, marginTop: 12 }}>{t("noneCarrying")}</Text>
           </View>
         )}
 
         {list.map((p) => {
           const isHub = p.dropoff_type === "hub";
-          const where = isHub ? (p.pickup_hub_name || "") : (p.pickup_addr || "");
+          const gotIt = p.status !== "matched"; // picked_up / in_transit → possession confirmed
+          const pickupWhere = isHub ? (p.pickup_hub_name || "") : (p.pickup_addr || "");
           return (
             <View key={p.id} style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 16, padding: 15, marginBottom: 14, backgroundColor: "#fff", shadowColor: "#000", shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } }}>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 4 }}>
-                <Text style={{ fontSize: 22 }}>{SIZE_EMOJI[p.size] ?? "📦"}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}>
+                <SizeIcon size={p.size} px={22} color={Colors.ink} />
                 <Text style={{ fontSize: 15, fontWeight: "800", color: Colors.ink, flex: 1 }}>#{p.code} {t("forDest")} {p.to_city}</Text>
               </View>
-              {where ? (
-                <Text style={{ fontSize: 11.5, color: Colors.t2, marginBottom: 2 }}>{isHub ? "🏢" : "🚪"} {isHub ? t("pickupHub") : t("pickupDoor")}: {where}</Text>
-              ) : null}
-              <Text style={{ fontSize: 11.5, color: Colors.t3, marginBottom: 12 }}>🔒 {t("recipientMasked")}</Text>
 
-              <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{t("enterDeliveryCode")}</Text>
-              <TextInput
-                value={codes[p.id] || ""}
-                onChangeText={(v) => setCodes((c) => ({ ...c, [p.id]: v.replace(/[^0-9]/g, "") }))}
-                keyboardType="number-pad" maxLength={4} placeholder="••••" placeholderTextColor={Colors.t3}
-                style={{ borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 11, padding: 12, fontSize: 22, fontWeight: "800", letterSpacing: 10, textAlign: "center", color: Colors.ink, backgroundColor: Colors.bg, marginBottom: 10 }}
-              />
-              <Pressable onPress={() => deliver(p)} disabled={busyId === p.id || (codes[p.id] || "").trim().length < 4} style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: "center", opacity: (busyId === p.id || (codes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
-                {busyId === p.id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{t("markDelivered")}</Text>}
-              </Pressable>
-              <Text style={{ color: "#178a5e", fontSize: 11.5, textAlign: "center", marginTop: 8, fontWeight: "700" }}>+C${payout(p)} {t("released")}</Text>
+              {/* STAGE 1 — before pickup: pickup address + tap-to-navigate + "I have it" */}
+              {!gotIt && (
+                <>
+                  {pickupWhere ? (
+                    <Pressable onPress={() => openDirections(pickupWhere)} style={{ backgroundColor: Colors.bg, borderRadius: 11, padding: 11, marginBottom: 10 }}>
+                      <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 3 }}>{isHub ? t("pickupHub") : t("pickupDoor")}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        {isHub ? <Building2 size={13.5} color={Colors.ink} strokeWidth={2.2} /> : <DoorOpen size={13.5} color={Colors.ink} strokeWidth={2.2} />}
+                        <Text style={{ fontSize: 13.5, color: Colors.ink, fontWeight: "700" }}>{pickupWhere}</Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                        <Navigation size={11.5} color={Colors.accent} strokeWidth={2.2} />
+                        <Text style={{ fontSize: 11.5, color: Colors.accent, fontWeight: "800" }}>{t("directions")}</Text>
+                      </View>
+                    </Pressable>
+                  ) : null}
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12 }}>
+                    <Lock size={11.5} color={Colors.t3} strokeWidth={2.2} />
+                    <Text style={{ fontSize: 11.5, color: Colors.t3 }}>{t("recipientMasked")}</Text>
+                  </View>
+                  <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{fr ? "Code de ramassage" : "Pickup code"}</Text>
+                  {(pcodes[p.id] || "").length >= 4 ? (
+                    <View style={{ borderWidth: 1.5, borderColor: "#178a5e", borderRadius: 11, padding: 12, backgroundColor: "rgba(23,138,94,0.08)", marginBottom: 10 }}>
+                      <Text style={{ fontSize: 22, fontWeight: "800", letterSpacing: 10, textAlign: "center", color: Colors.ink }}>{pcodes[p.id]}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 4 }}>
+                        <CheckCircle2 size={10.5} color="#178a5e" strokeWidth={2.2} />
+                        <Text style={{ fontSize: 10.5, color: "#178a5e", fontWeight: "700" }}>{fr ? "Rempli par le scan" : "Filled by scan"}</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <Pressable onPress={() => router.push("/(app)/scan" as never)} style={{ borderWidth: 1.5, borderColor: Colors.accent, borderStyle: "dashed", borderRadius: 11, padding: 14, alignItems: "center", backgroundColor: Colors.bg, marginBottom: 10 }}>
+                      <Camera size={22} color={Colors.accent} strokeWidth={1.8} />
+                      <Text style={{ fontSize: 12.5, color: Colors.accent, fontWeight: "800", marginTop: 4, textAlign: "center" }}>{fr ? "Scannez le QR à moins de 100 m pour remplir le code" : "Scan the QR within 100 m to fill the code"}</Text>
+                    </Pressable>
+                  )}
+                  <Pressable onPress={() => pickup(p)} disabled={busyId === p.id || (pcodes[p.id] || "").trim().length < 4} style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6, backgroundColor: Colors.accent, borderRadius: 12, padding: 14, opacity: (busyId === p.id || (pcodes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
+                    {busyId === p.id ? <ActivityIndicator color="#fff" /> : <><Package size={14} color="#fff" strokeWidth={2.2} /><Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{t("confirmPickup")}</Text></>}
+                  </Pressable>
+                </>
+              )}
+
+              {/* STAGE 2 — after pickup: delivery address + recipient + deliver code */}
+              {gotIt && (
+                <>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
+                    <CheckCircle2 size={11} color="#178a5e" strokeWidth={2.2} />
+                    <Text style={{ fontSize: 11, color: "#178a5e", fontWeight: "700" }}>{t("pickedUpNote")}</Text>
+                  </View>
+                  {p.dropoff_addr ? (
+                    <Pressable onPress={() => openDirections(p.dropoff_addr!)} style={{ backgroundColor: Colors.bg, borderRadius: 11, padding: 11, marginBottom: 10 }}>
+                      <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 3 }}>{t("deliveryAddress")}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                        <MapPin size={13.5} color={Colors.ink} strokeWidth={2.2} />
+                        <Text style={{ fontSize: 13.5, color: Colors.ink, fontWeight: "700", flex: 1 }}>{p.dropoff_addr}</Text>
+                      </View>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+                        <Navigation size={11.5} color={Colors.accent} strokeWidth={2.2} />
+                        <Text style={{ fontSize: 11.5, color: Colors.accent, fontWeight: "800" }}>{t("directions")}</Text>
+                      </View>
+                    </Pressable>
+                  ) : null}
+                  {(p.recipient_name || p.recipient_phone) ? (
+                    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 12 }}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6 }}>{t("recipient")}</Text>
+                        <Text style={{ fontSize: 13, color: Colors.ink, fontWeight: "700" }}>{p.recipient_name || "—"}</Text>
+                      </View>
+                      {p.recipient_phone ? (
+                        <Pressable onPress={() => Linking.openURL(`tel:${p.recipient_phone}`)} style={{ flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 8 }}>
+                          <Phone size={12.5} color={Colors.accent} strokeWidth={2.2} />
+                          <Text style={{ color: Colors.accent, fontWeight: "800", fontSize: 12.5 }}>{t("callRecipient")}</Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  ) : null}
+
+                  <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{fr ? "Code de livraison" : "Delivery code"}</Text>
+                  {(codes[p.id] || "").length >= 4 ? (
+                    <View style={{ borderWidth: 1.5, borderColor: "#178a5e", borderRadius: 11, padding: 12, backgroundColor: "rgba(23,138,94,0.08)", marginBottom: 10 }}>
+                      <Text style={{ fontSize: 22, fontWeight: "800", letterSpacing: 10, textAlign: "center", color: Colors.ink }}>{codes[p.id]}</Text>
+                      <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 4 }}>
+                        <CheckCircle2 size={10.5} color="#178a5e" strokeWidth={2.2} />
+                        <Text style={{ fontSize: 10.5, color: "#178a5e", fontWeight: "700" }}>{fr ? "Rempli par le scan" : "Filled by scan"}</Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <Pressable onPress={() => router.push("/(app)/scan" as never)} style={{ borderWidth: 1.5, borderColor: Colors.accent, borderStyle: "dashed", borderRadius: 11, padding: 14, alignItems: "center", backgroundColor: Colors.bg, marginBottom: 10 }}>
+                      <Camera size={22} color={Colors.accent} strokeWidth={1.8} />
+                      <Text style={{ fontSize: 12.5, color: Colors.accent, fontWeight: "800", marginTop: 4, textAlign: "center" }}>{fr ? "Scannez le QR à moins de 100 m pour remplir le code" : "Scan the QR within 100 m to fill the code"}</Text>
+                    </Pressable>
+                  )}
+                  <Pressable onPress={() => deliver(p)} disabled={busyId === p.id || (codes[p.id] || "").trim().length < 4} style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: "center", opacity: (busyId === p.id || (codes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
+                    {busyId === p.id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{t("markDelivered")}</Text>}
+                  </Pressable>
+                  <Text style={{ color: "#178a5e", fontSize: 11.5, textAlign: "center", marginTop: 8, fontWeight: "700" }}>+C${payout(p)} {t("released")}</Text>
+                </>
+              )}
             </View>
           );
         })}

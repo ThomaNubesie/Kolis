@@ -11,6 +11,13 @@ import { CityPicker } from "../../components/CityPicker";
 import { AddressFields, Address, emptyAddress, formatAddress, isAddressComplete } from "../../components/AddressFields";
 import { ProfileAPI } from "../../services/profile";
 import { NearbyPicker, NearbyChoice } from "../../components/NearbyPicker";
+import { Building2, DoorOpen, Package, Mail, Luggage, Wallet, PiggyBank, Clock, Navigation } from "lucide-react-native";
+
+const SizeIcon = ({ size, px = 20, color = Colors.ink }: { size: SizeKey; px?: number; color?: string }) => {
+  if (size === "envelope") return <Mail size={px} color={color} strokeWidth={2} />;
+  if (size === "large") return <Luggage size={px} color={color} strokeWidth={2} />;
+  return <Package size={px} color={color} strokeWidth={2} />;
+};
 
 export default function Send() {
   const { t } = useStrings();
@@ -63,11 +70,11 @@ export default function Send() {
     <Text style={{ fontSize: 10.5, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 5, fontWeight: "600" }}>{children}</Text>
   );
 
-  const modes: [DropType, string][] = [["hub", "🏢 " + t("mHub")], ["door", `🚪 ${t("doorToWord")} 🚪`]];
-  const sizes: { key: SizeKey; emoji: string; label: string; weight: string }[] = [
-    { key: "envelope", emoji: "✉️", label: t("envelope"), weight: "≤1 kg" },
-    { key: "small", emoji: "📦", label: t("small"), weight: "≤5 kg" },
-    { key: "large", emoji: "🧳", label: t("large"), weight: "≤20 kg" },
+  const modes: [DropType, string][] = [["hub", t("mHub")], ["door", t("doorToWord")]];
+  const sizes: { key: SizeKey; label: string; weight: string }[] = [
+    { key: "envelope", label: t("envelope"), weight: "≤1 kg" },
+    { key: "small", label: t("small"), weight: "≤5 kg" },
+    { key: "large", label: t("large"), weight: "≤20 kg" },
   ];
 
   const isHub = drop === "hub";
@@ -89,9 +96,12 @@ export default function Send() {
           {modes.map(([m, label]) => {
             const disabled = m === "hub" && !hubOk;
             const on = drop === m;
+            const iconColor = on ? "#fff" : Colors.t2;
             return (
-              <Pressable key={m} disabled={disabled} onPress={() => selectMode(m)} style={{ flex: 1, borderWidth: 1.5, borderRadius: 999, paddingVertical: 9, alignItems: "center", borderColor: on ? Colors.accent : Colors.line, backgroundColor: on ? Colors.accent : "#fff", opacity: disabled ? 0.4 : 1 }}>
+              <Pressable key={m} disabled={disabled} onPress={() => selectMode(m)} style={{ flex: 1, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6, borderWidth: 1.5, borderRadius: 999, paddingVertical: 9, borderColor: on ? Colors.accent : Colors.line, backgroundColor: on ? Colors.accent : "#fff", opacity: disabled ? 0.4 : 1 }}>
+                {m === "hub" ? <Building2 size={12} color={iconColor} strokeWidth={2.2} /> : <DoorOpen size={12} color={iconColor} strokeWidth={2.2} />}
                 <Text style={{ fontWeight: "700", fontSize: 12, color: on ? "#fff" : Colors.t2 }}>{label}</Text>
+                {m === "door" ? <DoorOpen size={12} color={iconColor} strokeWidth={2.2} /> : null}
               </Pressable>
             );
           })}
@@ -99,7 +109,7 @@ export default function Send() {
 
         {isHub && selHub ? (
           <Pressable onPress={() => setModal(true)} style={{ flexDirection: "row", alignItems: "center", gap: 11, borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 13, padding: 11, marginBottom: 14, backgroundColor: "rgba(225,29,107,0.04)" }}>
-            <Text style={{ fontSize: 16 }}>🏢</Text>
+            <Building2 size={16} color={Colors.ink} strokeWidth={2} />
             <View style={{ flex: 1 }}>
               <Text style={{ fontWeight: "700", fontSize: 13.5, color: Colors.ink }}>{selHub.name}</Text>
               <Text style={{ fontSize: 10.5, color: Colors.t3 }}>{selHub.address || from}</Text>
@@ -120,7 +130,7 @@ export default function Send() {
         <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
           {sizes.map((s) => (
             <Pressable key={s.key} onPress={() => setSize(s.key)} style={{ flex: 1, borderWidth: 1.5, borderRadius: 14, paddingVertical: 12, alignItems: "center", borderColor: size === s.key ? Colors.accent : Colors.line, backgroundColor: "#fff" }}>
-              <Text style={{ fontSize: 20 }}>{s.emoji}</Text>
+              <SizeIcon size={s.key} px={20} color={Colors.ink} />
               <Text style={{ fontSize: 11.5, fontWeight: "700", color: Colors.ink, marginTop: 3 }}>{s.label}</Text>
               <Text style={{ fontSize: 10, color: Colors.t3 }}>{s.weight}</Text>
             </Pressable>
@@ -132,16 +142,26 @@ export default function Send() {
             <Text style={{ fontSize: 10, color: "#fff", opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.6 }}>{t("estimatedPrice")}</Text>
             <Text style={{ fontSize: 26, fontWeight: "800", color: "#ff7eb0" }}>C${cmp.price}</Text>
           </View>
-          <Text style={{ fontSize: 11, color: "#fff", opacity: 0.8, maxWidth: 124, textAlign: "right" }}>{isHub ? "💵 " + t("payAtHub") : t("payWhenMatched")}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6, maxWidth: 124 }}>
+            {isHub ? <Wallet size={13} color="#fff" strokeWidth={2.2} style={{ opacity: 0.8 }} /> : null}
+            <Text style={{ fontSize: 11, color: "#fff", opacity: 0.8, textAlign: "right", flexShrink: 1 }}>{isHub ? t("payAtHub") : t("payWhenMatched")}</Text>
+          </View>
         </View>
 
-        <View style={{ backgroundColor: "rgba(46,204,143,0.12)", borderRadius: 12, padding: 11, marginBottom: 6 }}>
-          <Text style={{ color: "#178a5e", fontWeight: "800", fontSize: 13 }}>💸 {t("saveVs", { amount: cmp.saved })}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(46,204,143,0.12)", borderRadius: 12, padding: 11, marginBottom: 6 }}>
+          <PiggyBank size={13} color="#178a5e" strokeWidth={2.2} />
+          <Text style={{ color: "#178a5e", fontWeight: "800", fontSize: 13 }}>{t("saveVs", { amount: cmp.saved })}</Text>
         </View>
-        <Text style={{ fontSize: 11.5, color: Colors.t2, marginBottom: 16 }}>⏱ {t("daysFaster", { days: cmp.courierDays })}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 16 }}>
+          <Clock size={11.5} color={Colors.t2} strokeWidth={2.2} />
+          <Text style={{ fontSize: 11.5, color: Colors.t2 }}>{t("daysFaster", { days: cmp.courierDays })}</Text>
+        </View>
 
         <Pressable onPress={go} disabled={!doorReady} style={{ backgroundColor: isHub && selHub ? Colors.ink : Colors.accent, borderRadius: 13, padding: 16, alignItems: "center", opacity: doorReady ? 1 : 0.5 }}>
-          <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{isHub && selHub ? "🧭 " : ""}{ctaLabel}</Text>
+          <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            {isHub && selHub ? <Navigation size={15} color="#fff" strokeWidth={2.2} /> : null}
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{ctaLabel}</Text>
+          </View>
           {isHub && selHub ? <Text style={{ color: "#fff", opacity: 0.85, fontSize: 10.5, fontWeight: "600", marginTop: 2 }}>{t("payOnArrival")}</Text> : null}
         </Pressable>
       </ScrollView>

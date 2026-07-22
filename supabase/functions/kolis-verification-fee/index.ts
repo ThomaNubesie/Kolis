@@ -82,6 +82,7 @@ Deno.serve(async (req) => {
         amount: amt.total,
         currency: "cad",
         automatic_payment_methods: { enabled: true },
+        statement_descriptor_suffix: "KOLIS",
         metadata: { user_id: user.id, role, country, kind: "kolis_verification", subtotal: String(amt.subtotal), tax: String(amt.tax) },
       });
       return json({ client_secret: pi.client_secret, payment_intent_id: pi.id, ...amt });

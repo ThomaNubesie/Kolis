@@ -49,6 +49,13 @@ export const OrgsAPI = {
     if (error) throw error;
     return data ?? null;
   },
+  // Edit a requested shipment (editable until a courier is assigned). Recomputes the
+  // org-aware price; PAYG orgs are auto charged/refunded the difference.
+  async updateShipment(orgId: string, parcelId: string, fields: Record<string, any>): Promise<{ ok?: boolean; error?: string; adjustment?: any }> {
+    const { data, error } = await supabase.functions.invoke("kolis-update-shipment", { body: { org_id: orgId, parcel_id: parcelId, fields } });
+    if (error) throw error;
+    return (data ?? {}) as { ok?: boolean; error?: string; adjustment?: any };
+  },
 
   // ── Carrier / fleet ──
   async board(orgId: string): Promise<any[]> {

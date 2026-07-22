@@ -3,6 +3,7 @@ import { useCallback, useState } from "react";
 import { View, Text, Pressable, ScrollView, Modal, TextInput, RefreshControl, Alert, ActivityIndicator } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { X } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { AdminAPI, AdminClaim } from "../../services/admin";
 
@@ -62,7 +63,7 @@ export default function AdminClaims() {
               <Text style={{ fontWeight: "800", color: Colors.ink, fontSize: 13.5 }}>#{c.code} · {c.type}</Text>
               <Text style={{ fontWeight: "800", fontSize: 11, color: c.status === "approved" ? "#178a5e" : c.status === "denied" ? "#b91c1c" : Colors.accent }}>{c.status}</Text>
             </View>
-            <Text style={{ fontSize: 11.5, color: Colors.t2, marginTop: 3 }}>{c.from_city}→{c.to_city} · {c.insured ? `🛡️ value C$${Math.round((c.declared_value_cents ?? 0) / 100)}` : `⚠️ declined · cap C$${Math.round(c.price_cents / 100)}`}</Text>
+            <Text style={{ fontSize: 11.5, color: Colors.t2, marginTop: 3 }}>{c.from_city}→{c.to_city} · {c.insured ? `value C$${Math.round((c.declared_value_cents ?? 0) / 100)}` : `declined · cap C$${Math.round(c.price_cents / 100)}`}</Text>
             {c.refund_cents != null && <Text style={{ fontSize: 11, color: Colors.t3, marginTop: 1 }}>refunded C${(c.refund_cents / 100).toFixed(2)}</Text>}
           </Pressable>
         ))}
@@ -72,6 +73,9 @@ export default function AdminClaims() {
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
           {active && (
             <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
+              <Pressable onPress={() => setActive(null)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
+                <X size={22} color={Colors.t3} strokeWidth={2} />
+              </Pressable>
               <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink }}>Claim #{active.code}</Text>
               <Text style={{ fontSize: 12, color: Colors.t2, marginTop: 2, marginBottom: 10 }}>{active.type} · {active.from_city}→{active.to_city}</Text>
               <View style={{ backgroundColor: "#fff3da", borderWidth: 1, borderColor: "#e8cf8a", borderRadius: 10, padding: 10, marginBottom: 12 }}>

@@ -4,6 +4,7 @@ import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-nati
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { CheckCircle2 } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { ReceiptAPI } from "../../services/verification";
@@ -57,7 +58,9 @@ export default function Receipt() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }}>
       <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 40, flexGrow: 1 }}>
-        <Text style={{ fontSize: 50, textAlign: "center", marginTop: 24 }}>🎉</Text>
+        <View style={{ alignItems: "center", marginTop: 24 }}>
+          <CheckCircle2 size={50} color={Colors.green} strokeWidth={1.8} />
+        </View>
         <Text style={{ fontSize: 24, fontWeight: "900", color: Colors.ink, textAlign: "center", marginVertical: 8 }}>{t("rcptVerified")}</Text>
         <Text style={{ fontSize: 13, color: Colors.t2, textAlign: "center", marginBottom: 20 }}>{t("rcptReceiptLine", { id: p.receiptId, total: totalStr })}</Text>
 

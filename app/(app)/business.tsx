@@ -1,10 +1,12 @@
 import { useCallback, useState } from "react";
-import { View, Text, Pressable, ScrollView, TextInput, Alert, RefreshControl } from "react-native";
+import { View, Text, Pressable, ScrollView, TextInput, Alert, RefreshControl, Linking, Modal, KeyboardAvoidingView, Platform } from "react-native";
 import { useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Lock, Pencil, X } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { OrgsAPI, MyOrg } from "../../services/orgs";
 import { ParcelsAPI, Parcel } from "../../services/parcels";
+import { getCurrentLang } from "../../hooks/useStrings";
 
 const money = (c: number) => "$" + Math.round((c || 0) / 100);
 
@@ -17,7 +19,14 @@ export default function Business() {
   const [toCity, setToCity] = useState("");
   const [size, setSize] = useState("small");
   const [rcpt, setRcpt] = useState("");
+  const [rEmail, setREmail] = useState("");
+  const [rPhone, setRPhone] = useState("");
+  const [rLang, setRLang] = useState<"en" | "fr">(getCurrentLang());
   const [busy, setBusy] = useState(false);
+  // edit modal
+  const [editP, setEditP] = useState<Parcel | null>(null);
+  const [ef, setEf] = useState<any>({});
+  const [editBusy, setEditBusy] = useState(false);
 
   const load = useCallback(async () => {
     try { await OrgsAPI.acceptInvites(); } catch {}
@@ -36,17 +45,68 @@ export default function Business() {
   const activeOrg = orgs.find((o) => o.org_id === activeId) || null;
   const canShip = !!activeOrg && (activeOrg.type === "shipper" || activeOrg.type === "both")
     && ["owner", "admin", "shipper"].includes(activeOrg.role);
+  const canManage = !!activeOrg && ["owner", "admin", "finance"].includes(activeOrg.role);
+
+  const openPortal = async () => {
+    const url = "https://business.kolis.ca";
+    try { await Linking.openURL(url); } catch { Alert.alert("Kolis", url); }
+  };
+
+  // Edit is org-only and allowed until a courier is assigned.
+  const editable = (p: Parcel) => !!activeOrg && !p.driver_id && ["requested", "received_at_hub"].includes(p.status);
+  const openEdit = (p: Parcel) => {
+    setEf({
+      p_recipient_name: p.recipient_name ?? "", p_recipient_phone: p.recipient_phone ?? "", p_recipient_email: p.recipient_email ?? "",
+      p_dropoff_addr: p.dropoff_addr ?? "", p_to_city: p.to_city ?? "", p_dropoff_type: p.dropoff_type ?? "door", p_size: p.size ?? "small",
+    });
+    setEditP(p);
+  };
+  const eset = (k: string, v: string) => setEf((s: any) => ({ ...s, [k]: v }));
+  const saveEdit = async () => {
+    if (!editP || !activeId) return;
+    setEditBusy(true);
+    try {
+      const r = await OrgsAPI.updateShipment(activeId, editP.id, ef);
+      if (!r?.ok) {
+        const m: Record<string, string> = {
+          shipment_locked: "This shipment can no longer be edited — a courier has been assigned.",
+          no_card: "The change raised the price, but there's no card on file to charge the difference.",
+          payment_failed: "Couldn't charge the price difference — the card was declined.",
+          not_found: "Shipment not found.",
+        };
+        Alert.alert("Kolis", m[r?.error || ""] || r?.error || "Failed.");
+      } else {
+        const a = r.adjustment || {};
+        const note = a.charged_cents ? `Saved — charged +${money(a.charged_cents)} to the card.`
+          : a.refunded_cents ? `Saved — refunded ${money(a.refunded_cents)}.` : "Saved.";
+        setEditP(null); Alert.alert("Kolis", note); await load();
+      }
+    } catch (e: any) { Alert.alert("Kolis", e?.message || "Failed."); }
+    setEditBusy(false);
+  };
+  const Seg = ({ val, opts, onPick }: { val: string; opts: [string, string][]; onPick: (v: string) => void }) => (
+    <View style={{ flexDirection: "row", gap: 8 }}>
+      {opts.map(([v, label]) => (
+        <Pressable key={v} onPress={() => onPick(v)}
+          style={{ flex: 1, borderWidth: 1.5, borderColor: val === v ? Colors.accent : Colors.line, borderRadius: 999, paddingVertical: 8, alignItems: "center" }}>
+          <Text style={{ fontWeight: "700", fontSize: 12, color: val === v ? Colors.accent : Colors.t2 }}>{label}</Text>
+        </Pressable>
+      ))}
+    </View>
+  );
 
   const create = async () => {
     if (!activeId || !toCity.trim()) { Alert.alert("Missing info", "Choose a business account and a destination city."); return; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rEmail.trim())) { Alert.alert("Recipient email required", "Enter a valid recipient email — we use it to notify them about the shipment."); return; }
     setBusy(true);
     try {
       const r = await OrgsAPI.createShipment(activeId, {
         p_dropoff_type: "door", p_size: size, p_from_city: "Ottawa", p_to_city: toCity.trim(),
-        p_recipient_name: rcpt || null,
+        p_recipient_name: rcpt || null, p_recipient_email: rEmail.trim(), p_recipient_phone: rPhone.trim() || null,
+        p_recipient_lang: rLang,
       });
       Alert.alert("Shipment created", r?.code || "Added to your invoice cycle.");
-      setToCity(""); setRcpt(""); await load();
+      setToCity(""); setRcpt(""); setREmail(""); setRPhone(""); await load();
     } catch (e: any) { Alert.alert("Error", e?.message || "Failed to create shipment."); }
     setBusy(false);
   };
@@ -89,6 +149,18 @@ export default function Business() {
               </View>
             )}
 
+            {canManage && (
+              <Pressable onPress={openPortal}
+                style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between",
+                  backgroundColor: "#fff", borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 12, padding: 13, marginBottom: 14 }}>
+                <View>
+                  <Text style={{ fontWeight: "800", color: Colors.ink, fontSize: 14 }}>Manage business account</Text>
+                  <Text style={{ fontSize: 11.5, color: Colors.t3, marginTop: 2 }}>Billing, card on file, team, branding & invoices</Text>
+                </View>
+                <Text style={{ color: Colors.accent, fontWeight: "800", fontSize: 18 }}>→</Text>
+              </Pressable>
+            )}
+
             {canShip && (
               <View style={{ backgroundColor: "#fff", borderWidth: 1, borderColor: Colors.line, borderRadius: 14, padding: 14, marginBottom: 16 }}>
                 <Text style={{ fontWeight: "800", marginBottom: 8 }}>New shipment</Text>
@@ -96,6 +168,19 @@ export default function Business() {
                   style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 10, padding: 11, marginBottom: 8 }} />
                 <TextInput value={rcpt} onChangeText={setRcpt} placeholder="Recipient name"
                   style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 10, padding: 11, marginBottom: 8 }} />
+                <TextInput value={rEmail} onChangeText={setREmail} placeholder="Recipient email *" autoCapitalize="none" keyboardType="email-address"
+                  style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 10, padding: 11, marginBottom: 8 }} />
+                <TextInput value={rPhone} onChangeText={setRPhone} placeholder="Recipient phone" keyboardType="phone-pad"
+                  style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 10, padding: 11, marginBottom: 8 }} />
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <Text style={{ fontSize: 12, color: Colors.t2 }}>Notify recipient in</Text>
+                  {(["en", "fr"] as const).map((l) => (
+                    <Pressable key={l} onPress={() => setRLang(l)} style={{ borderWidth: 1.5, borderColor: rLang === l ? Colors.accent : Colors.line, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}>
+                      <Text style={{ fontWeight: "800", fontSize: 12, color: rLang === l ? Colors.accent : Colors.t2 }}>{l.toUpperCase()}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+                <Text style={{ fontSize: 11, color: Colors.t3, marginBottom: 8 }}>We email &amp; text the recipient (in this language) at creation and each step. They can switch on the tracking page.</Text>
                 <View style={{ flexDirection: "row", gap: 8, marginBottom: 10 }}>
                   {["envelope", "small", "large"].map((s) => (
                     <Pressable key={s} onPress={() => setSize(s)}
@@ -108,7 +193,10 @@ export default function Business() {
                   style={{ backgroundColor: Colors.accent, borderRadius: 11, padding: 13, alignItems: "center", opacity: busy ? 0.6 : 1 }}>
                   <Text style={{ color: "#fff", fontWeight: "800" }}>{busy ? "Creating…" : "Create shipment"}</Text>
                 </Pressable>
-                <Text style={{ fontSize: 11, color: Colors.t3, marginTop: 8 }}>🔒 Billed to {activeOrg.name} on invoice — no card charged per shipment.</Text>
+                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8 }}>
+                  <Lock size={11} color={Colors.t3} strokeWidth={2} />
+                  <Text style={{ fontSize: 11, color: Colors.t3 }}>Billed to {activeOrg.name}.</Text>
+                </View>
               </View>
             )}
           </>
@@ -124,10 +212,54 @@ export default function Business() {
               <Text style={{ fontWeight: "800", color: Colors.ink }}>{p.from_city} → {p.to_city}</Text>
               <Text style={{ fontWeight: "800", color: p.status === "delivered" ? Colors.green : Colors.accent, fontSize: 12 }}>{p.status.replace(/_/g, " ")}</Text>
             </View>
-            <Text style={{ fontSize: 11.5, color: Colors.t2, marginTop: 2 }}>{p.size} · #{p.code}</Text>
+            <Text style={{ fontSize: 11.5, color: Colors.t2, marginTop: 2 }}>{p.size} · {p.dropoff_type === "hub" ? "hub · " : ""}#{p.code}</Text>
+            {editable(p) && (
+              <Pressable onPress={() => openEdit(p)}
+                style={{ marginTop: 8, alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 6 }}>
+                <Pencil size={12} color={Colors.accent} strokeWidth={2.2} />
+                <Text style={{ color: Colors.accent, fontWeight: "800", fontSize: 12 }}>Edit</Text>
+              </Pressable>
+            )}
           </View>
         ))}
       </ScrollView>
+
+      {/* Edit shipment modal (org shipments, editable until a courier is assigned) */}
+      <Modal visible={!!editP} animationType="slide" transparent onRequestClose={() => !editBusy && setEditP(null)}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.35)" }}>
+          <ScrollView style={{ maxHeight: "88%", backgroundColor: Colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20 }} contentContainerStyle={{ padding: 20, paddingBottom: 36 }}>
+            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <Text style={{ fontSize: 20, fontWeight: "800", color: Colors.ink }}>Edit shipment{editP ? ` · ${editP.code}` : ""}</Text>
+              <Pressable onPress={() => !editBusy && setEditP(null)}><X size={22} color={Colors.t2} strokeWidth={2} /></Pressable>
+            </View>
+            <Text style={{ fontSize: 12.5, color: Colors.t2, marginBottom: 14 }}>
+              Editable until a courier is assigned. Price updates automatically — any difference is charged or refunded to the card on file.
+            </Text>
+
+            <Text style={{ fontSize: 12, fontWeight: "700", color: Colors.t3, marginBottom: 6 }}>PICKUP TYPE</Text>
+            <Seg val={ef.p_dropoff_type} onPick={(v) => eset("p_dropoff_type", v)} opts={[["door", "Door"], ["hub", "Hub"], ["zone", "Zone"]]} />
+            <Text style={{ fontSize: 12, fontWeight: "700", color: Colors.t3, marginTop: 14, marginBottom: 6 }}>SIZE</Text>
+            <Seg val={ef.p_size} onPick={(v) => eset("p_size", v)} opts={[["envelope", "Envelope"], ["small", "Small"], ["large", "Large"]]} />
+
+            {[["Destination city", "p_to_city", "Montréal"], ["Recipient name", "p_recipient_name", "Name"], ["Recipient phone", "p_recipient_phone", "(514) 555-0148"], ["Recipient email", "p_recipient_email", "name@email.com"], ["Delivery address", "p_dropoff_addr", "Street, unit, postal code"]].map(([label, key, ph]) => (
+              <View key={key} style={{ marginTop: 14 }}>
+                <Text style={{ fontSize: 12, fontWeight: "700", color: Colors.t3, marginBottom: 6 }}>{label.toUpperCase()}</Text>
+                <TextInput value={ef[key] ?? ""} onChangeText={(v) => eset(key, v)} placeholder={ph}
+                  autoCapitalize={key === "p_recipient_email" ? "none" : "sentences"} keyboardType={key === "p_recipient_phone" ? "phone-pad" : key === "p_recipient_email" ? "email-address" : "default"}
+                  style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 10, padding: 11, backgroundColor: "#fff" }} />
+              </View>
+            ))}
+
+            <Pressable onPress={saveEdit} disabled={editBusy}
+              style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: "center", marginTop: 20, opacity: editBusy ? 0.6 : 1 }}>
+              <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{editBusy ? "Saving…" : "Save changes"}</Text>
+            </Pressable>
+            <Pressable onPress={() => !editBusy && setEditP(null)} style={{ padding: 12, alignItems: "center", marginTop: 4 }}>
+              <Text style={{ color: Colors.t2, fontWeight: "700" }}>Cancel</Text>
+            </Pressable>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }

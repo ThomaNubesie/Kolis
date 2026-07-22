@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { View, Text, Pressable, ScrollView, Modal, Alert, ActivityIndicator } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { X } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { AdminAPI, AdminRole, Candidate } from "../../services/admin";
 import { CityPicker } from "../../components/CityPicker";
@@ -77,7 +78,9 @@ export default function AdminParcel() {
         <Pressable onPress={() => router.back()}><Text style={{ color: Colors.t2, fontSize: 15, marginBottom: 6 }}>←</Text></Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
           <Text style={{ fontSize: 22, fontWeight: "800", color: Colors.ink }}>#{p.code}</Text>
-          <View style={{ backgroundColor: "rgba(59,110,165,0.14)", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}><Text style={{ color: "#2b5580", fontWeight: "800", fontSize: 11 }}>{String(p.status).replace(/_/g, " ")}</Text></View>
+          {(() => { const st = String(p.status); const c = st === "delivered" ? { bg: "rgba(23,138,94,0.15)", fg: "#178a5e" } : st === "cancelled" ? { bg: "rgba(224,29,58,0.14)", fg: "#c0182e" } : { bg: "rgba(59,110,165,0.14)", fg: "#2b5580" }; return (
+          <View style={{ backgroundColor: c.bg, borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 }}><Text style={{ color: c.fg, fontWeight: "800", fontSize: 11 }}>{st.replace(/_/g, " ")}</Text></View>
+          ); })()}
         </View>
 
         <Card title="Route"><Text style={{ fontWeight: "800", color: Colors.ink }}>{p.from_city} → {p.to_city}</Text><Text style={{ color: Colors.t2, fontSize: 12, marginTop: 2 }}>{p.dropoff_type === "hub" ? "Hub" : "Door-to-door"} · {p.size}</Text></Card>
@@ -119,6 +122,9 @@ export default function AdminParcel() {
       <Modal visible={drivers !== null} transparent animationType="slide" onRequestClose={() => setDrivers(null)}>
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "flex-end" }}>
           <View style={{ backgroundColor: Colors.bg, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 18, maxHeight: "75%" }}>
+            <Pressable onPress={() => setDrivers(null)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}>
+              <X size={22} color={Colors.t3} strokeWidth={2} />
+            </Pressable>
             <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink, marginBottom: 10 }}>Pick a courier → {p.to_city}</Text>
             <ScrollView>
               {(drivers ?? []).length === 0 && <Text style={{ color: Colors.t3, textAlign: "center", marginVertical: 20 }}>No candidates heading there.</Text>}
@@ -141,6 +147,9 @@ export default function AdminParcel() {
       <Modal visible={reroute} transparent animationType="fade" onRequestClose={() => setReroute(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
           <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
+            <Pressable onPress={() => setReroute(false)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12, zIndex: 1 }}>
+              <X size={22} color={Colors.t3} strokeWidth={2} />
+            </Pressable>
             <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink, marginBottom: 10 }}>Reroute destination</Text>
             <CityPicker label="New destination" value={newCity} onChange={setNewCity} exclude={p.from_city} />
             <Text style={{ fontSize: 11, color: Colors.t3, marginVertical: 8 }}>Couriers + sender are re-notified; the delivery code stays valid.</Text>

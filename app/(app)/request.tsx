@@ -1,6 +1,7 @@
 import { View, Text, Pressable } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Check, Lock } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 
@@ -18,12 +19,13 @@ export default function RequestPlaced() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg, padding: 24, alignItems: "center", justifyContent: "center" }}>
       <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: Colors.green, alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
-        <Text style={{ color: "#fff", fontSize: 36 }}>✓</Text>
+        <Check size={36} color="#fff" strokeWidth={2} />
       </View>
       <Text style={{ fontSize: 24, fontWeight: "800", color: Colors.ink, marginBottom: 8 }}>{t("requestPlaced")}</Text>
       <Text style={{ fontSize: 14, color: Colors.t2, textAlign: "center", lineHeight: 20, marginBottom: 18 }}>{msg}</Text>
-      <View style={{ backgroundColor: Colors.cardAlt, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 24 }}>
-        <Text style={{ fontSize: 12.5, fontWeight: "700", color: Colors.t2 }}>🔒 {t("chargedWhenDispatched")}</Text>
+      <View style={{ backgroundColor: Colors.cardAlt, borderRadius: 12, paddingVertical: 10, paddingHorizontal: 16, marginBottom: 24, flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <Lock size={13} color={Colors.t2} strokeWidth={2.2} />
+        <Text style={{ fontSize: 12.5, fontWeight: "700", color: Colors.t2 }}>{t("chargedWhenDispatched")}</Text>
       </View>
       <Pressable onPress={() => router.replace({ pathname: "/(app)/track", params: { id: p.id } })}
         style={{ backgroundColor: Colors.accent, borderRadius: 13, padding: 16, alignItems: "center", alignSelf: "stretch" }}>

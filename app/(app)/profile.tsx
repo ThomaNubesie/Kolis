@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { View, Text, Pressable, Alert, Linking, ScrollView } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Repeat, Mail, CreditCard, Bell, Globe, HelpCircle, Wrench, LogOut, Trash2, Check, LucideIcon } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
@@ -67,15 +68,17 @@ export default function Profile() {
     ]);
   };
 
-  const Pill = ({ children, tone }: { children: string; tone: "green" | "gold" | "grey" }) => {
+  const Pill = ({ children, tone, showCheck }: { children: string; tone: "green" | "gold" | "grey"; showCheck?: boolean }) => {
     const bg = tone === "green" ? "rgba(46,204,143,0.16)" : tone === "gold" ? "rgba(232,185,49,0.18)" : Colors.cardAlt;
     const fg = tone === "green" ? "#178a5e" : tone === "gold" ? "#8a6d12" : Colors.t2;
-    return <View style={{ backgroundColor: bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}><Text style={{ color: fg, fontWeight: "800", fontSize: 11 }}>{children}</Text></View>;
+    return <View style={{ backgroundColor: bg, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3, flexDirection: "row", alignItems: "center", gap: 4 }}>{showCheck ? <Check size={11} color={fg} strokeWidth={2.4} /> : null}<Text style={{ color: fg, fontWeight: "800", fontSize: 11 }}>{children}</Text></View>;
   };
 
-  const Row = ({ icon, label, value, onPress, danger, last }: { icon: string; label: string; value?: string; onPress?: () => void; danger?: boolean; last?: boolean }) => (
+  const Row = ({ icon: Icon, label, value, onPress, danger, last }: { icon: LucideIcon; label: string; value?: string; onPress?: () => void; danger?: boolean; last?: boolean }) => (
     <Pressable onPress={onPress} style={{ flexDirection: "row", alignItems: "center", paddingVertical: 15, borderBottomWidth: last ? 0 : 1, borderBottomColor: Colors.line }}>
-      <Text style={{ fontSize: 17, marginRight: 13, width: 22, textAlign: "center" }}>{icon}</Text>
+      <View style={{ marginRight: 13, width: 22, alignItems: "center" }}>
+        <Icon size={18} color={danger ? Colors.accentDk : Colors.t2} strokeWidth={2} />
+      </View>
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "600", color: danger ? Colors.accentDk : Colors.ink }}>{label}</Text>
         {value ? <Text style={{ fontSize: 12, color: Colors.t3, marginTop: 1 }}>{value}</Text> : null}
@@ -94,7 +97,7 @@ export default function Profile() {
           </View>
           <Text style={{ fontSize: 18, fontWeight: "900", color: Colors.ink, marginTop: 8 }}>{name}</Text>
           <View style={{ flexDirection: "row", gap: 6, marginTop: 7 }}>
-            <Pill tone={prof?.identity_verified ? "green" : "grey"}>{prof?.identity_verified ? "✓ " + t("idVerified") : t("notVerified")}</Pill>
+            <Pill tone={prof?.identity_verified ? "green" : "grey"} showCheck={!!prof?.identity_verified}>{prof?.identity_verified ? t("idVerified") : t("notVerified")}</Pill>
             {prof?.is_founding && prof?.founding_number ? <Pill tone="gold">{t("foundingNo", { n: prof.founding_number })}</Pill> : null}
           </View>
         </View>
@@ -118,15 +121,15 @@ export default function Profile() {
 
         {/* Rows */}
         <View style={{ backgroundColor: "#fff", borderRadius: 16, paddingHorizontal: 15, borderWidth: 1, borderColor: Colors.line }}>
-          <Row icon="🔁" label={t("roleLabel")} value={roleLabel(prof?.role)} onPress={changeRole} />
-          <Row icon="✉️" label={lang === "fr" ? "Coordonnées" : "Contact info"} value={prof?.email || (prof as any)?.phone || (lang === "fr" ? "Ajouter" : "Add")} onPress={() => router.push("/(app)/contact")} />
-          <Row icon="💳" label={t("wallet")} onPress={() => router.push("/(app)/wallet")} />
-          <Row icon="🔔" label={t("notifications")} onPress={() => router.push("/(app)/notifications")} />
-          <Row icon="🌐" label={t("chooseLanguage")} value={lang === "en" ? "English" : "Français"} onPress={() => setLang(lang === "en" ? "fr" : "en")} />
-          <Row icon="❓" label={t("helpSupport")} onPress={() => Linking.openURL("mailto:support@kolis.ca").catch(() => {})} />
-          {isAdmin ? <Row icon="🛠️" label={t("admin")} onPress={() => router.push("/(admin)")} /> : null}
-          <Row icon="↩︎" label={t("signOut")} onPress={signOut} />
-          <Row icon="🗑️" label={deleting ? t("deleting") : t("deleteAccount")} onPress={confirmDelete} danger last />
+          <Row icon={Repeat} label={t("roleLabel")} value={roleLabel(prof?.role)} onPress={changeRole} />
+          <Row icon={Mail} label={lang === "fr" ? "Coordonnées" : "Contact info"} value={prof?.email || (prof as any)?.phone || (lang === "fr" ? "Ajouter" : "Add")} onPress={() => router.push("/(app)/contact")} />
+          <Row icon={CreditCard} label={t("wallet")} onPress={() => router.push("/(app)/wallet")} />
+          <Row icon={Bell} label={t("notifications")} onPress={() => router.push("/(app)/notifications")} />
+          <Row icon={Globe} label={t("chooseLanguage")} value={lang === "en" ? "English" : "Français"} onPress={() => setLang(lang === "en" ? "fr" : "en")} />
+          <Row icon={HelpCircle} label={t("helpSupport")} onPress={() => Linking.openURL("mailto:support@kolis.ca").catch(() => {})} />
+          {isAdmin ? <Row icon={Wrench} label={t("admin")} onPress={() => router.push("/(admin)")} /> : null}
+          <Row icon={LogOut} label={t("signOut")} onPress={signOut} />
+          <Row icon={Trash2} label={deleting ? t("deleting") : t("deleteAccount")} onPress={confirmDelete} danger last />
         </View>
 
         {/* Ownership */}

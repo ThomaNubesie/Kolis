@@ -6,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { AdminAPI, Overview, AdminRole } from "../../services/admin";
+import { Building2, KeyRound, Lock, LucideIcon, Package, ShieldCheck, Truck, Users, Wallet } from "lucide-react-native";
 
 const c$ = (cents?: number) => `C$${Math.round((cents ?? 0) / 100)}`;
 
@@ -29,9 +30,9 @@ export default function AdminHome() {
       <Text style={{ fontSize: 21, fontWeight: "900", color: tone ?? Colors.ink, marginTop: 3 }}>{value}</Text>
     </View>
   );
-  const Row = ({ icon, label, to, badge }: { icon: string; label: string; to: string; badge?: number }) => (
+  const Row = ({ icon: Icon, label, to, badge }: { icon: LucideIcon; label: string; to: string; badge?: number }) => (
     <Pressable onPress={() => router.push(to as any)} style={{ flexDirection: "row", alignItems: "center", gap: 12, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: Colors.line }}>
-      <Text style={{ fontSize: 17, width: 24, textAlign: "center" }}>{icon}</Text>
+      <View style={{ width: 24, alignItems: "center" }}><Icon size={18} color={Colors.ink} strokeWidth={2} /></View>
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: Colors.ink, flex: 1 }}>{label}</Text>
       {badge ? <View style={{ backgroundColor: "rgba(220,38,38,0.12)", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}><Text style={{ color: "#b91c1c", fontWeight: "800", fontSize: 11 }}>{badge}</Text></View> : null}
       <Text style={{ color: Colors.t3, fontSize: 16 }}>›</Text>
@@ -45,7 +46,10 @@ export default function AdminHome() {
       <ScrollView contentContainerStyle={{ padding: 18 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={Colors.accent} />}>
         <Pressable onPress={() => router.replace("/(app)/profile")}><Text style={{ color: Colors.t2, fontSize: 15, marginBottom: 8 }}>← {t("tabProfile")}</Text></Pressable>
         <Text style={{ fontSize: 26, fontWeight: "800", color: Colors.ink }}>{t("admin")}</Text>
-        <Text style={{ alignSelf: "flex-start", fontSize: 10.5, fontWeight: "800", color: Colors.accentDk, backgroundColor: "rgba(225,29,107,0.1)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, marginTop: 6, marginBottom: 12, overflow: "hidden" }}>🔒 {role ? role.toUpperCase() : "—"}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", backgroundColor: "rgba(225,29,107,0.1)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, marginTop: 6, marginBottom: 12 }}>
+          <Lock size={11} color={Colors.accentDk} strokeWidth={2.4} />
+          <Text style={{ fontSize: 10.5, fontWeight: "800", color: Colors.accentDk }}>{role ? role.toUpperCase() : "—"}</Text>
+        </View>
 
         <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}>
           <Tile label="In transit" value={String(ov?.in_transit ?? 0)} />
@@ -57,13 +61,13 @@ export default function AdminHome() {
         </View>
 
         <View style={{ marginTop: 6 }}>
-          <Row icon="📦" label="Parcels" to="/(admin)/parcels" />
-          <Row icon="🚚" label={t("adminDispatch")} to="/(admin)/dispatch" />
-          <Row icon="🛡️" label="Insurance claims" to="/(admin)/claims" badge={ov?.open_claims || undefined} />
-          <Row icon="👥" label="Members" to="/(admin)/members" />
-          <Row icon="💸" label={t("payouts")} to="/(admin)/payouts" />
-          <Row icon="🏢" label={t("adminHubs")} to="/(admin)/hubs" />
-          {can("owner") ? <Row icon="🔑" label="Team & access" to="/(admin)/team" /> : null}
+          <Row icon={Package} label="Parcels" to="/(admin)/parcels" />
+          <Row icon={Truck} label={t("adminDispatch")} to="/(admin)/dispatch" />
+          <Row icon={ShieldCheck} label="Insurance claims" to="/(admin)/claims" badge={ov?.open_claims || undefined} />
+          <Row icon={Users} label="Members" to="/(admin)/members" />
+          <Row icon={Wallet} label={t("payouts")} to="/(admin)/payouts" />
+          <Row icon={Building2} label={t("adminHubs")} to="/(admin)/hubs" />
+          {can("owner") ? <Row icon={KeyRound} label="Team & access" to="/(admin)/team" /> : null}
         </View>
       </ScrollView>
     </SafeAreaView>

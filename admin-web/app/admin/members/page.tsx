@@ -32,7 +32,7 @@ export default function Members() {
     <>
       <h1>{t("Members", "Membres")}</h1>
       <div className="toolbar">
-        {filter !== "pending" && filter !== "requests" && <input className="search" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder={t("🔍 name, email…", "🔍 nom, courriel…")} />}
+        {filter !== "pending" && filter !== "requests" && <input className="search" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder={t("name, email…", "nom, courriel…")} />}
         {FILTERS.map(([f, en, fr]) => <button key={f} className={"chip" + (filter === f ? " on" : "")} onClick={() => { setFilter(f); load(f, search); }}>{lang === "fr" ? fr : en}</button>)}
         {filter !== "pending" && filter !== "requests" && <button className="btn ghost" style={{ marginLeft: "auto" }} onClick={nudgeAll}>🔔 {t("Nudge unverified", "Relancer les non vérifiés")}</button>}
       </div>

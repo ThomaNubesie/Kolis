@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
+import { CreditCard, Lock, Zap } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { CourierAPI } from "../../services/courier";
@@ -54,10 +55,13 @@ export default function Wallet() {
             <Mono>{t("payForParcels")}</Mono>
             <Card>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 11 }}>
-                <Text style={{ fontSize: 18 }}>💳</Text>
+                <CreditCard size={18} color={Colors.ink} strokeWidth={1.8} />
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 13.5, fontWeight: "700", color: Colors.ink }}>{t("addCard")}</Text>
-                  <Text style={{ fontSize: 11, color: Colors.t3, marginTop: 1 }}>🔒 Entered securely at checkout</Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 5, marginTop: 1 }}>
+                    <Lock size={11} color={Colors.t3} strokeWidth={2} />
+                    <Text style={{ fontSize: 11, color: Colors.t3 }}>Entered securely at checkout</Text>
+                  </View>
                 </View>
               </View>
             </Card>
@@ -69,7 +73,7 @@ export default function Wallet() {
             <Mono>{t("getPaidCourier")}</Mono>
             <Card>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 9 }}>
-                <Text style={{ fontSize: 16 }}>⚡</Text>
+                <Zap size={16} color={Colors.ink} strokeWidth={1.8} />
                 <Text style={{ fontSize: 13.5, fontWeight: "700", color: Colors.ink }}>{t("interacEmail")}</Text>
               </View>
               <View style={{ flexDirection: "row", gap: 8 }}>

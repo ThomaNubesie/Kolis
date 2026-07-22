@@ -47,5 +47,50 @@ Deno.serve(async (req) => {
       p_event_id: event.id, p_stripe_invoice_id: inv.id, p_status: status,
     });
   }
+
+  // ── Subscription (plans) sync → org.plan + platform_fee_rate ──
+  const PLAN_FEE: Record<string, number> = { free: 0.20, business: 0.15, pro: 0.12 };
+  const applyPlan = async (orgId: string, plan: string, subId: string | null, subStatus: string, renews: number | null) => {
+    if (!orgId) return;
+    await admin.from("kolis_orgs").update({
+      plan, platform_fee_rate: PLAN_FEE[plan] ?? 0.20,
+      plan_status: subStatus, stripe_subscription_id: subId,
+      plan_renews_at: renews ? new Date(renews * 1000).toISOString() : null,
+    }).eq("id", orgId);
+  };
+  const planFromPrice = async (priceId?: string) => {
+    if (!priceId) return null;
+    const { data } = await admin.from("kolis_plan_prices").select("plan").eq("stripe_price_id", priceId).maybeSingle();
+    return data?.plan ?? null;
+  };
+
+  if (event.type === "checkout.session.completed") {
+    const s = event.data.object as Stripe.Checkout.Session;
+    if (s.mode === "subscription") {
+      const orgId = s.metadata?.org_id || "";
+      const plan = s.metadata?.plan || "business";
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sub = s.subscription ? (await stripe.subscriptions.retrieve(s.subscription as string)) as any : null;
+      await applyPlan(orgId, plan, (s.subscription as string) || null, sub?.status || "active", sub?.current_period_end || null);
+    }
+  } else if (event.type === "customer.subscription.updated") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sub = event.data.object as any;
+    const plan = sub.metadata?.org_id ? (sub.metadata?.plan || (await planFromPrice(sub.items?.data?.[0]?.price?.id)) || "business") : "business";
+    const eff = ["active", "trialing"].includes(sub.status) ? plan : "free";
+    await applyPlan(sub.metadata?.org_id || "", eff, sub.id, sub.status, sub.current_period_end);
+  } else if (event.type === "customer.subscription.deleted") {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sub = event.data.object as any;
+    await applyPlan(sub.metadata?.org_id || "", "free", null, "canceled", null);
+  } else if (event.type === "setup_intent.succeeded") {
+    // A business saved a card (pay-as-you-go) — record it as their default payment method.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const si = event.data.object as any;
+    const customer = typeof si.customer === "string" ? si.customer : si.customer?.id;
+    const pm = typeof si.payment_method === "string" ? si.payment_method : si.payment_method?.id;
+    if (customer && pm) await admin.from("kolis_orgs").update({ stripe_default_pm: pm }).eq("stripe_customer_id", customer);
+  }
+
   return new Response(JSON.stringify({ received: true }), { status: 200, headers: { "Content-Type": "application/json" } });
 });

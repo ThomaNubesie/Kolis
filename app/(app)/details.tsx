@@ -10,6 +10,7 @@ import { useStrings } from "../../hooks/useStrings";
 import { ProfileAPI } from "../../services/profile";
 import { supabase } from "../../services/supabase";
 import { AddressFields, Address, emptyAddress, formatAddress, isAddressComplete } from "../../components/AddressFields";
+import { AlertTriangle, Check, ShieldCheck } from "lucide-react-native";
 
 // Module-level so they keep a stable identity — defining these inside the screen
 // remounts every input on each keystroke and drops the keyboard.
@@ -133,9 +134,12 @@ export default function Details() {
           })}
         </View>
         {insured !== null && (
-          <Text style={{ fontSize: 11.5, color: insured ? "#178a5e" : Colors.red, marginBottom: 4, lineHeight: 16 }}>
-            {insured ? "🛡️ " + t("insureAddNote") : "⚠️ " + t("insureDeclineNote")}
-          </Text>
+          <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6, marginBottom: 4 }}>
+            {insured ? <ShieldCheck size={13} color="#178a5e" strokeWidth={2.2} style={{ marginTop: 1 }} /> : <AlertTriangle size={13} color={Colors.red} strokeWidth={2.2} style={{ marginTop: 1 }} />}
+            <Text style={{ flex: 1, fontSize: 11.5, color: insured ? "#178a5e" : Colors.red, lineHeight: 16 }}>
+              {insured ? t("insureAddNote") : t("insureDeclineNote")}
+            </Text>
+          </View>
         )}
         {premium > 0 && (
           <View style={{ backgroundColor: Colors.ink, borderRadius: 12, padding: 12, marginTop: 6 }}>
@@ -155,7 +159,7 @@ export default function Details() {
         </View>
         <Pressable onPress={() => setAgreed((a) => !a)} style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 18 }}>
           <View style={{ width: 24, height: 24, borderRadius: 7, borderWidth: 2, borderColor: agreed ? Colors.accent : Colors.t3, backgroundColor: agreed ? Colors.accent : "transparent", alignItems: "center", justifyContent: "center" }}>
-            {agreed ? <Text style={{ color: "#fff", fontWeight: "900", fontSize: 13 }}>✓</Text> : null}
+            {agreed ? <Check size={14} color="#fff" strokeWidth={3} /> : null}
           </View>
           <Text style={{ flex: 1, fontSize: 13, color: Colors.ink, fontWeight: "600" }}>{t("agreeCheckbox")}</Text>
         </Pressable>

@@ -38,8 +38,9 @@ Deno.serve(async (req) => {
     const { data: { user } } = await userClient.auth.getUser();
     if (!user) return json({ error: "unauthorized" }, 401);
 
-    const { org_id, email, role, caps } = await req.json();
+    const { org_id, email, role, caps, name } = await req.json();
     const e = String(email || "").toLowerCase().trim();
+    const cleanName = String(name || "").trim();
     if (!EMAIL_RE.test(e) || !role) return json({ error: "a valid email and role are required" }, 400);
 
     // ── Staff invite (no org_id): to the admin console ──
@@ -51,11 +52,13 @@ Deno.serve(async (req) => {
         "You've been given access to the Kolis admin console",
         `You've been granted ${role} access to the Kolis admin console.\n\nSign in at ${ADMIN_PORTAL} using this email address (${e}). We'll email you a 6-digit code — no password needed.`,
         `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px">
+          <div style="margin:0 0 14px"><img src="https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand/kolis-logo.png" width="46" height="46" alt="Kolis" style="border-radius:11px;display:block"/></div>
           <h2 style="color:#E11D6B">Kolis admin access</h2>
           <p>You've been granted <b>${role}</b> access to the Kolis admin console.</p>
           <p>Sign in with this email (<b>${e}</b>):</p>
           <p><a href="${ADMIN_PORTAL}" style="display:inline-block;background:#E11D6B;color:#fff;text-decoration:none;padding:11px 18px;border-radius:10px;font-weight:700">Open the admin console →</a></p>
           <p style="color:#6B6675;font-size:13px">We'll email you a 6-digit code to sign in — no password needed.</p>
+          <p style="color:#8A978F;font-size:12px;margin:18px 0 0">Operated by Concord Express Co Inc. · support@concordexpress.ca</p>
         </div>`);
       return json({ ok: true, emailed: m.ok, error: m.detail });
     }
@@ -74,6 +77,11 @@ Deno.serve(async (req) => {
     if (inviteErr) return json({ error: inviteErr.message }, 400);
 
     const admin = createClient(SUPABASE_URL, SERVICE);
+    // Capture the invited person's name on the invite → carried to their member row on accept.
+    if (cleanName) {
+      await admin.from("kolis_org_invites").update({ full_name: cleanName })
+        .eq("org_id", org_id).eq("email", e).is("accepted_at", null);
+    }
     const { data: org } = await admin.from("kolis_orgs").select("name").eq("id", org_id).single();
     const orgName = org?.name || "a business on Kolis";
 
@@ -86,11 +94,13 @@ Deno.serve(async (req) => {
         subject: `You've been invited to ${orgName} on Kolis`,
         text: `You've been added to ${orgName} on Kolis as ${role}.\n\nTo accept, sign in at ${PORTAL} using this email address (${e}). We'll email you a 6-digit code to sign in — no password needed.\n\nIf you weren't expecting this, you can ignore this email.`,
         html: `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px">
+          <div style="margin:0 0 14px"><img src="https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand/kolis-logo.png" width="46" height="46" alt="Kolis" style="border-radius:11px;display:block"/></div>
           <h2 style="color:#E11D6B">You're invited to ${orgName}</h2>
           <p>You've been added to <b>${orgName}</b> on Kolis as <b>${role}</b>.</p>
           <p>To accept, sign in with this email address (<b>${e}</b>):</p>
           <p><a href="${PORTAL}" style="display:inline-block;background:#E11D6B;color:#fff;text-decoration:none;padding:11px 18px;border-radius:10px;font-weight:700">Open the Kolis portal →</a></p>
           <p style="color:#6B6675;font-size:13px">We'll email you a 6-digit code to sign in — no password needed. If you weren't expecting this, you can ignore this email.</p>
+          <p style="color:#8A978F;font-size:12px;margin:18px 0 0">Operated by Concord Express Co Inc. · support@concordexpress.ca</p>
         </div>`,
       }),
     });

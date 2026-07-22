@@ -11,6 +11,7 @@ import { PaymentsAPI } from "../../services/payments";
 import { SizeKey } from "../../constants/pricing";
 import { watchLocation } from "../../services/location";
 import { haversineKm, kmLabel } from "../../constants/distance";
+import { Building2, Map, MapPin, Navigation, X } from "lucide-react-native";
 
 const ARRIVE_KM = 0.15; // ~150 m geofence
 const GMAPS_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
@@ -113,7 +114,7 @@ export default function Directions() {
       <View style={{ padding: 16 }}>
         <Pressable onPress={() => router.back()}><Text style={{ color: Colors.t2, fontSize: 15, marginBottom: 10 }}>← {t("back")}</Text></Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 11, backgroundColor: "#fff", borderRadius: 14, padding: 12, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 4 } }}>
-          <View style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: Colors.bg, alignItems: "center", justifyContent: "center" }}><Text style={{ fontSize: 17 }}>🏢</Text></View>
+          <View style={{ width: 34, height: 34, borderRadius: 9, backgroundColor: Colors.bg, alignItems: "center", justifyContent: "center" }}><Building2 size={17} color={Colors.ink} strokeWidth={1.8} /></View>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 14, fontWeight: "800", color: Colors.ink }}>{p.hubName}</Text>
             <Text style={{ fontSize: 11, color: Colors.t2 }}>{p.hubAddr || (hub?.address ?? "")}{distance != null ? `  ·  ${kmLabel(distance)} km` : ""}</Text>
@@ -122,10 +123,11 @@ export default function Directions() {
       </View>
 
       <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        {!hubImg && <Text style={{ fontSize: 54 }}>🗺️</Text>}
-        <View style={{ backgroundColor: hubImg ? "rgba(15,26,23,0.78)" : "transparent", borderRadius: 999, paddingHorizontal: hubImg ? 14 : 0, paddingVertical: hubImg ? 8 : 0, marginTop: hubImg ? 0 : 8 }}>
+        {!hubImg && <Map size={54} color={Colors.t2} strokeWidth={1.8} />}
+        <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: hubImg ? "rgba(15,26,23,0.78)" : "transparent", borderRadius: 999, paddingHorizontal: hubImg ? 14 : 0, paddingVertical: hubImg ? 8 : 0, marginTop: hubImg ? 0 : 8 }}>
+          <MapPin size={13} color={hubImg ? "#fff" : Colors.t2} strokeWidth={2.2} />
           <Text style={{ color: hubImg ? "#fff" : Colors.t2, fontSize: 13, paddingHorizontal: 8, textAlign: "center", fontWeight: hubImg ? "700" : "400" }}>
-            📍 {distance != null ? t("hubDistanceAway", { km: kmLabel(distance) }) : t("headToHub")}
+            {distance != null ? t("hubDistanceAway", { km: kmLabel(distance) }) : t("headToHub")}
           </Text>
         </View>
       </View>
@@ -136,8 +138,9 @@ export default function Directions() {
             <Text style={{ fontSize: 13, color: Colors.t2 }}>{t("payAtHubNote")}{premium > 0 ? ` · +C$${premium.toFixed(2)} ${t("insuranceSection").toLowerCase()}` : ""}</Text>
             <Text style={{ fontSize: 13, fontWeight: "800", color: Colors.ink }}>C${total.toFixed(2)}</Text>
           </View>
-          <Pressable onPress={openMaps} style={{ backgroundColor: Colors.ink, borderRadius: 12, padding: 14, alignItems: "center", marginBottom: 9 }}>
-            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>🧭 {t("openInMaps")}</Text>
+          <Pressable onPress={openMaps} style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: Colors.ink, borderRadius: 12, padding: 14, marginBottom: 9 }}>
+            <Navigation size={14} color="#fff" strokeWidth={2.2} />
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{t("openInMaps")}</Text>
           </Pressable>
           <Pressable onPress={() => setArrived(true)} style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: "center" }}>
             <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{t("iveArrived")}</Text>
@@ -149,7 +152,10 @@ export default function Directions() {
       <Modal visible={arrived} transparent animationType="fade" onRequestClose={() => !busy && setArrived(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 26 }}>
           <View style={{ backgroundColor: "#fff", borderRadius: 20, padding: 20, alignItems: "center" }}>
-            <Text style={{ fontSize: 30 }}>📍</Text>
+            <Pressable onPress={() => !busy && setArrived(false)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
+              <X size={22} color={Colors.t3} strokeWidth={2} />
+            </Pressable>
+            <MapPin size={30} color={Colors.ink} strokeWidth={1.8} />
             <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink, marginTop: 8 }}>{t("atTheHub")}</Text>
             <Text style={{ fontSize: 12, color: Colors.t2, textAlign: "center", marginTop: 4, marginBottom: 16, lineHeight: 17 }}>{t("payToDrop", { hub: p.hubName ?? "" })}</Text>
             <View style={{ alignSelf: "stretch", flexDirection: "row", justifyContent: "space-between", borderTopWidth: 1, borderTopColor: Colors.line, paddingTop: 12, marginBottom: 14 }}>

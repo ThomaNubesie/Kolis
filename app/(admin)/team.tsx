@@ -5,6 +5,7 @@ import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
 import { AdminAPI, StaffMember, AccessKey } from "../../services/admin";
+import { KeyRound, Lock, X } from "lucide-react-native";
 
 const ROLES = ["admin", "dispatcher", "finance", "support"] as const;
 
@@ -47,7 +48,10 @@ export default function AdminTeam() {
       <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }} refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={Colors.accent} />}>
         <Pressable onPress={() => router.back()}><Text style={{ color: Colors.t2, fontSize: 15, marginBottom: 6 }}>←</Text></Pressable>
         <Text style={{ fontSize: 24, fontWeight: "800", color: Colors.ink }}>Team & access</Text>
-        <Text style={{ alignSelf: "flex-start", fontSize: 10, fontWeight: "800", color: Colors.accentDk, backgroundColor: "rgba(225,29,107,0.1)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, marginTop: 6, marginBottom: 12, overflow: "hidden" }}>🔒 Owner only</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 5, alignSelf: "flex-start", backgroundColor: "rgba(225,29,107,0.1)", paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, marginTop: 6, marginBottom: 12 }}>
+          <Lock size={10} color={Colors.accentDk} strokeWidth={2.4} />
+          <Text style={{ fontSize: 10, fontWeight: "800", color: Colors.accentDk }}>Owner only</Text>
+        </View>
 
         <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6, fontWeight: "700" }}>Staff</Text>
         {team.map((m, i) => {
@@ -83,6 +87,9 @@ export default function AdminTeam() {
       <Modal visible={invite} transparent animationType="fade" onRequestClose={() => setInvite(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
           <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
+            <Pressable onPress={() => setInvite(false)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
+              <X size={22} color={Colors.t3} strokeWidth={2} />
+            </Pressable>
             <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink, marginBottom: 10 }}>Invite staff</Text>
             <TextInput value={email} onChangeText={setEmail} placeholder="name@kolis.ca" placeholderTextColor={Colors.t3} keyboardType="email-address" autoCapitalize="none" style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 11, padding: 11, fontSize: 14, color: Colors.ink, marginBottom: 10 }} />
             {ROLES.map((r) => (
@@ -103,6 +110,9 @@ export default function AdminTeam() {
       <Modal visible={keyModal} transparent animationType="fade" onRequestClose={() => setKeyModal(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
           <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
+            <Pressable onPress={() => setKeyModal(false)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
+              <X size={22} color={Colors.t3} strokeWidth={2} />
+            </Pressable>
             <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink, marginBottom: 10 }}>New access key</Text>
             <TextInput value={keyName} onChangeText={setKeyName} placeholder="e.g. ops-integration" placeholderTextColor={Colors.t3} style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 11, padding: 11, fontSize: 14, color: Colors.ink, marginBottom: 10 }} />
             <Text style={{ fontSize: 11, color: Colors.t3, marginBottom: 12 }}>Scope: read parcels. The key is shown once on creation.</Text>
@@ -118,7 +128,13 @@ export default function AdminTeam() {
       <Modal visible={!!newKey} transparent animationType="fade" onRequestClose={() => setNewKey(null)}>
         <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.6)", justifyContent: "center", padding: 24 }}>
           <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
-            <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink, marginBottom: 4 }}>🔑 Copy your key now</Text>
+            <Pressable onPress={() => setNewKey(null)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
+              <X size={22} color={Colors.t3} strokeWidth={2} />
+            </Pressable>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
+              <KeyRound size={17} color={Colors.ink} strokeWidth={2} />
+              <Text style={{ fontSize: 17, fontWeight: "800", color: Colors.ink }}>Copy your key now</Text>
+            </View>
             <Text style={{ fontSize: 12, color: Colors.t2, marginBottom: 12 }}>It won't be shown again.</Text>
             <Text selectable style={{ fontFamily: "Courier", fontSize: 12.5, color: Colors.ink, backgroundColor: Colors.bg, padding: 12, borderRadius: 10, marginBottom: 12 }}>{newKey}</Text>
             <Pressable onPress={() => setNewKey(null)} style={{ backgroundColor: Colors.ink, borderRadius: 11, padding: 13, alignItems: "center" }}><Text style={{ color: "#fff", fontWeight: "800" }}>Done</Text></Pressable>

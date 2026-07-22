@@ -8,6 +8,7 @@ import { useStrings } from "../../hooks/useStrings";
 import { ParcelsAPI } from "../../services/parcels";
 import { PaymentsAPI } from "../../services/payments";
 import { SizeKey, DropType } from "../../constants/pricing";
+import { Car, CreditCard, Lock } from "lucide-react-native";
 
 export default function Confirm() {
   const { t } = useStrings();
@@ -75,12 +76,15 @@ export default function Confirm() {
           <Text style={{ fontWeight: "800", fontSize: 16, color: Colors.ink }}>{p.from} → {p.to}</Text>
           <Text style={{ fontSize: 12.5, color: Colors.t2, marginTop: 6 }}>{dropLine}</Text>
           {p.preferred_driver_name ? (
-            <Text style={{ fontSize: 12.5, color: Colors.t2, marginTop: 4 }}>🚗 {t("driverLabel")}: <Text style={{ fontWeight: "800", color: Colors.ink }}>{p.preferred_driver_name}</Text></Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+              <Car size={13} color={Colors.t2} strokeWidth={2.2} />
+              <Text style={{ fontSize: 12.5, color: Colors.t2 }}>{t("driverLabel")}: <Text style={{ fontWeight: "800", color: Colors.ink }}>{p.preferred_driver_name}</Text></Text>
+            </View>
           ) : null}
         </Card>
 
         <Text style={{ fontSize: 10.5, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, marginTop: 4, fontWeight: "600" }}>{t("payment")}</Text>
-        <Card><Text style={{ fontWeight: "700", color: Colors.ink }}>💳 Visa •••• 4242</Text></Card>
+        <Card><View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}><CreditCard size={15} color={Colors.ink} strokeWidth={2.2} /><Text style={{ fontWeight: "700", color: Colors.ink }}>Visa •••• 4242</Text></View></Card>
         <Card><Text style={{ fontWeight: "700", color: Colors.t2 }}>＋ {t("addCard")}</Text></Card>
 
         <View style={{ backgroundColor: Colors.ink, borderRadius: 15, padding: 15, marginTop: 6, marginBottom: 10 }}>
@@ -98,7 +102,10 @@ export default function Confirm() {
             <Text style={{ fontSize: 11, color: "#fff", opacity: 0.75, maxWidth: 120, textAlign: "right" }}>{t("releasedOnDelivery")}</Text>
           </View>
         </View>
-        <Text style={{ fontSize: 11.5, color: Colors.t2, marginBottom: 14 }}>🔒 {t("chargedWhenDispatched")}</Text>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 14 }}>
+          <Lock size={12} color={Colors.t2} strokeWidth={2.2} />
+          <Text style={{ fontSize: 11.5, color: Colors.t2 }}>{t("chargedWhenDispatched")}</Text>
+        </View>
 
         <Pressable onPress={request} disabled={busy} style={{ backgroundColor: Colors.accent, borderRadius: 13, padding: 16, alignItems: "center", opacity: busy ? 0.7 : 1 }}>
           {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{t("holdRequest", { amount: total.toFixed(2) })}</Text>}

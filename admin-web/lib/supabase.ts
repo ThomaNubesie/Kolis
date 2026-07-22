@@ -17,6 +17,8 @@ const r = async <T,>(fn: string, args?: any): Promise<T> => {
 export const api = {
   role: () => r<string | null>("kolis_admin_role"),
   isStaff: () => r<boolean>("kolis_is_staff"),
+  deadNotifications: () => r<any[]>("kolis_admin_dead_notifications"),
+  retryNotification: (id: string) => r("kolis_admin_retry_notification", { p_id: id }),
   overview: () => r<any>("kolis_admin_overview"),
   parcels: (filter = "all", search: string | null = null) => r<any[]>("kolis_admin_parcels", { p_filter: filter, p_search: search }),
   parcel: (id: string) => r<any>("kolis_admin_parcel", { p_id: id }),
@@ -28,12 +30,24 @@ export const api = {
     return res;
   },
   changeDriver: (id: string, driver: string) => r("kolis_admin_change_driver", { p_id: id, p_driver: driver }),
+  async assignDirect(id: string, driver: string) {
+    const res = await r("kolis_admin_assign_direct", { p_id: id, p_driver: driver });
+    // Tell the driver it's theirs — no accept step.
+    supabase.functions.invoke("kolis-notify", { body: { parcel_id: id, event: "direct" } }).catch(() => {});
+    return res;
+  },
   unassign: (id: string) => r("kolis_admin_unassign", { p_id: id }),
   reroute: (id: string, toCity: string, toRegion: string) => r("kolis_admin_reroute", { p_id: id, p_to_city: toCity, p_to_region: toRegion }),
   members: (filter = "all", search: string | null = null) => r<any[]>("kolis_admin_members", { p_filter: filter, p_search: search }),
   pendingMembers: () => r<any[]>("kolis_admin_pending_members"),
   contactRequests: () => r<any[]>("kolis_admin_contact_requests"),
   reviewContact: (id: string, approve: boolean) => r("kolis_admin_review_contact_request", { p_id: id, p_approve: approve }),
+  callRequests: (status: string | null = null) => r<any[]>("kolis_call_requests_list", { p_status: status }),
+  callRequestStatus: (id: string, status: string) => r("kolis_call_request_set_status", { p_id: id, p_status: status }),
+  freight: (status: string | null = null) => r<any[]>("kolis_freight_list", { p_status: status }),
+  freightStatus: (id: string, status: string) => r("kolis_freight_set_status", { p_id: id, p_status: status }),
+  freightQuote: (id: string, price: number, service: string) => r("kolis_freight_set_quote", { p_id: id, p_price: price, p_service: service }),
+  freightBooked: (id: string, tracking: string, carrier: string, url: string) => r("kolis_freight_set_booked", { p_id: id, p_tracking: tracking, p_carrier: carrier, p_url: url }),
   async nudgeUnverified(user?: string) {
     const { data, error } = await supabase.functions.invoke("kolis-nudge-unverified", { body: user ? { user_id: user } : {} });
     if (error) throw error;
@@ -86,15 +100,17 @@ export const api = {
     r("kolis_admin_set_org_limits", { p_org: id, p_credit_limit_cents: a.credit_limit_cents ?? null, p_discount: a.discount ?? null, p_net_terms: a.net_terms ?? null, p_platform_fee: a.platform_fee ?? null }),
   setOrgKyb: (id: string, status: string) => r("kolis_admin_set_kyb", { p_org: id, p_status: status }),
   setOrgStatus: (id: string, status: string) => r("kolis_admin_set_org_status", { p_org: id, p_status: status }),
-  async orgInviteEmail(id: string, email: string, role: string) {
+  async orgInviteEmail(id: string, email: string, role: string, name?: string) {
     // Creates the invite AND emails it (the RPC alone never notified anyone).
-    const { data, error } = await supabase.functions.invoke("kolis-org-invite", { body: { org_id: id, email, role } });
+    const { data, error } = await supabase.functions.invoke("kolis-org-invite", { body: { org_id: id, email, role, name } });
     if (error) throw error;
     if ((data as any)?.error) throw new Error((data as any).error);
     return data;
   },
   orgAddByPhone: (id: string, phone: string, role: string) => r<any>("kolis_admin_org_add_member_by_phone", { p_org: id, p_phone: phone, p_role: role }),
   orgRemoveMember: (id: string, user: string) => r("kolis_admin_org_remove_member", { p_org: id, p_user: user }),
+  orgSetMemberName: (id: string, user: string, name: string) => r("kolis_admin_org_set_member_name", { p_org: id, p_user: user, p_name: name }),
+  orgSetPayg: (id: string, payg: boolean) => r("kolis_admin_org_set_payg", { p_org: id, p_payg: payg }),
 
   // ── Prospecting CRM ──
   prospects: (filter: string | null = null) => r<any[]>("kolis_prospects_list", { p_filter: filter }),
@@ -140,15 +156,109 @@ export const org = {
     r<any[]>("kolis_org_shipments", { p_org: o, p_filter: filter, p_search: search }),
   // args use p_-prefixed keys matching kolis_org_create_shipment
   createShipment: (o: string, args: Record<string, any>) =>
-    r<{ id: string; code: string; dedup?: boolean }>("kolis_org_create_shipment", { p_org: o, ...args }),
+    r<{ id: string; code: string; dedup?: boolean; payg?: boolean; has_card?: boolean }>("kolis_org_create_shipment", { p_org: o, ...args }),
+  // ── Client database (address book) ──
+  clients: (o: string, search: string | null = null) => r<any[]>("kolis_org_clients_list", { p_org: o, p_search: search }),
+  clientSave: (o: string, c: any) => r<string>("kolis_org_client_save", {
+    p_org: o, p_id: c.id ?? null, p_full_name: c.full_name, p_email: c.email ?? null, p_mobile: c.mobile ?? null,
+    p_home: c.home_phone ?? null, p_work: c.work_phone ?? null, p_address: c.address ?? null,
+    p_city: c.city ?? null, p_province: c.province ?? null, p_postal: c.postal ?? null, p_notes: c.notes ?? null,
+    p_country: c.country ?? "CA",
+  }),
+  clientDelete: (o: string, id: string) => r("kolis_org_client_delete", { p_org: o, p_id: id }),
+  clientGet: (o: string, id: string) => r<any>("kolis_org_client_get", { p_org: o, p_id: id }),
+  clientHistory: (o: string, id: string) => r<any[]>("kolis_org_client_history", { p_org: o, p_client_id: id }),
+  // ── Products catalog ──
+  products: (o: string, search: string | null = null, status: string | null = null) =>
+    r<any[]>("kolis_org_products_list", { p_org: o, p_search: search, p_status: status }),
+  productGet: (o: string, id: string) => r<any>("kolis_org_product_get", { p_org: o, p_id: id }),
+  productSave: (o: string, p: any) => r<any>("kolis_org_product_save", {
+    p_org: o, p_id: p.id ?? null, p_name: p.name, p_description: p.description ?? null,
+    p_price_cents: Math.round((Number(p.price) || 0) * 100), p_qty: Number(p.qty_in_stock) || 0,
+    p_low_stock_at: Number(p.low_stock_at) || 0, p_sku: p.sku ?? null, p_category: p.category ?? null,
+    p_weight_g: p.weight_g ? Number(p.weight_g) : null, p_default_size: p.default_size ?? null,
+    p_declared_value_cents: p.declared_value != null && p.declared_value !== "" ? Math.round(Number(p.declared_value) * 100) : null,
+    p_handling_notes: p.handling_notes ?? null, p_image_url: p.image_url ?? null,
+    p_active: p.active ?? true, p_allow_backorder: p.allow_backorder ?? false,
+  }),
+  productDelete: (o: string, id: string) => r("kolis_org_product_delete", { p_org: o, p_id: id }),
+  productsBulkImport: (o: string, rows: any[]) =>
+    r<{ created: number; failed: number; errors: any[] }>("kolis_org_products_bulk_import", { p_org: o, p_rows: rows }),
+  // Product → client → shipping order (Phase 2)
+  shipQuote: (o: string, size: string, dropoff: string, from: string, to: string) =>
+    r<number>("kolis_org_ship_quote", { p_org: o, p_size: size, p_dropoff_type: dropoff, p_from_city: from, p_to_city: to }),
+  createProductOrder: (o: string, a: { client_id: string; dropoff_type: string; size: string; from_city: string; to_city: string; dropoff_addr?: string | null; pickup_addr?: string | null; items: { product_id: string; qty: number }[]; insured?: boolean }) =>
+    r<{ id: string; code: string; payg?: boolean; has_card?: boolean; goods_value_cents?: number; item_count?: number }>("kolis_org_create_product_order", {
+      p_org: o, p_client_id: a.client_id, p_dropoff_type: a.dropoff_type, p_size: a.size, p_from_city: a.from_city, p_to_city: a.to_city,
+      p_dropoff_addr: a.dropoff_addr ?? null, p_pickup_addr: a.pickup_addr ?? null, p_items: a.items, p_insured: a.insured ?? false,
+    }),
+  shipmentItems: (o: string, parcelId: string) => r<any[]>("kolis_org_shipment_items", { p_org: o, p_parcel_id: parcelId }),
+  // Promotions + AI promo campaigns (Phase 3)
+  promotions: (o: string) => r<any[]>("kolis_org_promotions_list", { p_org: o }),
+  promotionSave: (o: string, p: any) => r<any>("kolis_org_promotion_save", { p_org: o, p_id: p.id ?? null, p_name: p.name, p_discount_pct: p.discount_pct ? Number(p.discount_pct) : null, p_product_ids: p.product_ids ?? [], p_starts: p.starts_at || null, p_ends: p.ends_at || null, p_active: p.active ?? true }),
+  promotionDelete: (o: string, id: string) => r("kolis_org_promotion_delete", { p_org: o, p_id: id }),
+  clientSetConsent: (o: string, clientId: string, consent: boolean) => r("kolis_org_client_set_consent", { p_org: o, p_client_id: clientId, p_consent: consent }),
+  campaignAudience: (o: string, audience: string) => r<number>("kolis_org_campaign_audience", { p_org: o, p_audience: audience }),
+  campaigns: (o: string) => r<any[]>("kolis_org_campaigns_list", { p_org: o }),
+  campaignSave: (o: string, c: any) => r<any>("kolis_org_campaign_save", { p_org: o, p_id: c.id ?? null, p_promotion_id: c.promotion_id ?? null, p_subject: c.subject, p_body_html: c.body_html, p_audience: c.audience ?? "all_consented" }),
+  campaignRecipients: (o: string, id: string) => r<any[]>("kolis_org_campaign_recipients_list", { p_org: o, p_campaign_id: id }),
+  campaignStats: (o: string, id: string) => r<{ sent: number; opened: number; clicked: number; bounced: number; failed: number }>("kolis_org_campaign_stats", { p_org: o, p_campaign_id: id }),
+  satisfactionSummary: (o: string) => r<{ count: number; avg: number; sent: number }>("kolis_org_satisfaction_summary", { p_org: o }),
+  satisfactionList: (o: string) => r<any[]>("kolis_org_satisfaction_list", { p_org: o }),
+  async composeEmail(o: string, args: { promotion_id?: string | null; product_ids?: string[]; tone?: string; audience?: string }) {
+    const { data, error } = await supabase.functions.invoke("kolis-email-composer", { body: { org_id: o, ...args } });
+    if (error) throw error; return data as { ok?: boolean; subject?: string; html?: string; error?: string; message?: string };
+  },
+  async sendCampaign(o: string, campaignId: string) {
+    const { data, error } = await supabase.functions.invoke("kolis-campaign-send", { body: { org_id: o, campaign_id: campaignId } });
+    if (error) throw error; return data as { ok?: boolean; recipients?: number; sent?: number; failed?: number; error?: string };
+  },
+  // ── Business account details (required: phone, email, business address) ──
+  account: (o: string) => r<any>("kolis_org_account_get", { p_org: o }),
+  accountSave: (o: string, a: { phone: string; email: string; address: string; city?: string; postal?: string; country?: string }) =>
+    r<any>("kolis_org_account_save", { p_org: o, p_phone: a.phone, p_email: a.email, p_address: a.address, p_city: a.city ?? null, p_postal: a.postal ?? null, p_country: a.country ?? "CA" }),
+  // ── Bulk shipping from the client database ──
+  hubs: (o: string) => r<any[]>("kolis_org_hubs", { p_org: o }),
+  pickupZones: () => r<any[]>("kolis_pickup_zones"),
+  bulkQuote: (o: string, pickup: any, rows: any[]) => r<{ rows: any[]; total_cents: number; subtotal_cents: number; tax_cents: number; tax_rate: number; grand_total_cents: number }>("kolis_org_bulk_quote", { p_org: o, p_pickup: pickup, p_rows: rows }),
+  bulkShip: (o: string, pickup: any, rows: any[]) => r<{ results: any[]; payg: boolean }>("kolis_org_bulk_ship", { p_org: o, p_pickup: pickup, p_rows: rows }),
+  label: (o: string, code: string) => r<any>("kolis_org_label", { p_org: o, p_code: code }),
+  // ── Saved bulk batches (drafts): name a selection, reuse it later ──
+  bulkDrafts: (o: string) => r<any[]>("kolis_org_bulk_drafts_list", { p_org: o }),
+  bulkDraftGet: (o: string, id: string) => r<any>("kolis_org_bulk_draft_get", { p_org: o, p_id: id }),
+  bulkDraftSave: (o: string, d: { id?: string | null; name: string; pickup?: any; rows?: any[] }) =>
+    r<string>("kolis_org_bulk_draft_save", { p_org: o, p_id: d.id ?? null, p_name: d.name, p_pickup: d.pickup ?? null, p_rows: d.rows ?? null }),
+  bulkDraftDelete: (o: string, id: string) => r("kolis_org_bulk_draft_delete", { p_org: o, p_id: id }),
+  // Edit an already-requested shipment (editable until a courier is assigned).
+  // Recomputes org-aware price + auto charges/refunds the difference for PAYG.
+  async updateShipment(o: string, parcelId: string, fields: Record<string, any>) {
+    const { data, error } = await supabase.functions.invoke("kolis-update-shipment", { body: { org_id: o, parcel_id: parcelId, fields } });
+    if (error) throw error;
+    return data as { ok?: boolean; error?: string; code?: string; old_price_cents?: number; new_price_cents?: number; delta_cents?: number; adjustment?: any };
+  },
+  // Pay-as-you-go: charge the org's saved card for one shipment (idempotent per parcel).
+  async chargeShipment(o: string, parcelId: string) {
+    const { data, error } = await supabase.functions.invoke("kolis-org-charge", { body: { org_id: o, parcel_id: parcelId } });
+    if (error) throw error;
+    return data as { ok?: boolean; already?: boolean; charged_cents?: number; credit_applied_cents?: number; subtotal_cents?: number; tax_cents?: number; total_cents?: number; error?: string; detail?: string; code?: string };
+  },
+  // Org sales-tax rate + label (HST/GST/QST/VAT) for showing tax on prices.
+  tax: (o: string) => r<{ rate: number; province: string; country: string; label: string }>("kolis_org_tax", { p_org: o }),
   bulkCreate: (o: string, rows: any[]) => r<any[]>("kolis_org_bulk_create", { p_org: o, p_rows: rows }),
   addresses: (o: string) => r<any[]>("kolis_org_addresses", { p_org: o }),
   saveAddress: (o: string, a: any) =>
     r<string>("kolis_org_save_address", { p_org: o, p_label: a.label, p_name: a.name, p_line1: a.line1, p_city: a.city, p_province: a.province, p_postal: a.postal, p_phone: a.phone }),
   async setupCard(o: string) {
+    // Returns a Stripe hosted-Checkout URL to redirect to (mode=setup, saves a card).
     const { data, error } = await supabase.functions.invoke("kolis-setup-card", { body: { org_id: o } });
     if (error) throw error;
-    return data as { clientSecret?: string; skipped?: string };
+    return data as { url?: string; skipped?: string; error?: string };
+  },
+  async confirmCard(o: string) {
+    // Records the just-saved card as the org default (fallback for the webhook).
+    const { data, error } = await supabase.functions.invoke("kolis-confirm-card", { body: { org_id: o } });
+    if (error) throw error;
+    return data as { ok?: boolean; has_card?: boolean; brand?: string; last4?: string; skipped?: string; reason?: string };
   },
   invoices: (o: string) => r<any[]>("kolis_org_invoices", { p_org: o }),
   invoice: (o: string, id: string) => r<any>("kolis_org_invoice", { p_org: o, p_id: id }),

@@ -11,3 +11,10 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Canonical domain: force the raw Netlify subdomain to business.kolis.ca (301).
+[[redirects]]
+  from = "https://kolis-business.netlify.app/*"
+  to = "https://business.kolis.ca/:splat"
+  status = 301
+  force = true

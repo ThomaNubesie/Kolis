@@ -17,6 +17,9 @@ export default function Parcels() {
   const load = useCallback((f = filter, s = search) => { api.parcels(f, s.trim() || null).then(setList).catch(() => {}); }, [filter, search]);
   useEffect(() => { load("all", ""); }, []); // eslint-disable-line
 
+  // Date + time an order came in (newest first from the RPC).
+  const when = (s?: string) => s ? new Date(s).toLocaleString(lang === "fr" ? "fr-CA" : "en-CA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+
   // Status display labels (backend status keys unchanged).
   const statusLabel = (s: string) => lang === "fr" ? (({ requested: "demandé", received_at_hub: "reçu au relais", matched: "jumelé", dispatched: "réparti", picked_up: "ramassé", in_transit: "en transit", delivered: "livré", cancelled: "annulé" } as Record<string, string>)[s] || s.replace(/_/g, " ")) : s.replace(/_/g, " ");
 
@@ -24,14 +27,15 @@ export default function Parcels() {
     <>
       <h1>{t("Parcels", "Colis")}</h1>
       <div className="toolbar">
-        <input className="search" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder={t("🔍 code, city, recipient, sender…", "🔍 code, ville, destinataire, expéditeur…")} />
+        <input className="search" value={search} onChange={(e) => setSearch(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} placeholder={t("code, city, recipient, sender…", "code, ville, destinataire, expéditeur…")} />
         {FILTERS.map(([f, en, fr]) => <button key={f} className={"chip" + (filter === f ? " on" : "")} onClick={() => { setFilter(f); load(f, search); }}>{lang === "fr" ? fr : en}</button>)}
       </div>
       <table>
-        <thead><tr><th>{t("Code", "Code")}</th><th>{t("Route", "Trajet")}</th><th>{t("Size", "Taille")}</th><th>{t("Value / ins.", "Valeur / assur.")}</th><th>{t("Paid", "Payé")}</th><th>{t("Driver", "Chauffeur")}</th><th>{t("Status", "Statut")}</th></tr></thead>
+        <thead><tr><th>{t("When", "Quand")}</th><th>{t("Code", "Code")}</th><th>{t("Route", "Trajet")}</th><th>{t("Size", "Taille")}</th><th>{t("Value / ins.", "Valeur / assur.")}</th><th>{t("Paid", "Payé")}</th><th>{t("Driver", "Chauffeur")}</th><th>{t("Status", "Statut")}</th></tr></thead>
         <tbody>
           {list.map((p) => (
             <tr key={p.id} className="clk" onClick={() => router.push(`/admin/parcels/${p.id}`)}>
+              <td style={{ whiteSpace: "nowrap", color: "var(--t2)" }}>{when(p.created_at)}</td>
               <td>#{p.code}</td>
               <td>{p.from_city} → {p.to_city}</td>
               <td style={{ textTransform: "capitalize" }}>{p.size}</td>
@@ -41,7 +45,7 @@ export default function Parcels() {
               <td><span className={"pill " + (p.has_open_claim ? "pred" : tone(p.status))}>{p.has_open_claim ? t("Claim", "Réclamation") : statusLabel(p.status)}</span></td>
             </tr>
           ))}
-          {list.length === 0 && <tr><td colSpan={7} style={{ color: "var(--t3)" }}>{t("No parcels.", "Aucun colis.")}</td></tr>}
+          {list.length === 0 && <tr><td colSpan={8} style={{ color: "var(--t3)" }}>{t("No parcels.", "Aucun colis.")}</td></tr>}
         </tbody>
       </table>
     </>

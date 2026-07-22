@@ -119,6 +119,13 @@ Deno.serve(async (req) => {
           from: FROM, to,
           subject: `Your Kolis ${doc.type} for ${yr}`,
           text: `Attached is your ${doc.type} for ${yr}. Gross courier payments: C$${gross} across ${parcels} parcel(s).`,
+          html: `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px">
+            <div style="margin:0 0 16px"><img src="https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand/kolis-logo.png" width="46" height="46" alt="Kolis" style="border-radius:11px;display:block"/></div>
+            <h2 style="color:#0F1A17;margin:0 0 8px">Your Kolis ${doc.type} for ${yr}</h2>
+            <p style="color:#3d4a44;font-size:14px;margin:0 0 4px">Attached is your <b>${doc.type}</b> for ${yr}.</p>
+            <p style="color:#3d4a44;font-size:14px;margin:0 0 4px">Gross courier payments: <b>C$${gross}</b> across ${parcels} parcel(s).</p>
+            <p style="color:#8A978F;font-size:12px;margin:18px 0 0">Operated by Concord Express Co Inc. · support@concordexpress.ca</p>
+          </div>`,
           attachments: [{ filename, content: base64 }],
         }),
       });

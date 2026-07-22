@@ -22,9 +22,7 @@
       "distribution": "store",
       "node": "20.19.4",
       "autoIncrement": true,
-      "ios": {
-        "image": "latest"
-      },
+      "ios": {},
       "android": {
         "buildType": "app-bundle"
       }
@@ -39,8 +37,8 @@
       },
       "android": {
         "serviceAccountKeyPath": "./google-play-key.json",
-        "track": "alpha",
-        "releaseStatus": "draft"
+        "track": "production",
+        "releaseStatus": "completed"
       }
     }
   }

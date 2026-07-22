@@ -9,6 +9,7 @@ const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RESEND = Deno.env.get("RESEND_API_KEY") || "";
 const LOGO = "https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand/kolis-logo.png";
+const SITE = Deno.env.get("KOLIS_SITE_URL") || "https://business.kolis.ca"; // web app renders the unsubscribe page
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
@@ -57,7 +58,8 @@ Deno.serve(async (req) => {
     let sent = 0, failed = 0;
     for (const c of recipients) {
       const first = String(c.full_name || "").trim().split(/\s+/)[0] || "there";
-      const unsub = `${SUPABASE_URL}/functions/v1/kolis-unsubscribe?token=${c.unsubscribe_token}`;
+      const unsub = `${SITE}/unsubscribe?token=${c.unsubscribe_token}`;                              // human-facing (renders)
+      const unsubFn = `${SUPABASE_URL}/functions/v1/kolis-unsubscribe?token=${c.unsubscribe_token}`;  // machine one-click
       const html = shell(orgName, String(camp.body_html).replaceAll("{{first_name}}", first), unsub);
       try {
         const r = await fetch("https://api.resend.com/emails", {
@@ -65,7 +67,7 @@ Deno.serve(async (req) => {
           headers: { Authorization: `Bearer ${RESEND}`, "Content-Type": "application/json" },
           body: JSON.stringify({
             from, to: [c.email], subject: String(camp.subject).replaceAll("{{first_name}}", first), html,
-            headers: { "List-Unsubscribe": `<${unsub}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
+            headers: { "List-Unsubscribe": `<${unsubFn}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" },
           }),
         });
         const jr = await r.json().catch(() => ({}));

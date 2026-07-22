@@ -9,6 +9,7 @@ const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RESEND = Deno.env.get("RESEND_API_KEY") || "";
 const FROM = Deno.env.get("KOLIS_FROM_EMAIL") || "Kolis <noreply@loadq.ca>";
 const CRON_SECRET = Deno.env.get("KOLIS_CRON_SECRET") || "";
+const SITE = Deno.env.get("KOLIS_SITE_URL") || "https://business.kolis.ca"; // web app renders the rating page (edge fns are forced text/plain)
 const LOGO = "https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand/kolis-logo.png";
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 
@@ -31,7 +32,7 @@ Deno.serve(async (req) => {
     const { data: orgRow } = await admin.from("kolis_orgs").select("name").eq("id", p.org_id).single();
     const orgName = orgRow?.name || "your sender";
     const first = String(p.recipient_name || "").trim().split(/\s+/)[0] || "there";
-    const rate = (n: number) => `${SUPABASE_URL}/functions/v1/kolis-rate?token=${p.satisfaction_token}&stars=${n}`;
+    const rate = (n: number) => `${SITE}/rate?token=${p.satisfaction_token}&stars=${n}`;
     const stars = [1, 2, 3, 4, 5].map((n) =>
       `<a href="${rate(n)}" style="text-decoration:none;font-size:30px;padding:0 3px;color:#E8B931">★</a>`).join("");
 

@@ -33,6 +33,24 @@ const ROUTE_KM: Record<string, number> = {
   "kingston-sudbury": 530, "gatineau-sudbury": 470, "quebec-sudbury": 930,
   "sudbury-trois-rivieres": 800, "sherbrooke-sudbury": 830, "chicoutimi-sudbury": 900,
   "moncton-sudbury": 1600,
+  // Eastern Ontario (Ottawa-anchored)
+  "arnprior-ottawa": 55, "carleton-ottawa": 50, "ottawa-renfrew": 100, "ottawa-pembroke": 150,
+  "deep-ottawa": 200, "bancroft-ottawa": 230, "belleville-ottawa": 270, "north-ottawa": 360,
+  // GTA / Central Ontario (Toronto-anchored)
+  "barrie-toronto": 90, "oshawa-toronto": 60, "toronto-whitby": 55, "pickering-toronto": 45,
+  "ajax-toronto": 50, "markham-toronto": 35, "toronto-vaughan": 30, "brampton-toronto": 40,
+  "mississauga-toronto": 30, "aurora-toronto": 50, "newmarket-toronto": 55, "richmond-toronto": 35,
+  "bradford-toronto": 65, "angus-toronto": 110, "orillia-toronto": 135, "bracebridge-toronto": 180,
+  "gravenhurst-toronto": 170, "elmvale-toronto": 140, "stouffville-toronto": 55,
+  "peterborough-toronto": 130, "quinte-toronto": 185,
+  // Southwestern Ontario (Toronto-anchored)
+  "acton-toronto": 75, "kitchener-toronto": 110, "toronto-waterloo": 115, "cambridge-toronto": 100,
+  "guelph-toronto": 100, "brantford-toronto": 110, "burlington-toronto": 60, "toronto-woodstock": 145,
+  "london-toronto": 190, "sarnia-toronto": 290, "niagara-toronto": 130,
+  // Québec
+  "alma-quebec": 210, "baie-comeau-quebec": 420, "baie-saint-paul-quebec": 100, "forestville-quebec": 430,
+  "laurier-station-quebec": 50, "quebec-riviere-du-loup": 200, "quebec-tadoussac": 210, "levis-quebec": 10,
+  "montreal-saint-constant": 30, "longueuil-montreal": 15, "drummondville-montreal": 100,
 };
 
 export function routeKm(from: string, to: string): number {

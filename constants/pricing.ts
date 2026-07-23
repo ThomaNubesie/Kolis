@@ -28,6 +28,11 @@ const ROUTE_KM: Record<string, number> = {
   "chicoutimi-montreal": 460, "moncton-montreal": 1100,
   "quebec-trois-rivieres": 130, "chicoutimi-quebec": 210, "quebec-sherbrooke": 240,
   "kingston-toronto": 260,
+  // Sudbury (Northern Ontario) — keep in sync with DB kolis_route_km
+  "ottawa-sudbury": 480, "sudbury-toronto": 390, "montreal-sudbury": 680,
+  "kingston-sudbury": 530, "gatineau-sudbury": 470, "quebec-sudbury": 930,
+  "sudbury-trois-rivieres": 800, "sherbrooke-sudbury": 830, "chicoutimi-sudbury": 900,
+  "moncton-sudbury": 1600,
 };
 
 export function routeKm(from: string, to: string): number {

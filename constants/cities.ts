@@ -8,6 +8,7 @@ export const CITIES: City[] = [
   { code: "gatineau", label: "Gatineau" },
   { code: "toronto", label: "Toronto" },
   { code: "kingston", label: "Kingston" },
+  { code: "sudbury", label: "Sudbury" },
   { code: "quebec", label: "Québec" },
   { code: "trois-rivieres", label: "Trois-Rivières" },
   { code: "sherbrooke", label: "Sherbrooke" },

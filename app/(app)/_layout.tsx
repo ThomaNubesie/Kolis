@@ -63,6 +63,12 @@ export default function AppLayout() {
       <Tabs.Screen name="tax" options={{ href: null }} />
       <Tabs.Screen name="wallet" options={{ href: null }} />
       <Tabs.Screen name="notifications" options={{ href: null }} />
+      {/* Contextual screens — reached from within other screens, never as tabs.
+          scan: launched from Carrying. contact: opened from Profile. Declaring
+          them href:null stops expo-router from auto-adding them as stray tabs
+          with default (blank) icons. */}
+      <Tabs.Screen name="scan" options={{ href: null }} />
+      <Tabs.Screen name="contact" options={{ href: null }} />
     </Tabs>
   );
 }

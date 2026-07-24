@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Tabs } from "expo-router";
-import { Package, Truck, Inbox, PackageCheck, Wallet, Building2, Car, User } from "lucide-react-native";
+import { PackagePlus, PackageSearch, ClipboardList, Route, HandCoins, Store, CarFront, CircleUserRound } from "lucide-react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
@@ -40,17 +40,17 @@ export default function AppLayout() {
       }}
     >
       {/* Sender */}
-      <Tabs.Screen name="send" options={{ title: t("tabSend"), href: sends ? undefined : null, tabBarIcon: ({ color, size }) => <Package color={color} size={size ?? 22} strokeWidth={2} /> }} />
-      <Tabs.Screen name="shipments" options={{ title: t("tabShipments"), href: sends ? undefined : null, tabBarIcon: ({ color, size }) => <Truck color={color} size={size ?? 22} strokeWidth={2} /> }} />
+      <Tabs.Screen name="send" options={{ title: t("tabSend"), href: sends ? undefined : null, tabBarIcon: ({ color, size }) => <PackagePlus color={color} size={size ?? 22} strokeWidth={2} /> }} />
+      <Tabs.Screen name="shipments" options={{ title: t("tabShipments"), href: sends ? undefined : null, tabBarIcon: ({ color, size }) => <PackageSearch color={color} size={size ?? 22} strokeWidth={2} /> }} />
       {/* Courier */}
-      <Tabs.Screen name="proposals" options={{ title: t("tabProposals"), href: carries ? undefined : null, tabBarIcon: ({ color, size }) => <Inbox color={color} size={size ?? 22} strokeWidth={2} /> }} />
-      <Tabs.Screen name="carrying" options={{ title: t("tabCarrying"), href: carries ? undefined : null, tabBarIcon: ({ color, size }) => <PackageCheck color={color} size={size ?? 22} strokeWidth={2} /> }} />
-      <Tabs.Screen name="earnings" options={{ title: t("tabEarnings"), href: carries ? undefined : null, tabBarIcon: ({ color, size }) => <Wallet color={color} size={size ?? 22} strokeWidth={2} /> }} />
+      <Tabs.Screen name="proposals" options={{ title: t("tabProposals"), href: carries ? undefined : null, tabBarIcon: ({ color, size }) => <ClipboardList color={color} size={size ?? 22} strokeWidth={2} /> }} />
+      <Tabs.Screen name="carrying" options={{ title: t("tabCarrying"), href: carries ? undefined : null, tabBarIcon: ({ color, size }) => <Route color={color} size={size ?? 22} strokeWidth={2} /> }} />
+      <Tabs.Screen name="earnings" options={{ title: t("tabEarnings"), href: carries ? undefined : null, tabBarIcon: ({ color, size }) => <HandCoins color={color} size={size ?? 22} strokeWidth={2} /> }} />
       {/* Business (org members only) */}
-      <Tabs.Screen name="business" options={{ title: "Business", href: hasOrgs ? undefined : null, tabBarIcon: ({ color, size }) => <Building2 color={color} size={size ?? 22} strokeWidth={2} /> }} />
-      <Tabs.Screen name="fleet" options={{ title: "Fleet", href: hasFleet ? undefined : null, tabBarIcon: ({ color, size }) => <Car color={color} size={size ?? 22} strokeWidth={2} /> }} />
+      <Tabs.Screen name="business" options={{ title: "Business", href: hasOrgs ? undefined : null, tabBarIcon: ({ color, size }) => <Store color={color} size={size ?? 22} strokeWidth={2} /> }} />
+      <Tabs.Screen name="fleet" options={{ title: "Fleet", href: hasFleet ? undefined : null, tabBarIcon: ({ color, size }) => <CarFront color={color} size={size ?? 22} strokeWidth={2} /> }} />
       {/* Shared */}
-      <Tabs.Screen name="profile" options={{ title: t("tabProfile"), tabBarIcon: ({ color, size }) => <User color={color} size={size ?? 22} strokeWidth={2} /> }} />
+      <Tabs.Screen name="profile" options={{ title: t("tabProfile"), tabBarIcon: ({ color, size }) => <CircleUserRound color={color} size={size ?? 22} strokeWidth={2} /> }} />
       {/* Non-tab screens (pushed full-screen, hidden from the tab bar) */}
       <Tabs.Screen name="hub" options={{ href: null }} />
       <Tabs.Screen name="zones" options={{ href: null }} />

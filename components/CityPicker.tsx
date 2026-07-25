@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, Pressable, Modal, ScrollView } from "react-native";
+import { View, Text, Pressable, Modal, ScrollView, Dimensions } from "react-native";
 import { X, Check } from "lucide-react-native";
 import { Colors } from "../constants/colors";
 import { CITIES } from "../constants/cities";
@@ -19,6 +19,10 @@ export function CityPicker({
 }) {
   const [open, setOpen] = useState(false);
   const options = CITIES.filter((c) => c.label !== exclude);
+  // Bounded height so the list actually scrolls through all cities inside the
+  // modal (an unbounded ScrollView in a maxHeight card renders full-height and
+  // gets clipped — it would stop partway, e.g. at Brampton).
+  const listMaxH = Math.round(Dimensions.get("window").height * 0.6);
 
   return (
     <View style={{ flex: 1 }}>
@@ -36,7 +40,7 @@ export function CityPicker({
               <X size={22} color={Colors.t3} strokeWidth={2} />
             </Pressable>
             <Text style={{ fontSize: 13, fontWeight: "800", color: Colors.ink, padding: 15, paddingBottom: 8 }}>{label}</Text>
-            <ScrollView>
+            <ScrollView style={{ maxHeight: listMaxH, flexShrink: 1 }} nestedScrollEnabled>
               {options.map((c) => {
                 const on = c.label === value;
                 return (

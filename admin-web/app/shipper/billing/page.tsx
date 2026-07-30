@@ -51,6 +51,18 @@ export default function Billing() {
         ? t(`${active.name} · pay-as-you-go — your card on file is charged automatically for each shipment. No invoices, no minimums.`, `${active.name} · paiement à l’usage — votre carte enregistrée est débitée automatiquement pour chaque envoi. Aucune facture, aucun minimum.`)
         : t(`${active.name} · net terms — shipments bill on a monthly invoice. A card on file is a backstop for overdue invoices.`, `${active.name} · conditions nettes — les envois sont facturés sur une facture mensuelle. Une carte enregistrée sert de garantie pour les factures en souffrance.`)}</div>
 
+      {ov && ov.credit_cents > 0 && (
+        <div className="card" style={{ maxWidth: 520, borderColor: "var(--green)", background: "rgba(46,204,143,.07)" }}>
+          <div className="row" style={{ justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+            <div>
+              <div className="mono" style={{ color: "#178a5e", margin: 0 }}>{t("Kolis credit", "Crédit Kolis")}</div>
+              <div className="sub" style={{ margin: "3px 0 0", maxWidth: 340 }}>{t("Applied automatically to your next shipments, before your card or invoice.", "Appliqué automatiquement à vos prochains envois, avant votre carte ou facture.")}</div>
+            </div>
+            <div style={{ fontWeight: 900, fontSize: 26, color: "var(--green)", whiteSpace: "nowrap" }}>{money(ov.credit_cents)}</div>
+          </div>
+        </div>
+      )}
+
       {!payg && (
         <div className="tiles">
           <div className="tile"><div className="l">{t("Credit limit", "Limite de crédit")}</div><div className="n">{ov ? money(ov.credit_limit_cents) : "—"}</div></div>

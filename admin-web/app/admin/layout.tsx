@@ -4,12 +4,13 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase, api } from "@/lib/supabase";
 import { useLang, LangToggle } from "@/lib/i18n";
-import { LayoutDashboard, Building2, CircleDollarSign, Package, ShieldCheck, Users, Target, Phone, Truck, KeyRound, LogOut, BellOff, Store } from "lucide-react";
+import { LayoutDashboard, Building2, CircleDollarSign, Package, ShieldCheck, Users, Target, Phone, Truck, KeyRound, LogOut, BellOff, Store, Tags } from "lucide-react";
 
 // `cap` = the capability a section requires; `owner` = owner-only (Team & access).
 const NAV = [
   { href: "/admin", Icon: LayoutDashboard, label: "Overview", fr: "Aperçu" },
   { href: "/admin/orgs", Icon: Building2, label: "Organizations", fr: "Organisations", cap: "orgs" },
+  { href: "/admin/pricing", Icon: Tags, label: "Pricing groups", fr: "Groupes tarifaires", cap: "orgs" },
   { href: "/admin/revenue", Icon: CircleDollarSign, label: "Revenue", fr: "Revenus", cap: "revenue" },
   { href: "/admin/parcels", Icon: Package, label: "Parcels", fr: "Colis", cap: "parcels" },
   { href: "/admin/claims", Icon: ShieldCheck, label: "Claims", fr: "Réclamations", cap: "claims" },

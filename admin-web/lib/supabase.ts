@@ -71,6 +71,7 @@ export const api = {
     const a: any = {}; if (from) a.p_from = from; if (to) a.p_to = to;
     return r<any>("kolis_admin_revenue", a);
   },
+  orgTransactions: (id: string) => r<any>("kolis_admin_org_transactions", { p_org: id }),
   async invite(email: string, role: string, caps: string[] = []) {
     // Staff invite — creates it AND emails the person (the RPC never notified anyone).
     const { data, error } = await supabase.functions.invoke("kolis-org-invite", { body: { email, role, caps } });
@@ -111,6 +112,15 @@ export const api = {
   orgRemoveMember: (id: string, user: string) => r("kolis_admin_org_remove_member", { p_org: id, p_user: user }),
   orgSetMemberName: (id: string, user: string, name: string) => r("kolis_admin_org_set_member_name", { p_org: id, p_user: user, p_name: name }),
   orgSetPayg: (id: string, payg: boolean) => r("kolis_admin_org_set_payg", { p_org: id, p_payg: payg }),
+
+  // ── Pricing groups (flat, tax-inclusive rate cards shared by member orgs) ──
+  priceGroups: () => r<any[]>("kolis_admin_price_groups"),
+  priceGroup: (id: string) => r<any>("kolis_admin_price_group_get", { p_group: id }),
+  priceGroupCreate: (name: string, rules?: any[]) => r<string>("kolis_admin_price_group_create", { p_name: name, p_rules: rules ?? null }),
+  priceGroupSetRules: (id: string, rules: any[]) => r("kolis_admin_price_group_set_rules", { p_group: id, p_rules: rules }),
+  priceGroupAddMember: (id: string, org: string) => r("kolis_admin_price_group_add_member", { p_group: id, p_org: org }),
+  priceGroupRemoveMember: (id: string, org: string) => r("kolis_admin_price_group_remove_member", { p_group: id, p_org: org }),
+  priceGroupDelete: (id: string) => r("kolis_admin_price_group_delete", { p_group: id }),
 
   // ── Prospecting CRM ──
   prospects: (filter: string | null = null) => r<any[]>("kolis_prospects_list", { p_filter: filter }),
@@ -223,6 +233,20 @@ export const org = {
   bulkQuote: (o: string, pickup: any, rows: any[]) => r<{ rows: any[]; total_cents: number; subtotal_cents: number; tax_cents: number; tax_rate: number; grand_total_cents: number }>("kolis_org_bulk_quote", { p_org: o, p_pickup: pickup, p_rows: rows }),
   bulkShip: (o: string, pickup: any, rows: any[]) => r<{ results: any[]; payg: boolean }>("kolis_org_bulk_ship", { p_org: o, p_pickup: pickup, p_rows: rows }),
   label: (o: string, code: string) => r<any>("kolis_org_label", { p_org: o, p_code: code }),
+  // Server-rendered label PDF (kolis-label-pdf). No email → returns base64 to download;
+  // with an email → sends it as a PDF attachment via Resend.
+  async labelPdf(o: string, code: string, format: "standard" | "thermal" = "standard") {
+    const { data, error } = await supabase.functions.invoke("kolis-label-pdf", { body: { org_id: o, code, format } });
+    if (error) throw error;
+    if ((data as any)?.error) throw new Error((data as any).error);
+    return data as { ok: boolean; code: string; filename: string; pdf_base64: string };
+  },
+  async emailLabel(o: string, code: string, email: string, format: "standard" | "thermal" = "standard") {
+    const { data, error } = await supabase.functions.invoke("kolis-label-pdf", { body: { org_id: o, code, email, format } });
+    if (error) throw error;
+    if ((data as any)?.error) throw new Error((data as any).error);
+    return data as { ok: boolean; emailed: boolean; to: string };
+  },
   // ── Saved bulk batches (drafts): name a selection, reuse it later ──
   bulkDrafts: (o: string) => r<any[]>("kolis_org_bulk_drafts_list", { p_org: o }),
   bulkDraftGet: (o: string, id: string) => r<any>("kolis_org_bulk_draft_get", { p_org: o, p_id: id }),

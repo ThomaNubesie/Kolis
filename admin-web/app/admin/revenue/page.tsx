@@ -1,12 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { api } from "@/lib/supabase";
 import { useLang } from "@/lib/i18n";
 
-const money = (c?: number) => "C$" + Math.round((c ?? 0) / 100).toLocaleString();
+const money = (c?: number) => "C$" + ((c ?? 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 export default function Revenue() {
   const { t } = useLang();
+  const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [range, setRange] = useState<"month" | "all">("month");
   const [err, setErr] = useState("");
@@ -36,8 +38,8 @@ export default function Revenue() {
         <>
           <div className="tiles">
             <Tile l={t("Platform fees earned", "Frais de plateforme perçus")} n={money(data.platform_fees_cents)} tone="#178a5e" sub={t("15% on fleet payouts", "15 % sur les versements aux flottes")} />
-            <Tile l={t("Invoiced to shippers", "Facturé aux expéditeurs")} n={money(data.invoiced_cents)} />
-            <Tile l={t("Collected", "Encaissé")} n={money(data.collected_cents)} tone="#178a5e" />
+            <Tile l={t("Billed to shippers", "Facturé aux expéditeurs")} n={money(data.invoiced_cents)} sub={t("invoices + pay-as-you-go", "factures + paiement à l’usage")} />
+            <Tile l={t("Collected", "Encaissé")} n={money(data.collected_cents)} tone="#178a5e" sub={t("paid invoices + card charges", "factures payées + débits carte")} />
             <Tile l={t("Outstanding (unpaid)", "Impayé")} n={money(data.outstanding_cents)} tone={data.outstanding_cents ? "var(--accent)" : undefined} />
             <Tile l={t("Payouts owed to fleets", "Versements dus aux flottes")} n={money(data.payouts_owed_cents)} tone={data.payouts_owed_cents ? "var(--red)" : undefined} />
           </div>
@@ -47,8 +49,8 @@ export default function Revenue() {
             <thead><tr><th>{t("Organization", "Organisation")}</th><th>{t("Invoiced", "Facturé")}</th><th>{t("Outstanding", "Impayé")}</th><th>{t("Platform fees", "Frais de plateforme")}</th></tr></thead>
             <tbody>
               {(data.by_org || []).map((o: any) => (
-                <tr key={o.org_id}>
-                  <td><b>{o.name}</b></td>
+                <tr key={o.org_id} onClick={() => router.push(`/admin/revenue/${o.org_id}`)} style={{ cursor: "pointer" }} title={t("View transactions", "Voir les transactions")}>
+                  <td><b style={{ color: "#B81558" }}>{o.name}</b> <span style={{ color: "var(--t3)" }}>›</span></td>
                   <td>{money(o.invoiced_cents)}</td>
                   <td style={{ color: o.outstanding_cents ? "var(--accent)" : "var(--t3)" }}>{money(o.outstanding_cents)}</td>
                   <td>{money(o.fees_cents)}</td>

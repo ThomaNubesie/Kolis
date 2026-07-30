@@ -1,9 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
-import { Printer, ArrowLeft } from "lucide-react";
+import { Printer, ArrowLeft, Download, Mail } from "lucide-react";
 import KolisLabel from "@/components/KolisLabel";
 
 // Print ALL labels for a batch at once — one label per page. Codes come from the
@@ -27,9 +28,14 @@ const batchCss = (thermal: boolean) => `
 export default function BatchLabels() {
   const { active } = useOrg();
   const { t } = useLang();
+  const router = useRouter();
+  const goBack = () => { if (typeof window !== "undefined" && window.history.length > 1) router.back(); else router.push("/shipper/shipments"); };
   const [labels, setLabels] = useState<any[] | undefined>(undefined);
   const [missing, setMissing] = useState<string[]>([]);
   const [thermal, setThermal] = useState(false);
+  const [dlBusy, setDlBusy] = useState<string>("");   // code currently downloading
+  const [emailBusy, setEmailBusy] = useState<string>("");
+  const [note, setNote] = useState<{ code: string; ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     let codes: string[] = [];
@@ -52,8 +58,31 @@ export default function BatchLabels() {
       });
   }, [active.org_id]);
 
+  const fmt = () => (thermal ? "thermal" : "standard") as "standard" | "thermal";
+  const downloadOne = async (code: string) => {
+    setDlBusy(code); setNote(null);
+    try {
+      const res = await org.labelPdf(active.org_id, code, fmt());
+      const bytes = Uint8Array.from(atob(res.pdf_base64), (ch) => ch.charCodeAt(0));
+      const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+      const a = document.createElement("a"); a.href = url; a.download = res.filename || `${code}-label.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    } catch (e: any) { setNote({ code, ok: false, text: e?.message || t("Couldn't generate the PDF.", "Impossible de générer le PDF.") }); }
+    setDlBusy("");
+  };
+  const emailOne = async (code: string, def: string) => {
+    const to = window.prompt(t("Email this label as a PDF to:", "Envoyer cette étiquette (PDF) à :"), def || "");
+    if (to == null || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to.trim())) { if (to != null) setNote({ code, ok: false, text: t("Enter a valid email address.", "Entrez un courriel valide.") }); return; }
+    setEmailBusy(code); setNote(null);
+    try { await org.emailLabel(active.org_id, code, to.trim(), fmt()); setNote({ code, ok: true, text: t(`Emailed to ${to.trim()}.`, `Envoyé à ${to.trim()}.`) }); }
+    catch (e: any) { setNote({ code, ok: false, text: e?.message || t("The email could not be sent.", "L’envoi a échoué.") }); }
+    setEmailBusy("");
+  };
+
   if (labels === undefined) return <div style={{ padding: 30 }}>{t("Loading labels…", "Chargement des étiquettes…")}</div>;
   const chip = (on: boolean): React.CSSProperties => ({ padding: "8px 13px", borderRadius: 9, fontWeight: 800, fontSize: 12.5, cursor: "pointer", border: "1px solid " + (on ? "#E11D6B" : "#3a3742"), background: on ? "#E11D6B" : "transparent", color: on ? "#fff" : "#cbb9c0" });
+  const dkBtn: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 6, background: "#232028", color: "#fff", border: "1px solid #383442", borderRadius: 8, padding: "7px 11px", fontWeight: 800, fontSize: 12, cursor: "pointer" };
 
   return (
     <div className="page" style={{ background: "#141318", minHeight: "100vh", padding: 24 }}>
@@ -61,7 +90,7 @@ export default function BatchLabels() {
 
       <div className="noprint" style={{ maxWidth: 780, margin: "0 auto 14px", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <button className="btn" style={{ display: "inline-flex", alignItems: "center", gap: 7 }} disabled={labels.length === 0} onClick={() => window.print()}><Printer size={16} strokeWidth={2} /> {t(`Print all ${labels.length} labels`, `Imprimer les ${labels.length} étiquettes`)}</button>
-        <a className="btn ghost" href="/shipper/bulk" style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><ArrowLeft size={15} strokeWidth={2} /> {t("Bulk shipment", "Envoi en lot")}</a>
+        <button className="btn ghost" onClick={goBack} style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><ArrowLeft size={15} strokeWidth={2} /> {t("Back", "Retour")}</button>
         <div style={{ display: "flex", gap: 6, marginLeft: "auto", alignItems: "center" }}>
           <span style={{ color: "#8a8f9c", fontSize: 12 }}>{t("Format:", "Format :")}</span>
           <button onClick={() => setThermal(false)} style={chip(!thermal)}>{t("Standard", "Standard")}</button>
@@ -76,6 +105,12 @@ export default function BatchLabels() {
         <div className="batch">
           {labels.map((l) => (
             <div key={l.id} className="sheet" style={{ marginBottom: 20 }}>
+              <div className="noprint" style={{ maxWidth: 780, margin: "0 auto 8px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ color: "#cbb9c0", fontWeight: 800, fontSize: 12.5 }}>{l.code}</span>
+                <button style={{ ...dkBtn, opacity: dlBusy === l.code ? 0.6 : 1 }} disabled={dlBusy === l.code} onClick={() => downloadOne(l.code)}><Download size={14} strokeWidth={2} /> {dlBusy === l.code ? t("Preparing…", "Préparation…") : t("Download PDF", "Télécharger PDF")}</button>
+                <button style={{ ...dkBtn, opacity: emailBusy === l.code ? 0.6 : 1 }} disabled={emailBusy === l.code} onClick={() => emailOne(l.code, l.recipient_email)}><Mail size={14} strokeWidth={2} /> {emailBusy === l.code ? t("Sending…", "Envoi…") : t("Email", "Courriel")}</button>
+                {note && note.code === l.code ? <span style={{ fontSize: 12, fontWeight: 700, color: note.ok ? "#3ddc97" : "#ff8080" }}>{note.text}</span> : null}
+              </div>
               <KolisLabel p={l} thermal={thermal} />
             </div>
           ))}

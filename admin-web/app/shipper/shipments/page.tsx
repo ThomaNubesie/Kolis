@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
@@ -16,6 +17,7 @@ const editable = (p: any) => !p.driver_id && ["requested", "received_at_hub"].in
 export default function Shipments() {
   const { active } = useOrg();
   const { t, lang } = useLang();
+  const router = useRouter();
   const when = (s?: string) => s ? new Date(s).toLocaleString(lang === "fr" ? "fr-CA" : "en-CA", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
   const [rows, setRows] = useState<any[]>([]);
   const [filter, setFilter] = useState("all");
@@ -38,8 +40,9 @@ export default function Shipments() {
   const printSelected = () => {
     const codes = Array.from(selected);
     if (!codes.length) return;
+    if (codes.length === 1) { router.push(`/shipper/label/${encodeURIComponent(codes[0])}`); return; }
     try { localStorage.setItem("kolis_batch_labels", JSON.stringify({ org: active.org_id, codes })); } catch { /* */ }
-    window.open(`/shipper/labels?codes=${encodeURIComponent(codes.join(","))}`, "_blank");
+    router.push(`/shipper/labels?codes=${encodeURIComponent(codes.join(","))}`);
   };
 
   const load = () => org.shipments(active.org_id, filter, search || null).then(setRows).catch(() => {});
@@ -104,7 +107,7 @@ export default function Shipments() {
               <td><span className={"pill " + (STATUS[p.status] || "pgrey")}>{p.status.replace(/_/g, " ")}</span></td>
               <td style={{ whiteSpace: "nowrap" }}><b>{money(p.price_cents + (p.tax_cents ?? 0))}</b>{(p.tax_cents ?? 0) > 0 ? <div className="sub" style={{ fontSize: 11 }}>{money(p.price_cents)} + {money(p.tax_cents)} {t("tax", "taxe")}</div> : null}</td>
               <td style={{ display: "flex", gap: 6 }}>
-                <a className="btn ghost" href={`/shipper/label/${encodeURIComponent(p.code)}`} target="_blank" rel="noreferrer" style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Printer size={14} strokeWidth={2} /> {t("Label", "Étiquette")}</a>
+                <button className="btn ghost" onClick={() => router.push(`/shipper/label/${encodeURIComponent(p.code)}`)} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}><Printer size={14} strokeWidth={2} /> {t("Label", "Étiquette")}</button>
                 {editable(p) ? <button className="btn ghost" style={{ display: "inline-flex", alignItems: "center", gap: 5 }} onClick={() => openEdit(p)}><Pencil size={13} strokeWidth={2} /> {t("Edit", "Modifier")}</button> : null}
               </td>
             </tr>

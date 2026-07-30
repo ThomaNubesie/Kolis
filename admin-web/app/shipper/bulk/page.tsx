@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
@@ -12,6 +13,7 @@ type Row = { size: string; to_city: string; to_address: string; contents: string
 export default function BulkShip() {
   const { active } = useOrg();
   const { t, lang } = useLang();
+  const router = useRouter();
   const [clients, setClients] = useState<any[]>([]);
   const [hubs, setHubs] = useState<any[]>([]);
   const [zones, setZones] = useState<any[]>([]);
@@ -45,8 +47,9 @@ export default function BulkShip() {
   const loadDrafts = () => org.bulkDrafts(active.org_id).then((d) => setDrafts(d || [])).catch(() => setDrafts([]));
   const printAllLabels = () => {
     if (!batchCodes.length) return;
+    if (batchCodes.length === 1) { router.push(`/shipper/label/${encodeURIComponent(batchCodes[0])}`); return; }
     try { localStorage.setItem("kolis_batch_labels", JSON.stringify({ org: active.org_id, codes: batchCodes })); } catch { /* */ }
-    window.open(`/shipper/labels?codes=${encodeURIComponent(batchCodes.join(","))}`, "_blank");
+    router.push(`/shipper/labels?codes=${encodeURIComponent(batchCodes.join(","))}`);
   };
 
   useEffect(() => {

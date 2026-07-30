@@ -124,6 +124,10 @@ Deno.serve(async (req) => {
         headers: { Authorization: `Bearer ${RESEND}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           from: `${fromName} <${fromEmail}>`, to: toEmail, subject: subj,
+          // Tags let the Resend webhook (kolis-email-webhook) attribute delivery
+          // events back to this parcel. Values must be [A-Za-z0-9_-] — a uuid and
+          // the status slug both qualify.
+          tags: [{ name: "kind", value: "transactional" }, { name: "parcel_id", value: String(parcel_id) }, { name: "status", value: String(status) }],
           text: `${bodyLine}\n\n${rlang === "fr" ? "Suivez-le" : "Track it"}: ${link}\n\n${dlText}`,
           html: `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px">
             ${bLogo ? `<img src="${bLogo}" alt="${bName}" style="max-height:46px;margin-bottom:8px"/>` : `<img src="https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand/kolis-logo.png" width="46" height="46" alt="Kolis" style="border-radius:11px;margin-bottom:10px;display:block"/>`}
@@ -145,6 +149,19 @@ Deno.serve(async (req) => {
         }),
       });
       emailed = res.ok;
+      // Record the send so the Resend webhook can log delivered/opened/clicked/bounced
+      // for this transactional notification (kolis_email_events is keyed by
+      // resend_email_id; the webhook attributes any event whose id we've logged here).
+      if (res.ok) {
+        try {
+          const sent = await res.json();
+          const rid = sent?.id ?? null;
+          if (rid) await admin.from("kolis_email_events").insert({
+            org_id: p.org_id ?? null, kind: "transactional", ref_id: String(parcel_id),
+            email: toEmail, resend_email_id: rid, event: "sent",
+          });
+        } catch { /* logging is best-effort; never fail the notification on it */ }
+      }
     }
 
     if (toPhone && TW_SID && TW_TOKEN && TW_FROM) {

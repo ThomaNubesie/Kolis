@@ -12,3 +12,8 @@ expo-env.d.ts
 
 # Google Play service account (never commit)
 google-play-key.json
+
+# admin-web build output (Next.js + Netlify) — regenerated on every build/deploy
+admin-web/.next/
+admin-web/.netlify/
+admin-web/tsconfig.tsbuildinfo

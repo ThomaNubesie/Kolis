@@ -1,6 +1,27 @@
 # Kolis / Concord Express — session handoff
 
-_Last updated: 2026-07-30. Snapshot so work can continue on any machine (`git pull`, start a fresh Claude session, say "continue the Kolis work")._
+_Last updated: 2026-07-31. Snapshot so work can continue on any machine (`git pull`, start a fresh Claude session, say "continue the Kolis work")._
+
+## Latest session — 2026-07-31
+**PAYG payment gating.** Card parcels no longer notify the recipient at creation. New `kolis_parcels.payment_status` (pending→authorized→paid). Cron `kolis-payment-sync` (job 12, every min) polls Stripe → on authorization activates the parcel + fires the `created` notification; auto-cancels abandonments (>30 min, scoped to last 3h). Capture-on-delivery via `kolis-finalize-payment` (blocks delivery unless captured). Revenue (`kolis_admin_revenue`) now counts **captured** (`payment_status='paid'`) as collected, authorized+paid as billed — not "has a PI".
+
+**Notifications.** `kolis-notify-recipient` MUST stay **`verify_jwt=false`** — the drain (`kolis_notify_drain`, cron) calls it with `x-kolis-secret`; if a redeploy flips verify_jwt on, the gateway 401s and ALL notifications silently die (happened ~Jul 28, fixed). Recipients without email are reached by Twilio SMS. Audiences: created/incoming/picked_up/in_transit/delivered → recipient; `pickup` → sender.
+
+**External-driver custody (out-of-network couriers, no app).** Table `kolis_external_custody` + `custody-proof` bucket + fn `kolis-custody` (OTP verify → GPS pickup 1000 m → deliver by recipient code OR unattended photo+GPS → escrow capture → **QR deactivates on delivery**). Driver page LIVE at **business.kolis.ca/d?t=<token>** (`admin-web/app/d/page.tsx`). Activate: POST `{action:'create'}` with `x-kolis-secret` + parcel_id/driver_name/driver_phone/driver_vehicle → text them the link.
+
+**Hub drop-off time questionnaire.** `kolis_parcels.dropoff_slot`/`dropoff_token` + fn `kolis-dropoff` + page LIVE at **business.kolis.ca/dropoff?t=<token>** (`admin-web/app/dropoff/page.tsx`). Sender picks day+slot → saved + emailed to **marketing@concordexpress.ca**.
+
+**Helpers.** `kolis-admin-sms` + `kolis-admin-email` (both `x-kolis-secret`-guarded; one-off SMS/email via Twilio/Resend).
+
+**Platform gotcha.** Supabase serves HTML as `text/plain` from BOTH `functions.supabase.co` AND storage public URLs (anti-phishing) → all user-facing pages MUST live on business.kolis.ca; edge functions = JSON only. (`htmltest` fn was a throwaway; safe to delete.)
+
+**Hubs.** Only **Scarborough Town Centre** + **Yorkdale Mall** are immediate-departure; **Union Station** to be removed from options (not done yet). Distances from Union: Yorkdale 10.5 km, Scarborough 17.6 km.
+
+### Open items
+- **KL-3204** (Toronto→Montréal; sender Olivia Ebenye `oliviaepee@yahoo.ca` / 647-408-2740; recipient Brigitte Chatue; $48 **authorized-uncaptured**, hub=Yorkdale): needs the external driver's name+phone to activate the custody link. Ebenye already sent the drop-off questionnaire (email+SMS). **Deliver before ~Aug 6** or the $48 auth expires.
+- `kolis-custody` `create` returns a `kolis.ca/d` link string — should be `business.kolis.ca/d` (fix on next function touch; harmless, link built manually at activation).
+- Add a "delivered → reject" guard to in-network `kolis-scan` (scan_token is already nulled on delivery).
+- New sending-process changes (recipient email+phone required; Union Station removed; questionnaire in-flow; auto-label to recipient; sender email from account) — **mocked, not built**.
 
 ## What this project is
 Concord Express Co Inc. runs three surfaces on **one Supabase project `kzjptcpjpwlxfofzhyku`**:

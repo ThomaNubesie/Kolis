@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from "react-native";
+import { Printer } from "lucide-react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, Region } from "react-native-maps";
@@ -39,6 +40,16 @@ export default function Track() {
   const [parcel, setParcel] = useState<Parcel | null>(null);
   const [loading, setLoading] = useState(true);
   const [track, setTrack] = useState<ParcelTracking | null>(null);
+  const [labelBusy, setLabelBusy] = useState(false);
+  const [labelMsg, setLabelMsg] = useState<string | null>(null);
+
+  const emailLabel = async () => {
+    if (!parcel || labelBusy) return;
+    setLabelBusy(true); setLabelMsg(null);
+    const r = await ParcelsAPI.emailLabel(parcel.code);
+    setLabelBusy(false);
+    setLabelMsg(r.ok ? t("emailLabelSent", { email: r.to ?? "" }) : (r.error || t("emailLabelFailed")));
+  };
 
   useEffect(() => {
     if (!id) { setLoading(false); return; }
@@ -135,6 +146,24 @@ export default function Track() {
           </View>
         )}
 
+        {parcel.status !== "cancelled" && (
+          <View style={{ marginBottom: 18 }}>
+            <Pressable
+              onPress={emailLabel}
+              disabled={labelBusy}
+              style={({ pressed }) => [styles.labelBtn, (pressed || labelBusy) && { opacity: 0.6 }]}
+            >
+              {labelBusy
+                ? <ActivityIndicator color={Colors.accent} />
+                : <Printer size={17} color={Colors.accent} strokeWidth={2.2} />}
+              <Text style={styles.labelBtnText}>{labelBusy ? t("emailLabelSending") : t("emailLabel")}</Text>
+            </Pressable>
+            {labelMsg
+              ? <Text style={styles.labelMsg}>{labelMsg}</Text>
+              : <Text style={styles.labelHint}>{t("emailLabelHint")}</Text>}
+          </View>
+        )}
+
         <Text style={{ fontSize: 11.5, color: Colors.t3, textAlign: "center" }}>{t("safetyNote", { city: parcel.to_city })}</Text>
       </ScrollView>
     </SafeAreaView>
@@ -177,5 +206,36 @@ const styles = StyleSheet.create({
     color: Colors.gold,
     fontWeight: "600",
     marginTop: 6,
+  },
+  labelBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+    backgroundColor: Colors.card,
+    borderWidth: 1.5,
+    borderColor: Colors.accent,
+    borderRadius: 14,
+    paddingVertical: 14,
+  },
+  labelBtnText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: Colors.accent,
+  },
+  labelHint: {
+    fontSize: 11.5,
+    color: Colors.t3,
+    textAlign: "center",
+    marginTop: 8,
+    paddingHorizontal: 12,
+    lineHeight: 16,
+  },
+  labelMsg: {
+    fontSize: 12.5,
+    color: Colors.ink,
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 8,
   },
 });

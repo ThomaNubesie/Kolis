@@ -1,12 +1,10 @@
-// kolis-label-pdf: generates a print-ready PDF of a Kolis shipping label, and can
-// email it as a PDF attachment via Resend. The PDF is built SERVER-SIDE from the
-// parcel record (never from client-supplied content) so an authenticated org member
-// can only ever send a real label for a parcel they can access.
-//   POST { org_id, code, format?: "standard"|"thermal", email? }
-//     - no email  → { ok, code, filename, pdf_base64 }   (client downloads it)
-//     - with email→ { ok, emailed, to }                  (sent as a PDF attachment)
-// Authorization is delegated to kolis_org_label (run under the caller's JWT), which
-// only returns the label if the caller belongs to the parcel's org.
+// kolis-label-pdf: print-ready PDF of a Kolis shipping label; can email it too.
+// PDF built SERVER-SIDE from the parcel record.
+//   POST { code, org_id?, format?: "standard"|"thermal", email? }
+//     - no email  → { ok, code, filename, pdf_base64 }
+//     - with email→ { ok, emailed, to }
+// Authorization (authenticated ONLY): org_id → kolis_org_label (org members);
+// none → kolis_parcel_label (the parcel's SENDER or the ASSIGNED DRIVER).
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { PDFDocument, rgb, StandardFonts } from "https://esm.sh/pdf-lib@1.17.1";
 
@@ -27,7 +25,7 @@ function b64(bytes: Uint8Array): string {
 
 async function buildPdf(p: any, thermal: boolean): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  const W = thermal ? 288 : 612, H = thermal ? 432 : 792;               // 4×6in vs US Letter
+  const W = thermal ? 288 : 612, H = thermal ? 432 : 792;
   const page = doc.addPage([W, H]);
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -45,16 +43,14 @@ async function buildPdf(p: any, thermal: boolean): Promise<Uint8Array> {
   const tR = (t: string, right: number, yTop: number, size: number, f = font, c = dark) => page.drawText(safe(t), { x: right - w(t, size, f), y: yTop - size, size, font: f, color: c });
   const tC = (t: string, center: number, yTop: number, size: number, f = font, c = dark) => page.drawText(safe(t), { x: center - w(t, size, f) / 2, y: yTop - size, size, font: f, color: c });
 
-  // Fetch both QR PNGs (same encoding the app uses on screen).
   const [pk, dl] = await Promise.all([
     fetch(qrUrl(`KOLIS|${p.id}|pickup|${p.scan_token}`)).then((r) => r.arrayBuffer()),
     fetch(qrUrl(`KOLIS|${p.id}|delivery|${p.scan_token}`)).then((r) => r.arrayBuffer()),
   ]);
   const pkImg = await doc.embedPng(pk), dlImg = await doc.embedPng(dl);
 
-  let y = H - M;                                                         // top cursor (draw downward)
+  let y = H - M;
 
-  // Header band
   const hH = 50 * s;
   page.drawRectangle({ x: M, y: y - hH, width: cardW, height: hH, color: magenta });
   const ko = 32 * s;
@@ -64,14 +60,12 @@ async function buildPdf(p: any, thermal: boolean): Promise<Uint8Array> {
   tR(p.code || "", M + cardW - 14 * s, y - hH / 2 + (23 * s) / 2, 23 * s, bold, white);
   y -= hH;
 
-  // Route band
   const rH = 27 * s;
   page.drawRectangle({ x: M, y: y - rH, width: cardW, height: rH, color: routeBg });
   tL(`${p.from_city || ""}   ->   ${p.to_city || ""}`, M + 16 * s, y - (rH - 16 * s) / 2, 16 * s, bold, routePink);
   page.drawLine({ start: { x: M, y: y - rH }, end: { x: M + cardW, y: y - rH }, thickness: 0.8, color: line });
   y -= rH;
 
-  // From / To band
   const ftH = 52 * s;
   page.drawLine({ start: { x: midX, y: y - ftH + 6 }, end: { x: midX, y: y - 6 }, thickness: 0.8, color: line });
   tL("FROM · SENDER", M + 16 * s, y - 13 * s, 9 * s, bold, gray);
@@ -82,7 +76,6 @@ async function buildPdf(p: any, thermal: boolean): Promise<Uint8Array> {
   page.drawLine({ start: { x: M, y: y - ftH }, end: { x: M + cardW, y: y - ftH }, thickness: 0.8, color: line });
   y -= ftH;
 
-  // QR row (two codes side by side)
   const qr = thermal ? 116 : 196;
   const c1 = M + cardW / 4, c2 = M + (3 * cardW) / 4;
   const qrTop = y - 12 * s;
@@ -90,18 +83,15 @@ async function buildPdf(p: any, thermal: boolean): Promise<Uint8Array> {
   page.drawImage(dlImg, { x: c2 - qr / 2, y: qrTop - qr, width: qr, height: qr });
   const capTop = qrTop - qr - 10 * s;
   tC("PICKUP", c1, capTop, 14 * s, bold, routePink);
-  tC("Courier scans within 100 m", c1, capTop - 17 * s, 8.5 * s, font, gray);
+  tC("Courier scans to pick up", c1, capTop - 17 * s, 8.5 * s, font, gray);
   tC("DELIVERY", c2, capTop, 14 * s, bold, green);
-  tC("Courier scans within 100 m", c2, capTop - 17 * s, 8.5 * s, font, gray);
+  tC("Courier scans to deliver", c2, capTop - 17 * s, 8.5 * s, font, gray);
   y = capTop - 30 * s;
 
-  // Footer
   page.drawLine({ start: { x: M, y: y + 4 }, end: { x: M + cardW, y: y + 4 }, thickness: 0.8, color: line });
   tC("The confirmation code is held only by sender & recipient — never printed here.", cx, y - 4 * s, 8.5 * s, font, gray);
   tC("Scan with the Kolis driver app · powered by Concord Express · kolis.ca", cx, y - 18 * s, 9 * s, font, gray);
   const cardBottom = y - 30 * s;
-
-  // Card outline
   page.drawRectangle({ x: M, y: cardBottom, width: cardW, height: (H - M) - cardBottom, borderColor: line, borderWidth: thermal ? 1.2 : 1 });
 
   return await doc.save();
@@ -133,11 +123,15 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
   try {
     const { org_id, code, format, email } = await req.json();
-    if (!org_id || !code) return json({ error: "org_id and code required" }, 400);
+    if (!code) return json({ error: "code required" }, 400);
 
-    // Authorize + fetch label as the calling user (kolis_org_label enforces membership).
+    // Authenticated ONLY — the caller must be the parcel's sender, the assigned
+    // driver, or an org member. No token/public path: only the driver and the
+    // sender can ever pull a label (enforced by kolis_parcel_label).
     const supa = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: req.headers.get("Authorization") || "" } } });
-    const { data, error } = await supa.rpc("kolis_org_label", { p_org: org_id, p_code: code });
+    const { data, error } = org_id
+      ? await supa.rpc("kolis_org_label", { p_org: org_id, p_code: code })
+      : await supa.rpc("kolis_parcel_label", { p_code: code });
     if (error) return json({ error: error.message }, 403);
     const label = Array.isArray(data) ? data[0] : data;
     if (!label?.id) return json({ error: "not found" }, 404);

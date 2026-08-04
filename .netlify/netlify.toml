@@ -80,3 +80,15 @@ q = ":quality"
 [redirects.conditions]
 
 [redirects.headers]
+
+[[redirects]]
+from = "/_next/image"
+to = "/.netlify/images"
+status = 200.0
+force = false
+
+[redirects.query]
+
+[redirects.conditions]
+
+[redirects.headers]

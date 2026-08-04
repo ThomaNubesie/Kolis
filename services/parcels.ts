@@ -173,6 +173,20 @@ export const ParcelsAPI = {
     return (data as SenderReceipt) ?? null;
   },
 
+  // Email the shipping-label PDF to the signed-in sender. kolis-label-pdf is
+  // authenticated-only and authorizes via kolis_parcel_label — so ONLY the
+  // parcel's sender (or assigned driver) can pull the label. Defaults to the
+  // account email when `to` is omitted.
+  async emailLabel(code: string, to?: string): Promise<{ ok: boolean; error?: string; to?: string }> {
+    let dest = to;
+    if (!dest) { const { data: { user } } = await supabase.auth.getUser(); dest = user?.email ?? undefined; }
+    if (!dest) return { ok: false, error: "No email on file" };
+    const { data, error } = await supabase.functions.invoke("kolis-label-pdf", { body: { code, email: dest } });
+    if (error) return { ok: false, error: error.message };
+    if ((data as any)?.error) return { ok: false, error: (data as any).error };
+    return { ok: true, to: dest };
+  },
+
   // Admin: parcels dropped at a hub, awaiting dispatch.
   async atHub() {
     const { data, error } = await supabase

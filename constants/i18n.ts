@@ -57,6 +57,8 @@ export const STRINGS = {
     noShipments: "No shipments yet. Send your first parcel.",
     // track
     tracking: "Tracking", eta: "ETA", callDriver: "Call", textDriver: "Text",
+    emailLabel: "Email my shipping label", emailLabelHint: "The print-ready label PDF is sent to you — only you and your driver can access it.",
+    emailLabelSending: "Sending…", emailLabelSent: "Label sent to {email}", emailLabelFailed: "Could not send the label",
     safetyNote: "A LoadQ driver heading to {city} · trip tracked for safety",
     statusRequested: "Requested", statusMatched: "Driver matched",
     statusPickedUp: "Picked up", statusInTransit: "In transit", statusDelivered: "Delivered",
@@ -273,6 +275,8 @@ export const STRINGS = {
     active: "Actifs", deliveredSec: "Livrés", trackArrow: "Suivre →",
     noShipments: "Aucun envoi. Envoyez votre premier colis.",
     tracking: "Suivi", eta: "Arrivée", callDriver: "Appeler", textDriver: "Texto",
+    emailLabel: "M'envoyer mon étiquette d'expédition", emailLabelHint: "L'étiquette PDF prête à imprimer vous est envoyée — vous seul et votre conducteur y avez accès.",
+    emailLabelSending: "Envoi…", emailLabelSent: "Étiquette envoyée à {email}", emailLabelFailed: "Impossible d'envoyer l'étiquette",
     safetyNote: "Un conducteur LoadQ vers {city} · trajet suivi pour la sécurité",
     statusRequested: "Demandé", statusMatched: "Conducteur associé",
     statusPickedUp: "Ramassé", statusInTransit: "En transit", statusDelivered: "Livré",

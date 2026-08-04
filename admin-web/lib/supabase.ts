@@ -30,6 +30,14 @@ export const api = {
     return res;
   },
   changeDriver: (id: string, driver: string) => r("kolis_admin_change_driver", { p_id: id, p_driver: driver }),
+  // Per-delivery courier payout — sends the driver their Interac payout card
+  // (kolis-driver-paid accepts a staff session; no secret in the browser).
+  async payDriver(parcelId: string, interacConfirmation: string) {
+    const { data, error } = await supabase.functions.invoke("kolis-driver-paid", { body: { parcel_id: parcelId, interac_confirmation: interacConfirmation } });
+    if (error) throw error;
+    if ((data as any)?.error) throw new Error((data as any).error);
+    return data;
+  },
   async assignDirect(id: string, driver: string) {
     const res = await r("kolis_admin_assign_direct", { p_id: id, p_driver: driver });
     // Tell the driver it's theirs — no accept step.

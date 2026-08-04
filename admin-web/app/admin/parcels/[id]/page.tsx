@@ -81,7 +81,17 @@ export default function ParcelDetail() {
             <KV k={t("Sender paid", "Payé par l’expéditeur")} v={c$((p.price_cents ?? 0) + (p.insurance_premium_cents ?? 0))} />
             <KV k={t("Courier payout", "Versement au chauffeur")} v={c$(p.driver_payout_cents)} />
             <KV k={t("Driver", "Chauffeur")} v={p.driver_name || t("unassigned", "non assigné")} />
-            <KV k={t("Delivery code", "Code de livraison")} v={p.delivery_code || "—"} /></div>
+            <KV k={t("Delivery code", "Code de livraison")} v={p.delivery_code || "—"} />
+            {canOps && String(p.status) === "delivered" && p.driver_id && (p.driver_payout_cents ?? 0) > 0 && (
+              <button className="btn green" style={{ marginTop: 12, width: "100%" }} disabled={busy}
+                onClick={() => {
+                  const conf = prompt(t("Interac confirmation code (from your bank):", "Code de confirmation Interac (de votre banque) :"));
+                  if (conf === null) return;
+                  run(() => api.payDriver(id, conf.trim()), t("Payout card sent to driver", "Carte de paiement envoyée au chauffeur"));
+                }}>
+                {t("Send payout card (Interac)", "Envoyer la carte de paiement (Interac)")}
+              </button>
+            )}</div>
 
           {canOps && (
             <div className="card"><div className="mono">{t("Dispatch & route", "Répartition et trajet")}</div>

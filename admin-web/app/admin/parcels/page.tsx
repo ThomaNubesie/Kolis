@@ -31,7 +31,7 @@ export default function Parcels() {
         {FILTERS.map(([f, en, fr]) => <button key={f} className={"chip" + (filter === f ? " on" : "")} onClick={() => { setFilter(f); load(f, search); }}>{lang === "fr" ? fr : en}</button>)}
       </div>
       <table>
-        <thead><tr><th>{t("When", "Quand")}</th><th>{t("Code", "Code")}</th><th>{t("Route", "Trajet")}</th><th>{t("Size", "Taille")}</th><th>{t("Value / ins.", "Valeur / assur.")}</th><th>{t("Paid", "Payé")}</th><th>{t("Driver", "Chauffeur")}</th><th>{t("Status", "Statut")}</th></tr></thead>
+        <thead><tr><th>{t("When", "Quand")}</th><th>{t("Code", "Code")}</th><th>{t("Route", "Trajet")}</th><th>{t("Size", "Taille")}</th><th>{t("Value / ins.", "Valeur / assur.")}</th><th>{t("Paid", "Payé")}</th><th>{t("Driver", "Chauffeur")}</th><th>{t("Drop-off / Delivery", "Dépôt / Livraison")}</th><th>{t("Status", "Statut")}</th></tr></thead>
         <tbody>
           {list.map((p) => (
             <tr key={p.id} className="clk" onClick={() => router.push(`/admin/parcels/${p.id}`)}>
@@ -42,10 +42,15 @@ export default function Parcels() {
               <td>{p.insured ? `C$${Math.round((p.declared_value_cents ?? 0) / 100)} 🛡️` : "— ⚠️"}</td>
               <td>C${(p.price_cents / 100).toFixed(0)}</td>
               <td>{p.driver_name || "—"}</td>
+              <td style={{ fontSize: 11, color: "var(--t2)", maxWidth: 220, lineHeight: 1.4 }}>
+                {p.pickup_slot ? <div title={t("Sender drop-off", "Dépôt expéditeur")}>📥 {p.pickup_slot}</div> : null}
+                {p.dropoff_slot ? <div title={t("Recipient delivery", "Livraison destinataire")}>📦 {p.dropoff_slot}</div> : null}
+                {!p.pickup_slot && !p.dropoff_slot ? "—" : null}
+              </td>
               <td><span className={"pill " + (p.has_open_claim ? "pred" : tone(p.status))}>{p.has_open_claim ? t("Claim", "Réclamation") : statusLabel(p.status)}</span></td>
             </tr>
           ))}
-          {list.length === 0 && <tr><td colSpan={8} style={{ color: "var(--t3)" }}>{t("No parcels.", "Aucun colis.")}</td></tr>}
+          {list.length === 0 && <tr><td colSpan={9} style={{ color: "var(--t3)" }}>{t("No parcels.", "Aucun colis.")}</td></tr>}
         </tbody>
       </table>
     </>

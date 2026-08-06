@@ -198,6 +198,7 @@ export const STRINGS = {
     // shipping form (security + insurance)
     shipDetails: "Shipping details", shipSub: "Required for security and insurance before we ship.",
     senderSection: "Sender (you)", recipientSection: "Recipient", contentsSection: "Package contents",
+    yourEmail: "Your email", yourEmailNote: "We'll email you your drop-off scheduling link once payment is confirmed.",
     insuranceSection: "Insurance", agreementSection: "Agreement",
     firstName: "First name", lastName: "Last name", destAddress: "Destination address",
     recipientEmail: "Email (optional)", recipientPhone: "Phone number",
@@ -413,6 +414,7 @@ export const STRINGS = {
     // shipping form (security + insurance)
     shipDetails: "Détails d'expédition", shipSub: "Requis pour la sécurité et l'assurance avant l'expédition.",
     senderSection: "Expéditeur (vous)", recipientSection: "Destinataire", contentsSection: "Contenu du colis",
+    yourEmail: "Votre courriel", yourEmailNote: "Nous vous enverrons votre lien de planification du dépôt une fois le paiement confirmé.",
     insuranceSection: "Assurance", agreementSection: "Entente",
     firstName: "Prénom", lastName: "Nom", destAddress: "Adresse de destination",
     recipientEmail: "Courriel (facultatif)", recipientPhone: "Numéro de téléphone",

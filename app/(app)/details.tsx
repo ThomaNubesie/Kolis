@@ -12,6 +12,8 @@ import { supabase } from "../../services/supabase";
 import { AddressFields, Address, emptyAddress, formatAddress, isAddressComplete } from "../../components/AddressFields";
 import { AlertTriangle, Check, ShieldCheck } from "lucide-react-native";
 
+const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || "").trim());
+
 // Module-level so they keep a stable identity — defining these inside the screen
 // remounts every input on each keystroke and drops the keyboard.
 function Mono({ children }: { children: string }) {
@@ -39,6 +41,7 @@ export default function Details() {
   const p = useLocalSearchParams<{ drop: string; size: string; from: string; to: string; price: string; pickup_hub?: string; hubName?: string; hubAddr?: string; pickup_addr?: string }>();
 
   const [sender, setSender] = useState<{ name: string; email: string; phone: string }>({ name: "", email: "", phone: "" });
+  const [senderEmail, setSenderEmail] = useState("");
   const [country, setCountry] = useState("CA");
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
@@ -55,6 +58,7 @@ export default function Details() {
       const prof = await ProfileAPI.get();
       const { data: { user } } = await supabase.auth.getUser();
       setSender({ name: (prof as any)?.verified_name || prof?.full_name || "", email: prof?.email || "", phone: user?.phone || "" });
+      setSenderEmail(prof?.email || "");
       if (prof?.country) setCountry(prof.country);
     })();
   }, []);
@@ -63,17 +67,25 @@ export default function Details() {
   const shipPrice = Number(p.price ?? 0);
   const premium = insured && valNum > 0 ? valNum * 0.05 : 0;
   const total = shipPrice + premium;
+  // Sender + recipient email AND phone are all required — both channels feed the
+  // HUB drop-off scheduling invites (SMS + email) sent to each party.
   const ready =
     !!first.trim() && !!last.trim() && isAddressComplete(addr) &&
-    phone.trim().length >= 6 && contents.trim().length > 1 &&
+    phone.trim().length >= 6 && emailOk(email) &&
+    emailOk(senderEmail) && sender.phone.trim().length >= 6 &&
+    contents.trim().length > 1 &&
     valNum > 0 && insured !== null && agreed;
 
-  const go = () => {
+  const go = async () => {
     if (!ready) { Alert.alert("Kolis", t("fillRequired")); return; }
+    // Persist the sender's email to their profile so the scheduling link reaches them.
+    if (senderEmail.trim() && senderEmail.trim() !== (sender.email || "")) {
+      await ProfileAPI.save({ email: senderEmail.trim() });
+    }
     const form = JSON.stringify({
       recipient_name: `${first.trim()} ${last.trim()}`,
       recipient_phone: phone.trim(),
-      recipient_email: email.trim() || null,
+      recipient_email: email.trim(),
       dropoff_addr: formatAddress(addr),
       contents_description: contents.trim(),
       declared_value: valNum,
@@ -95,13 +107,15 @@ export default function Details() {
         <Text style={{ fontSize: 24, fontWeight: "800", color: Colors.ink }}>{t("shipDetails")}</Text>
         <Text style={{ fontSize: 12.5, color: Colors.t2, marginBottom: 8 }}>{t("shipSub")}</Text>
 
-        {/* Sender — auto-filled, read-only */}
+        {/* Sender — name/phone auto-filled; email required for the scheduling link */}
         <Mono>{t("senderSection")}</Mono>
-        <View style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 13, padding: 13, backgroundColor: Colors.cardAlt }}>
+        <View style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 13, padding: 13, backgroundColor: Colors.cardAlt, marginBottom: 10 }}>
           <Text style={{ fontSize: 14, fontWeight: "800", color: Colors.ink }}>{sender.name || "—"}</Text>
-          <Text style={{ fontSize: 12, color: Colors.t2, marginTop: 2 }}>{[sender.email, sender.phone].filter(Boolean).join("  ·  ") || "—"}</Text>
+          <Text style={{ fontSize: 12, color: Colors.t2, marginTop: 2 }}>{sender.phone || "—"}</Text>
           <Text style={{ fontSize: 10, color: Colors.t3, marginTop: 6 }}>{p.from} → {p.to}</Text>
         </View>
+        <Field label={t("yourEmail")} value={senderEmail} onChange={setSenderEmail} req keyboardType="email-address" autoCap="none" ph="name@email.com" />
+        <Text style={{ fontSize: 11, color: Colors.t3, marginTop: -4, marginBottom: 6 }}>{t("yourEmailNote")}</Text>
 
         {/* Recipient */}
         <Mono>{t("recipientSection")}</Mono>
@@ -110,7 +124,7 @@ export default function Details() {
           <View style={{ flex: 1 }}><Field label={t("lastName")} value={last} onChange={setLast} req autoCap="words" /></View>
         </View>
         <Field label={t("recipientPhone")} value={phone} onChange={setPhone} req keyboardType="phone-pad" />
-        <Field label={t("recipientEmail")} value={email} onChange={setEmail} keyboardType="email-address" autoCap="none" ph="name@email.com" />
+        <Field label={t("recipientEmail")} value={email} onChange={setEmail} req keyboardType="email-address" autoCap="none" ph="name@email.com" />
 
         {/* Structured destination address */}
         <Mono>{t("destAddress")}</Mono>

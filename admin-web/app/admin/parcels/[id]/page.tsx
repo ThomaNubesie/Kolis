@@ -75,6 +75,12 @@ export default function ParcelDetail() {
             <KV k={t("Contents", "Contenu")} v={p.contents_description || "—"} />
             <KV k={t("Declared value", "Valeur déclarée")} v={c$(p.declared_value_cents)} />
             <KV k={t("Insured", "Assuré")} v={p.insured ? t(`Yes (+${c$(p.insurance_premium_cents)})`, `Oui (+${c$(p.insurance_premium_cents)})`) : t("Declined", "Refusée")} /></div>
+          {(p.dropoff_type === "hub" || p.pickup_slot || p.dropoff_slot) && (
+            <div className="card"><div className="mono">{t("HUB scheduling", "Horaire au point relais")}</div>
+              <KV k={t("Sender drop-off", "Dépôt expéditeur")} v={p.pickup_slot || t("not scheduled yet", "pas encore planifié")} />
+              <KV k={t("Recipient delivery", "Livraison destinataire")} v={p.dropoff_slot || t("not scheduled yet", "pas encore planifié")} />
+            </div>
+          )}
         </div>
         <div style={{ flex: "1 1 280px" }}>
           <div className="card"><div className="mono">{t("Money & driver (admin)", "Argent et chauffeur (admin)")}</div>

@@ -7,9 +7,9 @@ import { HubsAPI } from "../services/hubs";
 import { regionCode } from "../constants/geo";
 import { getMyLocation } from "../services/location";
 import { haversineKm, kmLabel } from "../constants/distance";
-import { Building2, Flag, X } from "lucide-react-native";
+import { Building2, Flag, X, Clock } from "lucide-react-native";
 
-export type NearbyChoice = { id: string; name: string; address: string | null; kind: "hub" | "zone" };
+export type NearbyChoice = { id: string; name: string; address: string | null; kind: "hub" | "zone"; hours?: string | null };
 
 type Item = NearbyChoice & { km: number | null; drivers: number };
 
@@ -58,6 +58,7 @@ export function NearbyPicker({
             name: h.name,
             address: h.address,
             kind: "hub" as const,
+            hours: h.hours,
             km: me && h.latitude != null && h.longitude != null ? haversineKm(me.lat, me.lng, h.latitude, h.longitude) : null,
             drivers: 0,
           }));
@@ -74,6 +75,7 @@ export function NearbyPicker({
             name: z.name,
             address: z.address,
             kind: "zone" as const,
+            hours: null,
             km: me && z.latitude != null && z.longitude != null ? haversineKm(me.lat, me.lng, z.latitude, z.longitude) : null,
             drivers: avail[z.id] ?? 0,
           }));
@@ -95,7 +97,7 @@ export function NearbyPicker({
 
   const pick = () => {
     const it = items.find((i) => i.id === sel);
-    if (it) onPick({ id: it.id, name: it.name, address: it.address, kind: it.kind });
+    if (it) onPick({ id: it.id, name: it.name, address: it.address, kind: it.kind, hours: it.hours });
   };
 
   return (
@@ -132,6 +134,12 @@ export function NearbyPicker({
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 13.5, fontWeight: "700", color: Colors.ink }} numberOfLines={1}>{it.name}</Text>
                       <Text style={{ fontSize: 10.5, color: Colors.t3 }} numberOfLines={1}>{it.address || originLabel}</Text>
+                      {mode === "hub" && it.hours ? (
+                        <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 2 }}>
+                          <Clock size={10} color={Colors.accent} strokeWidth={2.2} />
+                          <Text style={{ fontSize: 10.5, fontWeight: "700", color: Colors.accent }} numberOfLines={1}>{t("dropOffHours", { hours: it.hours })}</Text>
+                        </View>
+                      ) : null}
                       {mode === "zone" && (
                         <Text style={{ fontSize: 10.5, fontWeight: "700", color: it.drivers > 0 ? Colors.green : Colors.t3, marginTop: 1 }}>
                           {it.drivers > 0 ? t("driversToDest", { n: it.drivers, city: destLabel }) : t("noDriversYet")}

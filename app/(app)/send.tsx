@@ -113,6 +113,7 @@ export default function Send() {
             <View style={{ flex: 1 }}>
               <Text style={{ fontWeight: "700", fontSize: 13.5, color: Colors.ink }}>{selHub.name}</Text>
               <Text style={{ fontSize: 10.5, color: Colors.t3 }}>{selHub.address || from}</Text>
+              {selHub.hours ? <Text style={{ fontSize: 10.5, color: Colors.accent, fontWeight: "700", marginTop: 2 }}>🕐 {t("dropOffHours", { hours: selHub.hours })}</Text> : null}
             </View>
             <Text style={{ color: Colors.accent, fontWeight: "800", fontSize: 12 }}>{t("change")}</Text>
           </Pressable>

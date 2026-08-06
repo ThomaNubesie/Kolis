@@ -17,6 +17,7 @@ export const STRINGS = {
     yourProfile: "Your profile", fullName: "Full name", emailReceipts: "Email (for receipts)", addPhoto: "Add a photo",
     // send
     sendParcel: "Send a parcel", from: "From", to: "To", dropOff: "Drop-off",
+    dropOffHours: "Drop-off hours: {hours}",
     loadqZone: "LoadQ zone", doorToDoor: "Door-to-door",
     modeHint: "Door-to-door — matched with a driver, door to door. LoadQ zone — drop it off, we delegate a queued driver (cheapest).",
     size: "Size", envelope: "Envelope", small: "Small", large: "Large",
@@ -243,6 +244,7 @@ export const STRINGS = {
     wrongNumber: "Mauvais numéro ?", chooseLanguage: "Langue",
     yourProfile: "Votre profil", fullName: "Nom complet", emailReceipts: "Courriel (pour les reçus)", addPhoto: "Ajouter une photo",
     sendParcel: "Envoyer un colis", from: "De", to: "À", dropOff: "Dépôt",
+    dropOffHours: "Heures de dépôt : {hours}",
     loadqZone: "Zone LoadQ", doorToDoor: "Porte-à-porte",
     modeHint: "Porte-à-porte — associé à un conducteur, de porte à porte. Zone LoadQ — déposez-le, nous déléguons un conducteur en file (le moins cher).",
     size: "Taille", envelope: "Enveloppe", small: "Petit", large: "Grand",

@@ -33,6 +33,10 @@ const ROUTE_KM: Record<string, number> = {
   "kingston-sudbury": 530, "gatineau-sudbury": 470, "quebec-sudbury": 930,
   "sudbury-trois-rivieres": 800, "sherbrooke-sudbury": 830, "chicoutimi-sudbury": 900,
   "moncton-sudbury": 1600,
+  // Halifax (Nova Scotia / Maritimes) — keep in sync with DB kolis_route_km
+  "halifax-moncton": 260, "halifax-montreal": 1250, "halifax-ottawa": 1450, "halifax-quebec": 1050,
+  "gatineau-halifax": 1450, "halifax-toronto": 1800, "halifax-kingston": 1650, "halifax-sherbrooke": 1050,
+  "halifax-trois-rivieres": 1150, "chicoutimi-halifax": 1250, "halifax-sudbury": 1900,
   // Eastern Ontario (Ottawa-anchored)
   "arnprior-ottawa": 55, "carleton-ottawa": 50, "ottawa-renfrew": 100, "ottawa-pembroke": 150,
   "deep-ottawa": 200, "bancroft-ottawa": 230, "belleville-ottawa": 270, "north-ottawa": 360,
@@ -59,10 +63,15 @@ export function routeKm(from: string, to: string): number {
   return ROUTE_KM[[a, b].sort().join("-")] ?? 250;
 }
 
+// Halifax (Maritimes) carries a 30% premium over the distance-based price.
+const HALIFAX_SURCHARGE = 1.3;
+const isHalifax = (city: string) => regionCode(city) === "halifax";
+
 export function estimatePrice(size: SizeKey, drop: DropType, from: string, to: string): number {
   const km = routeKm(from, to);
   const base = drop === "door" ? DOOR_BASE + DOOR_PER_KM * km : HUB_BASE + HUB_PER_KM * km;
-  return Math.round(base * SIZE_MULT[size]);
+  const surcharge = (isHalifax(from) || isHalifax(to)) ? HALIFAX_SURCHARGE : 1;
+  return Math.round(base * SIZE_MULT[size] * surcharge);
 }
 
 // Driver payout in cents, from the (already-rounded) customer price in cents.

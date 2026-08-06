@@ -15,6 +15,7 @@ export const CITIES: City[] = [
   { code: "sherbrooke", label: "Sherbrooke" },
   { code: "chicoutimi", label: "Chicoutimi" },
   { code: "moncton", label: "Moncton" },
+  { code: "halifax", label: "Halifax" },
   // Ontario network
   { code: "acton", label: "Acton" },
   { code: "ajax", label: "Ajax" },

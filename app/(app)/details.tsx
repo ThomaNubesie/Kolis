@@ -43,6 +43,10 @@ export default function Details() {
   const [sender, setSender] = useState<{ name: string; email: string; phone: string }>({ name: "", email: "", phone: "" });
   const [senderEmail, setSenderEmail] = useState("");
   const [country, setCountry] = useState("CA");
+  // Sender pickup address (door mode): prefilled from the send screen, editable here.
+  const [pickupAddr, setPickupAddr] = useState<string>(p.pickup_addr ?? "");
+  const [pickupObj, setPickupObj] = useState<Address>(emptyAddress);
+  const [editPickup, setEditPickup] = useState(false);
   const [first, setFirst] = useState("");
   const [last, setLast] = useState("");
   const [addr, setAddr] = useState<Address>(emptyAddress);
@@ -73,6 +77,7 @@ export default function Details() {
     !!first.trim() && !!last.trim() && isAddressComplete(addr) &&
     phone.trim().length >= 6 && emailOk(email) &&
     emailOk(senderEmail) && sender.phone.trim().length >= 6 &&
+    (p.drop !== "door" || pickupAddr.trim().length > 3) &&
     contents.trim().length > 1 &&
     valNum > 0 && insured !== null && agreed;
 
@@ -96,7 +101,7 @@ export default function Details() {
     if (p.drop === "hub") {
       router.push({ pathname: "/(app)/directions", params: { ...base, pickup_hub: p.pickup_hub, hubName: p.hubName, hubAddr: p.hubAddr } });
     } else {
-      router.push({ pathname: "/(app)/confirm", params: { ...base, drop: "door", pickup_addr: p.pickup_addr ?? "" } });
+      router.push({ pathname: "/(app)/confirm", params: { ...base, drop: "door", pickup_addr: pickupAddr } });
     }
   };
 
@@ -116,6 +121,25 @@ export default function Details() {
         </View>
         <Field label={t("yourEmail")} value={senderEmail} onChange={setSenderEmail} req keyboardType="email-address" autoCap="none" ph="name@email.com" />
         <Text style={{ fontSize: 11, color: Colors.t3, marginTop: -4, marginBottom: 6 }}>{t("yourEmailNote")}</Text>
+
+        {/* Sender pickup address (door mode) — full address, editable with country-aware autocomplete */}
+        {p.drop === "door" && (!editPickup ? (
+          <Pressable onPress={() => setEditPickup(true)} style={{ flexDirection: "row", alignItems: "center", gap: 10, borderWidth: 1.5, borderColor: Colors.line, borderRadius: 13, padding: 13, marginBottom: 10, backgroundColor: "#fff" }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 11.5, color: Colors.t2, fontWeight: "600" }}>{t("pickupAddress")}<Text style={{ color: Colors.accent }}> *</Text></Text>
+              <Text style={{ fontSize: 13.5, color: pickupAddr ? Colors.ink : Colors.t3, fontWeight: pickupAddr ? "700" : "400", marginTop: 3 }}>{pickupAddr || t("addAddress")}</Text>
+            </View>
+            <Text style={{ color: Colors.accent, fontWeight: "800", fontSize: 12 }}>{pickupAddr ? t("change") : t("add")}</Text>
+          </Pressable>
+        ) : (
+          <View style={{ marginBottom: 10 }}>
+            <Mono>{t("pickupAddress")}</Mono>
+            <AddressFields value={pickupObj} onChange={(a) => { setPickupObj(a); if (isAddressComplete(a)) setPickupAddr(formatAddress(a)); }} country={country} />
+            <Pressable onPress={() => setEditPickup(false)} style={{ alignSelf: "flex-end", paddingVertical: 6, paddingHorizontal: 4 }}>
+              <Text style={{ color: Colors.accent, fontWeight: "800", fontSize: 13 }}>{t("done")}</Text>
+            </Pressable>
+          </View>
+        ))}
 
         {/* Recipient */}
         <Mono>{t("recipientSection")}</Mono>

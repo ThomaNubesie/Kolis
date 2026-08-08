@@ -21,7 +21,9 @@ type NavGroup = { head: { en: string; fr: string } | null; items: NavItem[] };
 type Plan = "free" | "business" | "pro";
 const PLAN_RANK: Record<Plan, number> = { free: 0, business: 1, pro: 2 };
 const FEATURE_MIN: Record<string, Plan> = {
-  "/shipper/assistant": "business", // AI assistant
+  // Note: /shipper/assistant is intentionally NOT gated — the tab stays visible to
+  // Basic as a teaser (the page itself shows an upgrade prompt); the floating
+  // Ask-AI button and the working chat are Business+.
   "/shipper/import": "business",   // Bulk import
   "/shipper/bulk": "business",     // Bulk shipment
   "/shipper/products": "business",

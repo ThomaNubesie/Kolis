@@ -8,17 +8,20 @@ type P = {
   id: string; business_name: string; category: string | null; tier: number | null; contact_name: string | null;
   email: string | null; phone: string | null; stage: string; letter_url: string | null;
   followup_due_at: string | null; followup_sent_at: string | null; opens: number; clicks: number;
+  // Urgency level for the row (from concord_level via kolis_prospects_list).
+  level: string | null; level_label: string | null; level_color: string | null; level_order: number | null;
 };
 
-const STAGE_TONE: Record<string, string> = { to_prospect: "#6b7280", pending: "#b45309", met: "#2563eb", replied: "#7c3aed", won: "#178a5e", lost: "#b91c1c" };
-const STAGE_LABEL: Record<string, [string, string]> = {
-  to_prospect: ["To prospect", "À prospecter"], pending: ["Pending", "En attente"], met: ["Met", "Contacté"],
-  replied: ["Replied", "A répondu"], won: ["Won", "Gagné"], lost: ["Lost", "Perdu"],
+// FR labels for each urgency level key (colour comes from the backend level_color).
+const LEVEL_LABEL: Record<string, [string, string]> = {
+  suggested: ["Suggested", "Suggéré"], new: ["New / Queued", "Nouveau / En file"], contacted: ["Contacted", "Contacté"],
+  engaged: ["Engaged", "Engagé"], replied: ["Replied", "A répondu"], met: ["Met / Won", "Rencontré / Gagné"],
+  closed: ["Closed", "Fermé"], bounced: ["Bounced", "Courriel rejeté"], stopped: ["Stopped", "Arrêté"], rejected: ["Rejected", "Refusé"],
 };
 const FILTERS: [string, string, string][] = [
-  ["", "All", "Tous"], ["tier1", "Tier 1", "Niveau 1"], ["tier2", "Tier 2", "Niveau 2"],
-  ["needs_email", "Needs email", "Sans courriel"], ["to_prospect", "To prospect", "À prospecter"],
-  ["pending", "Pending", "En attente"], ["met", "Met", "Contacté"], ["won", "Won", "Gagné"],
+  ["", "All", "Tous"], ["suggested", "Suggested", "Suggéré"], ["engaged", "Engaged", "Engagé"],
+  ["replied", "Replied", "A répondu"], ["contacted", "Contacted", "Contacté"], ["met", "Met / Won", "Rencontré"],
+  ["tier1", "Tier 1", "Niveau 1"], ["needs_email", "Needs email", "Sans courriel"],
 ];
 
 export default function Prospects() {
@@ -33,9 +36,12 @@ export default function Prospects() {
   const load = (flt = filter) => api.prospects(flt || null).then((d) => { setErr(""); setRows(d as P[]); }).catch((e) => setErr(e.message));
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [filter]);
 
-  const stage = (s: string) => (
-    <span style={{ background: (STAGE_TONE[s] || "#6b7280") + "22", color: STAGE_TONE[s] || "#333", padding: "2px 9px", borderRadius: 8, fontSize: 12, fontWeight: 700 }}>{(STAGE_LABEL[s] || [s, s])[lang === "fr" ? 1 : 0]}</span>
-  );
+  // Urgency pill — colour from the backend level_color, label localised by level key.
+  const levelPill = (p: P) => {
+    const c = p.level_color || "#6b7280";
+    const label = (p.level && LEVEL_LABEL[p.level]?.[lang === "fr" ? 1 : 0]) || p.level_label || p.stage;
+    return <span style={{ background: c + "22", color: c, padding: "2px 9px", borderRadius: 8, fontSize: 12, fontWeight: 700, whiteSpace: "nowrap" }}>{label}</span>;
+  };
 
   // Fetch the actual PDF bytes and save the file; only flip to "pending" once the
   // download truly succeeds (not on a mere click or a failed/blocked fetch).
@@ -97,16 +103,16 @@ export default function Prospects() {
         rows.length === 0 ? <p>{t("No prospects.", "Aucun prospect.")}</p> : (
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
             <thead><tr style={{ textAlign: "left", color: "#6B6675", fontSize: 12 }}>
-              <th style={{ padding: "8px 6px" }}>{t("Business", "Entreprise")}</th><th>{t("Stage", "Étape")}</th>
+              <th style={{ padding: "8px 6px" }}>{t("Business", "Entreprise")}</th><th>{t("State", "État")}</th>
               <th>{t("Contact", "Contact")}</th><th>{t("Opens", "Ouv.")}</th><th>{t("Clicks", "Clics")}</th><th></th>
             </tr></thead>
             <tbody>{rows.map((p) => (
               <tr key={p.id} style={{ borderTop: "1px solid #ECECF2", cursor: "pointer" }} onClick={() => router.push(`/admin/prospects/${p.id}`)}>
-                <td style={{ padding: "10px 6px" }}>
+                <td style={{ padding: "10px 6px 10px 12px", borderLeft: `5px solid ${p.level_color || "#e5e7eb"}` }}>
                   <b>{p.business_name}</b>
                   <div style={{ color: "#9b97a6", fontSize: 12 }}>{p.tier ? `T${p.tier} · ` : ""}{p.category || ""}</div>
                 </td>
-                <td>{stage(p.stage)}</td>
+                <td>{levelPill(p)}</td>
                 <td style={{ fontSize: 12 }}>
                   {p.email || p.phone || "—"}
                   {!p.email && p.stage !== "to_prospect" && <span className="pill pred" style={{ marginLeft: 6 }}>{t("needs email", "courriel ?")}</span>}

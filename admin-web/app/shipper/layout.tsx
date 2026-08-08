@@ -8,7 +8,7 @@ import { useLang } from "@/lib/i18n";
 import {
   LayoutDashboard, PackagePlus, Upload, Send, Package, Truck, Users, Boxes, Tag,
   Megaphone, TrendingUp, ReceiptText, CreditCard, Star, UsersRound, Palette, Building2,
-  LogOut, Search, HelpCircle, Settings, LayoutGrid, ChevronsUpDown, ArrowRight, Code2, Lock,
+  LogOut, Search, HelpCircle, Settings, LayoutGrid, ChevronsUpDown, ArrowRight, Code2, Lock, Sparkles,
 } from "lucide-react";
 
 type NavItem = { href: string; Icon: any; en: string; fr: string };
@@ -54,6 +54,7 @@ const planLabel = (p: Plan) => (p === "pro" ? "Pro" : "Business");
 const GROUPS: NavGroup[] = [
   { head: null, items: [
     { href: "/shipper", Icon: LayoutDashboard, en: "Overview", fr: "Aperçu" },
+    { href: "/shipper/assistant", Icon: Sparkles, en: "Assistant", fr: "Assistant" },
   ] },
   { head: { en: "Ship", fr: "Expédier" }, items: [
     { href: "/shipper/create", Icon: PackagePlus, en: "New shipment", fr: "Nouvel envoi" },

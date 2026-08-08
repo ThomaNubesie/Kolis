@@ -43,6 +43,18 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
     if (!key) return json({ error: "stripe_not_configured" }, 500);
+
+    // Server-to-server price materialisation (x-kolis-secret) — creates/syncs the
+    // Stripe prices for every plan without needing a staff browser session.
+    const secretHdr = req.headers.get("x-kolis-secret");
+    if (secretHdr) {
+      if (secretHdr !== "kolis_notify_9f3a2c7b1e6d4084") return json({ error: "forbidden" }, 403);
+      const adminS = createClient(SUPABASE_URL, SERVICE);
+      const out: Record<string, string> = {};
+      for (const planKey of Object.keys(PLANS)) out[planKey] = await ensurePrice(adminS, planKey);
+      return json({ ok: true, prices: out });
+    }
+
     const authHeader = req.headers.get("Authorization") ?? "";
     const userClient = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: authHeader } } });
     const { data: { user } } = await userClient.auth.getUser();

@@ -59,7 +59,7 @@ const planLabel = (p: Plan) => (p === "pro" ? "Pro" : "Business");
 const GROUPS: NavGroup[] = [
   { head: null, items: [
     { href: "/shipper", Icon: LayoutDashboard, en: "Overview", fr: "Aperçu" },
-    { href: "/shipper/assistant", Icon: Sparkles, en: "Assistant", fr: "Assistant" },
+    { href: "/shipper/assistant", Icon: Sparkles, en: "AI Assistant", fr: "Assistant IA" },
   ] },
   { head: { en: "Ship", fr: "Expédier" }, items: [
     { href: "/shipper/create", Icon: PackagePlus, en: "New shipment", fr: "Nouvel envoi" },
@@ -301,7 +301,7 @@ function Shell({ children }: { children: React.ReactNode }) {
           <div onClick={() => setAiOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(20,15,25,.35)", zIndex: 260 }} />
           <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: 430, maxWidth: "96vw", background: "var(--bg,#F7F5EF)", zIndex: 270, boxShadow: "-14px 0 44px rgba(0,0,0,.22)", display: "flex", flexDirection: "column", padding: 16 }}>
             <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <div className="row" style={{ gap: 8, alignItems: "center" }}><Sparkles size={19} color="var(--accent,#E11D6B)" /><b style={{ fontSize: 16 }}>{t("Assistant", "Assistant")}</b></div>
+              <div className="row" style={{ gap: 8, alignItems: "center" }}><Sparkles size={19} color="var(--accent,#E11D6B)" /><b style={{ fontSize: 16 }}>{t("AI Assistant", "Assistant IA")}</b></div>
               <button onClick={() => setAiOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6675", padding: 4 }}><X size={20} /></button>
             </div>
             <div style={{ flex: 1, minHeight: 0 }}><AssistantChat variant="panel" /></div>

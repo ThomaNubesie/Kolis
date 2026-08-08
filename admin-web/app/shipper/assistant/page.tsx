@@ -33,7 +33,7 @@ export default function Assistant() {
     <div style={{ maxWidth: 820, margin: "0 auto" }}>
       <div className="row" style={{ alignItems: "center", gap: 10, marginBottom: 4 }}>
         <Sparkles size={22} color="var(--accent,#E11D6B)" />
-        <h1 style={{ margin: 0 }}>{t("Assistant", "Assistant")}</h1>
+        <h1 style={{ margin: 0 }}>{t("AI Assistant", "Assistant IA")}</h1>
       </div>
       <div className="sub" style={{ marginBottom: 12 }}>{t(
         "Ask about your shipments, clients, invoices and prospects — or ask me to create a shipment or send an email. I'll always ask you to confirm before anything is created or sent.",

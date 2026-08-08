@@ -1,6 +1,18 @@
 # Kolis / Concord Express — session handoff
 
-_Last updated: 2026-07-31. Snapshot so work can continue on any machine (`git pull`, start a fresh Claude session, say "continue the Kolis work")._
+_Last updated: 2026-08-08. Snapshot so work can continue on any machine (`git pull`, start a fresh Claude session, say "continue the Kolis work")._
+
+## Latest session — 2026-08-08 (no-percentage scrub + instant click→AI follow-up)
+
+**Zero percentage/commission to merchants — enforced everywhere.** The internal courier margin (20% / 15% / 12% by plan) must NEVER appear on any merchant-facing surface. Scrubbed this session:
+- **Public website (`admin-web/components/Landing.tsx`).** Pricing section previously showed a big **"20% — of the total delivery price · Monthly billing on account"**. Replaced with **"Per shipment — priced by the package you send · no subscription · no monthly fee · no minimums · Ontario & Québec"**. Deployed to business.kolis.ca. (Landing renders at the app root via `app/page.tsx`.)
+- **`kolis-prospect-advisor` edge fn.** Its base prompt told the AI to write "20% of the delivery price / billed monthly on account" into merchant proposals/emails/scripts, and leaked the internal "Kolis pays the courier out of that 20%" note. Rewritten: pricing framed as **per-shipment, package-based, no subscription/monthly/minimum**, plus the same HARD RULE as `kolis-followup-ai` (NEVER mention any %/commission/margin/markup). Deployed `--no-verify-jwt`.
+- The `fee: "20%/15%/12%"` field in `admin-web/app/shipper/plans/page.tsx` is **dead data** — not rendered anywhere, so nothing visible there. The 20% still lives ONLY in internal billing logic (`kolis-stripe-webhook` `PLAN_FEE`), never shown.
+
+**Click → AI follow-up is now instant + never missed.** A prospect click should immediately produce an AI follow-up suggestion emailed for approval. Root cause of earlier misses (Aug 7): `kolis-followup-ai` had been deployed `verify_jwt=true`, so `concord-outreach-webhook`'s internal `x-kolis-secret` call 401'd at the gateway and no draft was ever generated — the one draft that existed (Bio-Test) was a later manual trigger. Fixes:
+- Redeployed **`kolis-followup-ai` `verify_jwt=false`** (the whole chain — `concord-outreach-webhook` → `kolis-followup-ai` — is now `verify_jwt=false`, so clicks draft instantly). This matches the [[kolis-notify-verify-jwt]] rule: notify/webhook fns MUST be `verify_jwt=false` or the gateway 401s and it silently dies.
+- Approval notifications now go to **both** `shaloderick@concordexpress.ca` AND `shaloderick@gmail.com` (`ADMINS` array in `kolis-followup-ai`; `resendSend` accepts a `to` array). Previously only concordexpress.ca — which is why only one inbox saw it.
+- `concord_outreach` drafts live in `followup_draft_subject/_body/_next_steps` (+ `followup_approve_token`, `followup_ai_sent_at` stamps the send to the PROSPECT, not the admin notification). Approve link: `kolis-followup-ai?action=approve&id=&token=`.
 
 ## Latest session — 2026-07-31
 **PAYG payment gating.** Card parcels no longer notify the recipient at creation. New `kolis_parcels.payment_status` (pending→authorized→paid). Cron `kolis-payment-sync` (job 12, every min) polls Stripe → on authorization activates the parcel + fires the `created` notification; auto-cancels abandonments (>30 min, scoped to last 3h). Capture-on-delivery via `kolis-finalize-payment` (blocks delivery unless captured). Revenue (`kolis_admin_revenue`) now counts **captured** (`payment_status='paid'`) as collected, authorized+paid as billed — not "has a PI".

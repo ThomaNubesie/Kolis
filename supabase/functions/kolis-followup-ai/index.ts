@@ -14,6 +14,9 @@ const SECRET = "kolis_notify_9f3a2c7b1e6d4084";
 const FROM = "Kolis · Business <marketing@concordexpress.ca>";
 const REPLY = "marketing@concordexpress.ca";
 const ADMIN = "shaloderick@concordexpress.ca";
+// Approval notifications go to BOTH the Concord Express Workspace inbox and the
+// personal Gmail so a click is never missed.
+const ADMINS = ["shaloderick@concordexpress.ca", "shaloderick@gmail.com"];
 const FN = SUPABASE_URL + "/functions/v1/kolis-followup-ai";
 const CITIES = "Ottawa, Gatineau, Montréal, Québec City, Toronto, Kingston, Chicoutimi and Sudbury";
 
@@ -22,8 +25,8 @@ const html = (h: string, s = 200) => new Response(h, { status: s, headers: { "co
 const esc = (t: string) => (t || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const paras = (t: string) => (t || "").split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
 
-async function resendSend(p: { to: string; cc?: string | null; subject: string; html: string }) {
-  const payload: Record<string, unknown> = { from: FROM, to: [p.to], subject: p.subject, html: p.html, reply_to: REPLY };
+async function resendSend(p: { to: string | string[]; cc?: string | null; subject: string; html: string }) {
+  const payload: Record<string, unknown> = { from: FROM, to: Array.isArray(p.to) ? p.to : [p.to], subject: p.subject, html: p.html, reply_to: REPLY };
   if (p.cc) payload.cc = [p.cc];
   const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { Authorization: `Bearer ${RESEND}`, "content-type": "application/json" }, body: JSON.stringify(payload) });
   return { ok: r.ok, body: await r.json().catch(() => ({})) };
@@ -144,8 +147,8 @@ Deno.serve(async (req) => {
 
     const approveUrl = `${FN}?action=approve&id=${b.id}&token=${token}`;
     const boardUrl = `https://business.kolis.ca/admin/prospects/${b.id}`;
-    const r = await resendSend({ to: ADMIN, subject: `${p.business_name} clicked — approve the AI follow-up`, html: approvalEmail(p, draft.subject, paras(draft.body), draft.next_steps, approveUrl, boardUrl) });
-    return j({ ok: r.ok, drafted: true, notified: ADMIN });
+    const r = await resendSend({ to: ADMINS, subject: `${p.business_name} clicked — approve the AI follow-up`, html: approvalEmail(p, draft.subject, paras(draft.body), draft.next_steps, approveUrl, boardUrl) });
+    return j({ ok: r.ok, drafted: true, notified: ADMINS });
   }
 
   return j({ error: "unknown" }, 400);

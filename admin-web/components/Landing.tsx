@@ -149,10 +149,10 @@ export default function Landing() {
         <h2>{t("Simple, no surprises", "Simple, sans surprises")}</h2>
         <p className="lede"></p>
         <div className="price">
-          <div className="big">20%</div>
-          <div className="of">{t("of the total delivery price", "du prix total de livraison")}</div>
-          <div className="pn">{t("Monthly billing on account · no subscription · no upfront fixed costs", "Facturation mensuelle sur compte · aucun abonnement · aucuns frais fixes initiaux")}</div>
-          <div className="checks"><span>{t("No fleet to manage", "Aucune flotte à gérer")}</span><span>{t("Bilingual FR/EN", "Bilingue FR/EN")}</span><span>{t("Cancel anytime", "Annulez à tout moment")}</span></div>
+          <div className="big">{t("Per shipment", "Par envoi")}</div>
+          <div className="of">{t("priced by the package you send", "selon le colis que vous envoyez")}</div>
+          <div className="pn">{t("No subscription · no monthly fee · no minimums · Ontario & Québec", "Aucun abonnement · aucuns frais mensuels · aucun minimum · Ontario et Québec")}</div>
+          <div className="checks"><span>{t("No fleet to manage", "Aucune flotte à gérer")}</span><span>{t("Bilingual FR/EN", "Bilingue FR/EN")}</span><span>{t("Pay only when you ship", "Payez seulement à l'envoi")}</span></div>
           <a className="b" href={CONTACT}>{t("Request access", "Demander l'accès")}</a>
         </div>
       </div></section>

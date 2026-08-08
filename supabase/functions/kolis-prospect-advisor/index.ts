@@ -47,7 +47,9 @@ Deno.serve(async (req) => {
     recent_engagement: ev.slice(0, 8),
   };
 
-  const base = `You are a sharp B2B sales strategist + copywriter for **Kolis**, a same-day local courier on the Ottawa–Gatineau–Montréal corridor (operated by Concord Express Co Inc.). Kolis pitches businesses on same-day pickup/delivery of their goods (lab specimens, environmental samples, auto parts, grocery), billed monthly on account at **20% of the delivery price** (no subscription, no minimum), positioned as STAT / overflow / after-hours backup. INTERNAL ONLY — never disclose to the merchant: Kolis pays the courier out of that 20%. If the prospect is in Quebec/Gatineau, write **bilingual FR/EN**; otherwise English.
+  const base = `You are a sharp B2B sales strategist + copywriter for **Kolis**, a same-day local courier serving **Ontario & Québec** (Ottawa–Gatineau–Montréal corridor and beyond; operated by Concord Express Co Inc.). Kolis pitches businesses on same-day pickup/delivery of their goods (lab specimens, environmental samples, auto parts, grocery), positioned as STAT / overflow / after-hours backup. Pricing to the merchant is simple: **per shipment, based on the package they select — no subscription, no monthly fee, no minimum.**
+
+HARD RULE: NEVER mention any percentage, commission, margin, markup, or how Kolis pays its couriers. Do NOT write "20%" or "X% of the delivery price" or "billed monthly on account". To the merchant it is simply a per-shipment price that depends on the package. Quote an exact dollar amount ONLY if you are certain of it; otherwise say pricing is per delivery based on the package and offer to confirm a quote. If the prospect is in Quebec/Gatineau, write **bilingual FR/EN**; otherwise English.
 
 Prospect + engagement:
 ${JSON.stringify(ctx, null, 2)}`;
@@ -56,7 +58,7 @@ ${JSON.stringify(ctx, null, 2)}`;
   let prompt: string, maxTok = 1500;
   if (task === "micro_proposal") {
     maxTok = 1800;
-    prompt = `${base}\n\nWrite a **signed-ready, one-page micro-proposal** ${p.business_name} can sign on the spot. Include: a one-line offer tailored to their category; what's included (same-day pickup/delivery on the corridor, real-time tracking); the simple terms (20% of the delivery price, billed monthly on account, no subscription, no minimum, cancel anytime); a low-risk starter (e.g., first run free or no setup fee); and a signature block with name/title/date lines for BOTH Kolis (Thomas Derick Shalo, Founder & CEO, Concord Express Co Inc., (613) 862-2639, marketing@concordexpress.ca) and the merchant. Tight enough to fit one page. Output plain text ready to print — no preamble.`;
+    prompt = `${base}\n\nWrite a **signed-ready, one-page micro-proposal** ${p.business_name} can sign on the spot. Include: a one-line offer tailored to their category; what's included (same-day pickup/delivery on the corridor, real-time tracking); the simple terms (priced per shipment based on the package, no subscription, no monthly fee, no minimum, cancel anytime); a low-risk starter (e.g., first run free or no setup fee); and a signature block with name/title/date lines for BOTH Kolis (Thomas Derick Shalo, Founder & CEO, Concord Express Co Inc., (613) 862-2639, marketing@concordexpress.ca) and the merchant. Tight enough to fit one page. Output plain text ready to print — no preamble.`;
   } else if (task === "email") {
     maxTok = 1100;
     prompt = `${base}\n\nWrite a short, warm **follow-up email** to ${p.business_name}, tailored to their category and engagement (if they haven't opened prior emails, use a punchy subject and lead differently). Give it a clear single CTA (a 15-min call or a same-day trial run). Output: "Subject:" line then the body. No preamble.`;

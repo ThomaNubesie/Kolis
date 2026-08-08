@@ -24,10 +24,9 @@ const LEVEL_COLOR: Record<string, string> = {
   met: "#16A34A", closed: "#334155", bounced: "#EA580C", stopped: "#9CA3AF", rejected: "#DC2626",
 };
 const LEVEL_ORDER = ["suggested", "new", "contacted", "engaged", "replied", "met", "closed", "bounced", "stopped", "rejected"];
+// Non-level quick filters; the colour key below handles filtering by state.
 const FILTERS: [string, string, string][] = [
-  ["", "All", "Tous"], ["suggested", "Suggested", "Suggéré"], ["engaged", "Engaged", "Engagé"],
-  ["replied", "Replied", "A répondu"], ["contacted", "Contacted", "Contacté"], ["met", "Met / Won", "Rencontré"],
-  ["tier1", "Tier 1", "Niveau 1"], ["needs_email", "Needs email", "Sans courriel"],
+  ["", "All", "Tous"], ["tier1", "Tier 1", "Niveau 1"], ["needs_email", "Needs email", "Sans courriel"],
 ];
 
 export default function Prospects() {
@@ -110,15 +109,21 @@ export default function Prospects() {
         ))}
       </div>
 
-      {/* Colour key — what each urgency colour means */}
-      <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 14, fontSize: 12, color: "#6B6675" }}>
-        <span style={{ fontWeight: 700 }}>{t("Key", "Légende")}:</span>
-        {LEVEL_ORDER.map((k) => (
-          <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
-            <span style={{ width: 11, height: 11, borderRadius: 3, background: LEVEL_COLOR[k], display: "inline-block" }} />
-            {LEVEL_LABEL[k][lang === "fr" ? 1 : 0]}
-          </span>
-        ))}
+      {/* Colour key — click a colour to filter the board to that state */}
+      <div className="row" style={{ gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 14, fontSize: 12 }}>
+        <span style={{ fontWeight: 700, color: "#6B6675" }}>{t("Key", "Légende")}:</span>
+        {LEVEL_ORDER.map((k) => {
+          const active = filter === k;
+          return (
+            <button key={k} onClick={() => setFilter(active ? "" : k)} title={t("Filter to this state", "Filtrer par cet état")}
+              style={{ display: "inline-flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", cursor: "pointer",
+                border: `1px solid ${active ? LEVEL_COLOR[k] : "#e2ddd0"}`, background: active ? LEVEL_COLOR[k] + "1f" : "#fff",
+                color: active ? LEVEL_COLOR[k] : "#6B6675", fontWeight: active ? 700 : 500, borderRadius: 20, padding: "4px 11px", fontSize: 12 }}>
+              <span style={{ width: 10, height: 10, borderRadius: 3, background: LEVEL_COLOR[k], display: "inline-block" }} />
+              {LEVEL_LABEL[k][lang === "fr" ? 1 : 0]}
+            </button>
+          );
+        })}
       </div>
 
       {err && <div className="warn">{err}</div>}

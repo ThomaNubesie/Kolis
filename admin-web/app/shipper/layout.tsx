@@ -8,11 +8,27 @@ import { useLang } from "@/lib/i18n";
 import {
   LayoutDashboard, PackagePlus, Upload, Send, Package, Truck, Users, Boxes, Tag,
   Megaphone, TrendingUp, ReceiptText, CreditCard, Star, UsersRound, Palette, Building2,
-  LogOut, Search, HelpCircle, Settings, LayoutGrid, ChevronsUpDown, ArrowRight, Code2,
+  LogOut, Search, HelpCircle, Settings, LayoutGrid, ChevronsUpDown, ArrowRight, Code2, Lock,
 } from "lucide-react";
 
 type NavItem = { href: string; Icon: any; en: string; fr: string };
 type NavGroup = { head: { en: string; fr: string } | null; items: NavItem[] };
+
+// Per-plan feature gating: the minimum plan that unlocks each feature. Anything
+// not listed is available on every plan (incl. Pay-as-you-go). Mirrors the
+// features advertised on /shipper/plans.
+type Plan = "free" | "business" | "pro";
+const PLAN_RANK: Record<Plan, number> = { free: 0, business: 1, pro: 2 };
+const FEATURE_MIN: Record<string, Plan> = {
+  "/shipper/import": "business",   // Bulk import
+  "/shipper/bulk": "business",     // Bulk shipment
+  "/shipper/analytics": "business",
+  "/shipper/branding": "business",
+  "/shipper/team": "business",     // Team & seats
+  "/freight": "business",          // Freight quoting
+  "/developer": "pro",             // API access
+};
+const rankOf = (p?: string) => PLAN_RANK[(p as Plan) || "free"] ?? 0;
 
 // Grouped sidebar (scrollable). Overview is pinned on top; the rest live under
 // SHIP / GROW / MONEY / WORKSPACE section headers.
@@ -86,6 +102,22 @@ function Shell({ children }: { children: React.ReactNode }) {
     }
   }, [acct, needsPlan, path, router]);
 
+  // Per-plan feature gating: the chosen plan only activates its own features.
+  const [plan, setPlan] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    supabase.rpc("kolis_org_plan", { p_org: active.org_id }).then(
+      ({ data }) => setPlan(((Array.isArray(data) ? data[0] : data) as any)?.plan || "free"),
+      () => setPlan("free"),
+    );
+  }, [active.org_id]);
+  const locked = (href: string) => { const m = FEATURE_MIN[href]; return !!m && rankOf(plan) < PLAN_RANK[m]; };
+  // Block direct-URL access to a shipper feature the plan doesn't include.
+  useEffect(() => {
+    if (needsPlan || plan === undefined) return;
+    const hit = Object.keys(FEATURE_MIN).find((k) => k.startsWith("/shipper") && (path === k || path.startsWith(k + "/")));
+    if (hit && rankOf(plan) < PLAN_RANK[FEATURE_MIN[hit]]) router.replace("/shipper/plans");
+  }, [plan, needsPlan, path, router]);
+
   const planGate = needsPlan === true && path !== "/shipper/plans";
   const gated = planGate || (!needsPlan && acct && !acct.complete && (acct.role === "owner" || acct.role === "admin") && path !== "/shipper/account");
   const initials = (active.name || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
@@ -153,9 +185,17 @@ function Shell({ children }: { children: React.ReactNode }) {
               <div key={gi}>
                 {g.head && <div className={"bp-navhead" + (gi === 1 ? " first" : "")}>{lang === "fr" ? g.head.fr : g.head.en}</div>}
                 {g.items.map((n) => (
-                  <Link key={n.href} href={n.href} className={"bp-nav" + (isActive(n.href) ? " on" : "")}>
-                    <n.Icon size={17} strokeWidth={2} />{lang === "fr" ? n.fr : n.en}
-                  </Link>
+                  locked(n.href) ? (
+                    <Link key={n.href} href="/shipper/plans" className="bp-nav" style={{ opacity: 0.55 }}
+                      title={t("Upgrade your plan to unlock", "Améliorez votre forfait pour débloquer")}>
+                      <n.Icon size={17} strokeWidth={2} />{lang === "fr" ? n.fr : n.en}
+                      <Lock size={13} strokeWidth={2.2} style={{ marginLeft: "auto" }} />
+                    </Link>
+                  ) : (
+                    <Link key={n.href} href={n.href} className={"bp-nav" + (isActive(n.href) ? " on" : "")}>
+                      <n.Icon size={17} strokeWidth={2} />{lang === "fr" ? n.fr : n.en}
+                    </Link>
+                  )
                 ))}
               </div>
             ))}

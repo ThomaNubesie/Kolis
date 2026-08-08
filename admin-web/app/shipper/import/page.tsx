@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
-import { emailOk, phoneOk, nameOk, cityOk } from "@/lib/validate";
+import { emailOk, phoneOk, nameOk, cityOk, addressOk } from "@/lib/validate";
 
 // Minimal CSV parser (handles quoted fields + commas). Header row required.
 function parseCsv(text: string): Record<string, string>[] {
@@ -48,7 +48,7 @@ export default function BulkImport() {
     if (!phoneOk(r.to_phone)) p.push(t("phone", "téléphone"));
     if (!cityOk(r.to_city)) p.push(t("city not served", "ville non desservie"));
     if (r.from_city && !cityOk(r.from_city)) p.push(t("from_city not served", "ville de départ non desservie"));
-    if (!(r.to_address || "").trim()) p.push(t("address", "adresse"));
+    if (!addressOk(r.to_address)) p.push(t("address", "adresse"));
     if ((r.to_email || "").trim() && !emailOk(r.to_email)) p.push(t("email", "courriel"));
     return { row: i + 1, problems: p };
   }).filter((x) => x.problems.length), [rows, t]);

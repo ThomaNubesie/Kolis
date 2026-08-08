@@ -19,6 +19,7 @@ export async function verifyEmail(email?: string | null): Promise<EmailVerdict> 
 
 // User-facing reason for a rejected email.
 export function emailReason(v: EmailVerdict, fr: boolean): string {
+  if (v.reason === "placeholder") return fr ? "Ce courriel semble être un espace réservé — saisissez la vraie adresse du destinataire." : "That email looks like a placeholder — enter the recipient's real address.";
   if (v.reason === "disposable") return fr ? "Les adresses courriel jetables ne sont pas acceptées." : "Disposable email addresses aren't accepted.";
   if (v.reason === "no_mail_server") return fr ? "Ce domaine de courriel n'existe pas ou ne reçoit pas de courriel — vérifiez l'orthographe." : "That email domain doesn't exist or can't receive mail — check the spelling.";
   return fr ? "Adresse courriel invalide." : "Invalid email address.";

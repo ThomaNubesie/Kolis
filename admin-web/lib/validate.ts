@@ -21,6 +21,16 @@ export const nameOk = (n?: string | null) => {
 const CITY_SET = new Set(cityList.map((c) => c.toLowerCase()));
 export const cityOk = (c?: string | null) => CITY_SET.has((c || "").trim().toLowerCase());
 
+// A plausible street address: needs a civic/street number and a street name.
+// Rejects placeholders like "ssss" or "asdf".
+export const addressOk = (a?: string | null) => {
+  const s = (a || "").trim();
+  if (s.length < 5) return false;
+  if (!/\d/.test(s)) return false;          // a civic / street number
+  if (!/\p{L}{2,}/u.test(s)) return false;  // a street name
+  return true;
+};
+
 // Reject obvious gibberish for the parcel contents description: needs real
 // letters, a vowel, and some variety (so "asdfgh", "xxxxx", "....", "123" fail
 // while "documents", "auto parts", "vêtements" pass).

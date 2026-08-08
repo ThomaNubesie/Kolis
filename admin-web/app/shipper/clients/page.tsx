@@ -5,7 +5,7 @@ import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
 import { COUNTRIES, countryByCode, toE164 } from "@/lib/countries";
 import { cityList, regionFor } from "@/lib/cities";
-import { emailOk, phoneOk, nameOk, cityOk } from "@/lib/validate";
+import { emailOk, phoneOk, nameOk, cityOk, addressOk } from "@/lib/validate";
 import { verifyEmail, emailReason } from "@/lib/emailVerify";
 import { Smartphone, Home, Briefcase } from "lucide-react";
 
@@ -36,13 +36,14 @@ export default function Clients() {
     if (!nameOk(edit?.full_name)) { setErr(t("Enter the client's full name.", "Entrez le nom complet du client.")); return; }
     if (!emailOk(edit?.email)) { setErr(t("A valid email address is required.", "Une adresse courriel valide est requise.")); return; }
     if (ca ? !phoneOk(edit?.mobile) : !edit?.mobile?.trim()) { setErr(t("Enter a valid 10-digit mobile number.", "Entrez un numéro de mobile valide (10 chiffres).")); return; }
-    if (!edit?.address?.trim()) { setErr(t("Home address is required.", "L’adresse est requise.")); return; }
+    if (!addressOk(edit?.address)) { setErr(t("Enter a real address with a street number.", "Entrez une adresse réelle avec un numéro de rue.")); return; }
     if (ca && !cityOk(edit?.city)) { setErr(t("Choose a served city from the list so the address matches a city we cover.", "Choisissez une ville desservie dans la liste pour que l’adresse corresponde à une ville couverte.")); return; }
     setBusy(true); setErr("");
-    const v = await verifyEmail(edit?.email);
+    const cur = edit!;
+    const v = await verifyEmail(cur.email);
     if (!v.ok) { setBusy(false); setErr(emailReason(v, lang === "fr")); return; }
-    const dial = countryByCode(edit.country).dial;
-    const payload = { ...edit, mobile: edit.mobile ? toE164(edit.mobile, dial) : edit.mobile };
+    const dial = countryByCode(cur.country).dial;
+    const payload = { ...cur, mobile: cur.mobile ? toE164(cur.mobile, dial) : cur.mobile };
     try { await org.clientSave(active.org_id, payload); setEdit(null); flash(t("Client saved.", "Client enregistré.")); load(); }
     catch (e: any) { setErr(e?.message || t("Failed.", "Échec.")); }
     setBusy(false);

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { org } from "@/lib/supabase";
 import { cityList } from "@/lib/cities";
-import { emailOk, phoneOk, nameOk, cityOk, contentsOk } from "@/lib/validate";
+import { emailOk, phoneOk, nameOk, cityOk, contentsOk, addressOk } from "@/lib/validate";
 import { verifyEmail, emailReason } from "@/lib/emailVerify";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
@@ -116,7 +116,7 @@ export default function CreateShipment() {
       if (!nameOk(f.p_recipient_name)) { setErr(t("Enter the recipient's full name.", "Entrez le nom complet du destinataire.")); return; }
       if (!emailOk(f.p_recipient_email)) { setErr(t("A valid recipient email is required.", "Un courriel valide du destinataire est requis.")); return; }
       if (!phoneOk(f.p_recipient_phone)) { setErr(t("Enter a valid 10-digit phone number.", "Entrez un numéro de téléphone valide (10 chiffres).")); return; }
-      if (!f.p_dropoff_addr.trim()) { setErr(t("Delivery address is required.", "L’adresse de livraison est requise.")); return; }
+      if (!addressOk(f.p_dropoff_addr)) { setErr(t("Enter a real delivery address with a street number.", "Entrez une adresse de livraison réelle avec un numéro de rue.")); return; }
       if (!cityOk(f.p_to_city)) { setErr(t("Choose a served destination city from the list.", "Choisissez une ville de destination desservie dans la liste.")); return; }
       if (!(parseFloat(declared) > 0)) { setErr(t("Enter the parcel’s declared value.", "Indiquez la valeur déclarée du colis.")); return; }
       if (insured === null) { setErr(t("Choose insurance — insure or decline.", "Choisissez l’assurance — assurer ou refuser.")); return; }
@@ -127,7 +127,7 @@ export default function CreateShipment() {
       lines = [{ name: f.p_recipient_name.trim(), route: `${f.p_from_city} → ${f.p_to_city}`, size: f.p_size, price_cents: null }];
     } else {
       if (selectedIds.length === 0) { setErr(t("Select at least one client as a recipient.", "Sélectionnez au moins un client comme destinataire.")); return; }
-      const bad = selectedIds.find((id) => { const r = R[id]; return !cityOk(r.to_city) || !r.to_address.trim() || !emailOk(r.email) || !phoneOk(r.phone) || (r.insured === true && !(parseFloat(r.declared) > 0)); });
+      const bad = selectedIds.find((id) => { const r = R[id]; return !cityOk(r.to_city) || !addressOk(r.to_address) || !emailOk(r.email) || !phoneOk(r.phone) || (r.insured === true && !(parseFloat(r.declared) > 0)); });
       if (bad) { const c = clients.find((x) => x.id === bad); setErr(t(`Check the recipient details for ${c?.full_name || "each recipient"}: a served city, delivery address, valid email and 10-digit phone (and declared value if insuring).`, `Vérifiez les infos du destinataire ${c?.full_name || ""} : une ville desservie, l’adresse, un courriel valide et un téléphone à 10 chiffres (et la valeur déclarée si assuré).`)); return; }
       setBusy(true);
       const verds = await Promise.all(selectedIds.map((id) => verifyEmail(R[id].email)));

@@ -1,8 +1,3 @@
-// Proposes a paid/ready Kolis parcel to drivers (push). Targets VERIFIED Kolis
-// members heading to the destination: Hub = any queued driver to that region;
-// Door = drivers waiting in queue position >= 2 (slack to detour). Off-queue
-// members still see it in-app via kolis_available_parcels. Called after the
-// parcel is dropped+paid (hub) or paid (door).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -36,7 +31,6 @@ Deno.serve(async (req) => {
                || (parcel.dropoff_type === "door" && parcel.status === "requested");
     if (!ready) return json({ ok: true, skipped: true });
 
-    // Queued drivers heading to the destination (door requires waiting position >= 2).
     const { data: queued } = await admin.from("queue_entries")
       .select("driver_id, position").eq("destination_region", parcel.to_region).is("end_reason", null);
     let driverIds = [...new Set((queued ?? [])
@@ -44,7 +38,6 @@ Deno.serve(async (req) => {
       .map((r: { driver_id: string }) => r.driver_id).filter(Boolean))];
     if (driverIds.length === 0) return json({ ok: true, notified: 0 });
 
-    // Only verified Kolis members (courier/both).
     const { data: members } = await admin.from("kolis_profiles")
       .select("id").in("id", driverIds).eq("identity_verified", true).in("role", ["courier", "both"]);
     const memberIds = (members ?? []).map((m: { id: string }) => m.id);

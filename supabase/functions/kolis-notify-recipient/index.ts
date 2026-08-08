@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data: p } = await admin.from("kolis_parcels")
-      .select("code, to_city, recipient_email, recipient_phone, status, delivery_code, pickup_code, pickup_eta_minutes, pickup_eta_at, org_id, sender_id, contents_description").eq("id", parcel_id).maybeSingle();
+      .select("code, to_city, recipient_email, recipient_phone, status, delivery_code, pickup_code, pickup_eta_minutes, pickup_eta_at, org_id, sender_id, contents_description, recipient_lang").eq("id", parcel_id).maybeSingle();
     if (!p) return json({ error: "not found" }, 404);
 
     const code = p.code as string;

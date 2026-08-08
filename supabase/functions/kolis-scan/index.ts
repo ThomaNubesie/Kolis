@@ -1,7 +1,7 @@
-// Driver scans a parcel's pickup/delivery QR. Enforces a 100 m geofence: the
-// code is only revealed (and the event recorded/shared) when the driver is within
-// 100 m of the pickup (kind=pickup) or drop-off (kind=delivery) point. Also
-// geolocates the scan and notifies sender + recipient + admin.
+// Driver scans a parcel's pickup/delivery QR. Only the ASSIGNED courier may scan
+// and receive the code — that check (below) is the sole gate. No distance geofence:
+// the code is revealed to the assigned driver regardless of GPS. The scan is still
+// geolocated best-effort for the audit trail, and notifies sender + recipient + admin.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -11,7 +11,7 @@ const RESEND = Deno.env.get("RESEND_API_KEY");
 const FROM = Deno.env.get("KOLIS_FROM_EMAIL") || "Kolis <noreply@loadq.ca>";
 const ADMIN_EMAIL = Deno.env.get("KOLIS_ADMIN_EMAIL") || "support@concordexpress.ca";
 const TW_SID = Deno.env.get("KOLIS_TWILIO_SID"), TW_TOKEN = Deno.env.get("KOLIS_TWILIO_TOKEN"), TW_FROM = Deno.env.get("KOLIS_TWILIO_FROM");
-const GEOFENCE_M = 100;
+// Geofence removed — the assigned-driver check is the only gate.
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
@@ -82,29 +82,12 @@ Deno.serve(async (req) => {
       recipient: { name: p.recipient_name, phone: p.recipient_phone, address: p.dropoff_addr || p.to_city },
     };
 
-    // ── FAIL-CLOSED geofence ──────────────────────────────────────────────
-    // The code is revealed ONLY on a confirmed in-range GPS fix. If we can't
-    // prove the driver is within 100 m, we return WHY (so the app can prompt)
-    // but never the code.
-    const hasDriverLoc = typeof lat === "number" && typeof lng === "number";
-    const hasTargetLoc = tLat != null && tLng != null;
-    // NOTE: verified:true on every locked response too — older app builds gate the
-    // "locked" UI on (verified && !in_range); keeping it true makes them lock
-    // cleanly instead of falling through. Security is `in_range`, never `verified`.
-    if (!hasDriverLoc) {
-      // Driver's location is off/unavailable — cannot verify distance.
-      return json({ ok: true, in_range: false, reason: "location_off", verified: true, geofence_m: GEOFENCE_M, ...details });
-    }
-    if (!hasTargetLoc) {
-      // Parcel has no pickup/drop-off coordinates yet — cannot verify distance.
-      return json({ ok: true, in_range: false, reason: "not_geocoded", verified: true, geofence_m: GEOFENCE_M, ...details });
-    }
-    if (distance == null || distance > GEOFENCE_M) {
-      // Both located, but the driver is outside the fence.
-      return json({ ok: true, in_range: false, reason: "too_far", verified: true, distance_m: distance, geofence_m: GEOFENCE_M, ...details });
-    }
+    // ── Geofence REMOVED ──────────────────────────────────────────────────
+    // The assigned-driver check above is the ONLY gate. If the caller is the
+    // parcel's courier, reveal the code regardless of GPS distance. Location is
+    // still captured below (best-effort) for the audit trail, but never blocks.
 
-    // In range (confirmed within 100 m) → reveal the code, record the scan, notify.
+    // Assigned driver confirmed → reveal the code, record the scan, notify.
     const pin = kind === "pickup" ? p.pickup_code : p.delivery_code;
     const upd: Record<string, unknown> = {};
     if (kind === "pickup") { upd.picked_up_lat = lat ?? null; upd.picked_up_lng = lng ?? null; upd.picked_up_scan_at = new Date().toISOString(); }
@@ -122,7 +105,7 @@ Deno.serve(async (req) => {
     sms(p.recipient_phone as string, `🇬🇧 ${body}`);
     sms(senderPhone as string, `🇬🇧 ${body}`);
 
-    return json({ ok: true, in_range: true, reason: "in_range", verified: true, distance_m: distance, geofence_m: GEOFENCE_M, scan: { lat, lng, map: mapUrl }, ...details, code: pin });
+    return json({ ok: true, in_range: true, reason: "assigned_driver", verified: true, distance_m: distance, scan: { lat, lng, map: mapUrl }, ...details, code: pin });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }

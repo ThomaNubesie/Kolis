@@ -2,6 +2,7 @@
 //   POST {action:"ensure"}                       → staff: create/sync Stripe products+prices, store price ids
 //   POST {action:"checkout", org_id, plan}       → member: Stripe Checkout (subscription) → {url}
 //   POST {action:"portal", org_id}               → member: Stripe Billing Portal → {url}
+//   POST + x-kolis-secret                         → server-to-server: materialise all plan prices
 // TEST-mode safe like the rest of Kolis billing (STRIPE_TEST_SECRET_KEY until go-live).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -20,7 +21,7 @@ export const PLANS: Record<string, { name: string; price_cad: number; fee: numbe
   pro: { name: "Kolis Pro", price_cad: 199.99, fee: 0.12, lookup: "kolis_pro_monthly_v2" },
 };
 
-const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
+const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-kolis-secret", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
 // Find-or-create the Stripe monthly price for a plan (idempotent via lookup_key),

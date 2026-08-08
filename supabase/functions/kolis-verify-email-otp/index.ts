@@ -1,6 +1,3 @@
-// Verifies a Kolis email OTP against kolis_email_otp. Deletes on success or
-// expiry; caps attempts. Public (no JWT) since it runs during signup before the
-// phone-auth session exists.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 

@@ -1,7 +1,3 @@
-// Creates a Stripe Identity verification session for Kolis onboarding and
-// returns the hosted verification URL (opened in a WebView). Couriers must use a
-// driving licence; senders may use licence/passport/ID. Reuses the shared
-// Concord Stripe account (STRIPE_SECRET_KEY already on the project).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14?target=deno";

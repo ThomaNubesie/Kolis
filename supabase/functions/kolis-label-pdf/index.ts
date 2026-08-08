@@ -126,8 +126,7 @@ Deno.serve(async (req) => {
     if (!code) return json({ error: "code required" }, 400);
 
     // Authenticated ONLY — the caller must be the parcel's sender, the assigned
-    // driver, or an org member. No token/public path: only the driver and the
-    // sender can ever pull a label (enforced by kolis_parcel_label).
+    // driver, or an org member. No token/public path.
     const supa = createClient(SUPABASE_URL, ANON, { global: { headers: { Authorization: req.headers.get("Authorization") || "" } } });
     const { data, error } = org_id
       ? await supa.rpc("kolis_org_label", { p_org: org_id, p_code: code })

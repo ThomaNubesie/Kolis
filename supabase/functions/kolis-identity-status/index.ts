@@ -1,6 +1,3 @@
-// Checks a Kolis Stripe Identity session. On 'verified' it reads the document's
-// name (verified_outputs) — the authoritative legal name — marks the profile
-// verified and reconciles full_name to the ID. Returns status + name.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14?target=deno";
@@ -37,7 +34,7 @@ Deno.serve(async (req) => {
     if (!session_id) return json({ status: "requires_input" });
 
     const session = await stripe.identity.verificationSessions.retrieve(session_id, { expand: ["verified_outputs"] });
-    const status = session.status; // requires_input | processing | verified | canceled
+    const status = session.status;
 
     let name: string | null = null;
     if (status === "verified") {
@@ -48,7 +45,7 @@ Deno.serve(async (req) => {
       await admin.from("kolis_profiles").update({
         identity_verified: true,
         verified_name: name,
-        full_name: name || undefined, // reconcile account name to the ID
+        full_name: name || undefined,
       }).eq("id", user.id);
     }
     return json({ status, name });

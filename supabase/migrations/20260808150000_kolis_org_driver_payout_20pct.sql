@@ -1,0 +1,7 @@
+-- Org shipments: driver gets 20% (Kolis 80%) for orgs OUTSIDE a price group;
+-- group-member orgs keep the initial rate (kolis_driver_payout_cents).
+-- Consumer (non-org) parcels are unaffected. (Applied to prod via MCP; the full
+-- kolis_org_create_shipment body change is the driver_payout_cents computation:
+--   v_payout := case when exists(select 1 from kolis_price_group_members m where m.org_id=p_org)
+--                    then kolis_driver_payout_cents(v_price, p_dropoff_type)
+--                    else round(v_price * 0.20)::int end;

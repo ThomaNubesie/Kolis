@@ -5,10 +5,11 @@ import Link from "next/link";
 import { supabase, org } from "@/lib/supabase";
 import { OrgGate, useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
+import AssistantChat from "@/components/AssistantChat";
 import {
   LayoutDashboard, PackagePlus, Upload, Send, Package, Truck, Users, Boxes, Tag,
   Megaphone, TrendingUp, ReceiptText, CreditCard, Star, UsersRound, Palette, Building2,
-  LogOut, Search, HelpCircle, Settings, LayoutGrid, ChevronsUpDown, ArrowRight, Code2, Lock, Sparkles,
+  LogOut, Search, HelpCircle, Settings, LayoutGrid, ChevronsUpDown, ArrowRight, Code2, Lock, Sparkles, X,
 } from "lucide-react";
 
 type NavItem = { href: string; Icon: any; en: string; fr: string };
@@ -20,6 +21,7 @@ type NavGroup = { head: { en: string; fr: string } | null; items: NavItem[] };
 type Plan = "free" | "business" | "pro";
 const PLAN_RANK: Record<Plan, number> = { free: 0, business: 1, pro: 2 };
 const FEATURE_MIN: Record<string, Plan> = {
+  "/shipper/assistant": "business", // AI assistant
   "/shipper/import": "business",   // Bulk import
   "/shipper/bulk": "business",     // Bulk shipment
   "/shipper/products": "business",
@@ -34,6 +36,7 @@ const FEATURE_MIN: Record<string, Plan> = {
 };
 // What each locked feature does — shown in the upgrade modal.
 const FEATURE_INFO: Record<string, { en: string; fr: string }> = {
+  "/shipper/assistant": { en: "An AI assistant that knows your whole account — it answers questions about your shipments, clients and invoices, and can create shipments or send emails (with your confirmation).", fr: "Un assistant IA qui connaît tout votre compte — il répond sur vos envois, clients et factures, et peut créer des envois ou envoyer des courriels (après votre confirmation)." },
   "/shipper/import": { en: "Import hundreds of shipments at once from a CSV or Excel file, instead of entering them one by one.", fr: "Importez des centaines d'envois d'un coup depuis un fichier CSV ou Excel, au lieu de les saisir un par un." },
   "/shipper/bulk": { en: "Create and dispatch many shipments together in a single batch.", fr: "Créez et expédiez plusieurs envois ensemble en un seul lot." },
   "/shipper/products": { en: "Keep a catalogue of the products you ship for faster, error-free order entry.", fr: "Gardez un catalogue des produits que vous expédiez pour une saisie plus rapide et sans erreur." },
@@ -132,6 +135,7 @@ function Shell({ children }: { children: React.ReactNode }) {
   }, [active.org_id]);
   const locked = (href: string) => { const m = FEATURE_MIN[href]; return !!m && rankOf(plan) < PLAN_RANK[m]; };
   const [lockItem, setLockItem] = useState<NavItem | null>(null); // feature shown in the upgrade modal
+  const [aiOpen, setAiOpen] = useState(false); // floating Ask-AI panel
   // Block direct-URL access to a shipper feature the plan doesn't include.
   useEffect(() => {
     if (needsPlan || plan === undefined) return;
@@ -141,6 +145,8 @@ function Shell({ children }: { children: React.ReactNode }) {
 
   const planGate = needsPlan === true && path !== "/shipper/plans";
   const gated = planGate || (!needsPlan && acct && !acct.complete && (acct.role === "owner" || acct.role === "admin") && path !== "/shipper/account");
+  // Floating assistant is a Business+ perk, hidden on the full Assistant page itself.
+  const showFab = !gated && rankOf(plan) >= PLAN_RANK.business && path !== "/shipper/assistant";
   const initials = (active.name || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 
   return (
@@ -280,6 +286,26 @@ function Shell({ children }: { children: React.ReactNode }) {
           </div>
         );
       })()}
+
+      {/* Floating "Ask AI" button + slide-over panel (Business+) */}
+      {showFab && !aiOpen && (
+        <button onClick={() => setAiOpen(true)} title={t("Ask AI", "Demander à l'IA")}
+          style={{ position: "fixed", right: 22, bottom: 22, zIndex: 250, background: "var(--accent,#E11D6B)", color: "#fff", border: "none", borderRadius: 26, padding: "12px 18px", fontWeight: 800, fontSize: 14, cursor: "pointer", boxShadow: "0 12px 32px rgba(225,29,107,.42)", display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <Sparkles size={18} /> {t("Ask AI", "Demander à l'IA")}
+        </button>
+      )}
+      {showFab && aiOpen && (
+        <>
+          <div onClick={() => setAiOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(20,15,25,.35)", zIndex: 260 }} />
+          <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: 430, maxWidth: "96vw", background: "var(--bg,#F7F5EF)", zIndex: 270, boxShadow: "-14px 0 44px rgba(0,0,0,.22)", display: "flex", flexDirection: "column", padding: 16 }}>
+            <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <div className="row" style={{ gap: 8, alignItems: "center" }}><Sparkles size={19} color="var(--accent,#E11D6B)" /><b style={{ fontSize: 16 }}>{t("Assistant", "Assistant")}</b></div>
+              <button onClick={() => setAiOpen(false)} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: "#6B6675", padding: 4 }}><X size={20} /></button>
+            </div>
+            <div style={{ flex: 1, minHeight: 0 }}><AssistantChat variant="panel" /></div>
+          </div>
+        </>
+      )}
     </div>
   );
 }

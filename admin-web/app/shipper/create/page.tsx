@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { org } from "@/lib/supabase";
+import { cityList } from "@/lib/cities";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
 import { MapPin, Check, X, Search, CreditCard, AlertTriangle, Printer, Users, ArrowLeft, ShieldCheck } from "lucide-react";
@@ -237,7 +238,8 @@ export default function CreateShipment() {
           </div>
           <div style={{ flex: 1 }}>
             <p className="mono">{t("From city", "Ville de départ")}</p>
-            <input className="input" value={f.p_from_city} onChange={(e) => set("p_from_city", e.target.value)} />
+            <input className="input" list="net-cities" value={f.p_from_city} onChange={(e) => set("p_from_city", e.target.value)} />
+            <datalist id="net-cities">{cityList.map((c) => <option key={c} value={c} />)}</datalist>
           </div>
         </div>
 
@@ -325,7 +327,7 @@ export default function CreateShipment() {
                         <button onClick={() => removeRow(id)} title={t("Remove", "Retirer")} style={{ marginLeft: "auto", width: 22, height: 22, borderRadius: "50%", background: "var(--bg,#F7F5EF)", border: "1px solid #E7E3D9", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}><X size={11} strokeWidth={3} color="#8A978F" /></button>
                       </div>
                       <div style={{ display: "grid", gridTemplateColumns: "1.2fr .9fr", gap: 9 }}>
-                        <div><div className="mono" style={{ fontSize: 10 }}>{t("To city *", "Ville *")}</div><input className="input" style={{ padding: "8px 10px", fontSize: 12.5 }} value={o.to_city} onChange={(e) => setRow(id, "to_city", e.target.value)} placeholder="Montréal" /></div>
+                        <div><div className="mono" style={{ fontSize: 10 }}>{t("To city *", "Ville *")}</div><input className="input" list="net-cities" style={{ padding: "8px 10px", fontSize: 12.5 }} value={o.to_city} onChange={(e) => setRow(id, "to_city", e.target.value)} placeholder="Montréal" /></div>
                         <div><div className="mono" style={{ fontSize: 10 }}>{t("Size", "Taille")}</div>
                           <select className="input" style={{ padding: "8px 10px", fontSize: 12.5 }} value={o.size} onChange={(e) => setRow(id, "size", e.target.value)}>
                             <option value="envelope">{t("Envelope", "Enveloppe")}</option><option value="small">{t("Small", "Petit")}</option><option value="large">{t("Large", "Grand")}</option>
@@ -364,7 +366,7 @@ export default function CreateShipment() {
               <div style={{ flex: 1 }}><p className="mono">{t("Recipient phone *", "Téléphone du destinataire *")}</p><input className="input" value={f.p_recipient_phone} onChange={(e) => set("p_recipient_phone", e.target.value)} placeholder="(514) 555-0148" /></div>
             </div>
             <div className="row" style={{ gap: 16, marginTop: 12 }}>
-              <div style={{ flex: 1 }}><p className="mono">{t("To city *", "Ville de destination *")}</p><input className="input" value={f.p_to_city} onChange={(e) => set("p_to_city", e.target.value)} placeholder="Montréal" /></div>
+              <div style={{ flex: 1 }}><p className="mono">{t("To city *", "Ville de destination *")}</p><input className="input" list="net-cities" value={f.p_to_city} onChange={(e) => set("p_to_city", e.target.value)} placeholder="Montréal" /></div>
               <div style={{ flex: 1 }}><p className="mono">{t("Size", "Taille")}</p>
                 <select className="input" value={f.p_size} onChange={(e) => set("p_size", e.target.value)}>
                   <option value="envelope">{t("Envelope (≤1kg)", "Enveloppe (≤1 kg)")}</option><option value="small">{t("Small (≤5kg)", "Petit (≤5 kg)")}</option><option value="large">{t("Large (≤20kg)", "Grand (≤20 kg)")}</option>

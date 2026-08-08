@@ -1,7 +1,8 @@
-// Network cities → region code (mirrors the mobile constants/geo for reroute).
+// Network cities → region code. Kept in sync with the mobile app's served city
+// list (constants/cities.ts) so the web offers exactly the same destinations.
 export const CITIES: Record<string, string> = {
   // Ontario
-  "Ottawa": "ON", "Toronto": "ON", "Kingston": "ON", "Sudbury": "ON", "London": "ON", "Hamilton": "ON",
+  "Ottawa": "ON", "Toronto": "ON", "Kingston": "ON", "Sudbury": "ON", "London": "ON",
   "Acton": "ON", "Ajax": "ON", "Angus": "ON", "Arnprior": "ON", "Aurora": "ON", "Bancroft": "ON",
   "Barrie": "ON", "Belleville": "ON", "Bracebridge": "ON", "Bradford": "ON", "Brampton": "ON",
   "Brantford": "ON", "Burlington": "ON", "Cambridge": "ON", "Carleton Place": "ON", "Deep River": "ON",
@@ -11,12 +12,12 @@ export const CITIES: Record<string, string> = {
   "Renfrew": "ON", "Richmond Hill": "ON", "Sarnia": "ON", "Stouffville": "ON", "Vaughan": "ON",
   "Waterloo": "ON", "Whitby": "ON", "Woodstock": "ON",
   // Québec
-  "Montréal": "QC", "Québec": "QC", "Gatineau": "QC", "Laval": "QC", "Sherbrooke": "QC",
+  "Montréal": "QC", "Québec": "QC", "Gatineau": "QC", "Sherbrooke": "QC",
   "Trois-Rivières": "QC", "Chicoutimi": "QC", "Alma": "QC", "Baie-Comeau": "QC", "Baie-Saint-Paul": "QC",
   "Drummondville": "QC", "Forestville": "QC", "Laurier-Station": "QC", "Lévis": "QC", "Longueuil": "QC",
   "Rivière-du-Loup": "QC", "Saint-Constant": "QC", "Tadoussac": "QC",
-  // Other
-  "Moncton": "NB", "Vancouver": "BC", "Calgary": "AB", "Edmonton": "AB", "Winnipeg": "MB", "Halifax": "NS",
+  // Maritimes
+  "Moncton": "NB", "Halifax": "NS",
 };
 export const cityList = Object.keys(CITIES);
 export const regionFor = (city: string) => CITIES[city] || city;

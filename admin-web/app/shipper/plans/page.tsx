@@ -24,19 +24,19 @@ export default function Plans() {
   };
 
   const PLANS: PlanDef[] = [
-    { key: "free", name: t("Pay-as-you-go", "Paiement à l'usage"), price: 0, fee: "20%", features: [
+    { key: "free", name: t("Basic", "De base"), price: 0, fee: "20%", features: [
       [t("Dashboard & live tracking", "Tableau de bord & suivi en direct"), ""],
-      [t("Monthly invoicing on account", "Facturation mensuelle sur compte"), ""],
-      [t("No monthly fee — pay only when you ship", "Aucuns frais mensuels — payez à l'envoi"), ""],
+      [t("Create, track & manage shipments", "Créer, suivre et gérer les envois"), ""],
+      [t("No monthly fee — pay per shipment", "Aucuns frais mensuels — payez à l'envoi"), ""],
     ] },
-    { key: "business", name: "Business", price: 79, fee: "15%", features: [
-      [t("Everything in Pay-as-you-go", "Tout du paiement à l'usage"), ""],
+    { key: "business", name: "Business", price: 124.99, fee: "15%", features: [
+      [t("Everything in Basic", "Tout de Basic"), ""],
       [t("Better delivery rates", "Meilleurs tarifs de livraison"), ""],
       [t("Branded tracking & emails", "Suivi et courriels à votre marque"), ""],
       [t("Bulk import & analytics", "Import en lot & statistiques"), ""],
       [t("Up to 3 team seats · freight quoting", "Jusqu'à 3 sièges · cotation de fret"), ""],
     ] },
-    { key: "pro", name: "Pro", price: 199, fee: "12%", features: [
+    { key: "pro", name: "Pro", price: 199.99, fee: "12%", features: [
       [t("Everything in Business", "Tout de Business"), ""],
       [t("Best delivery rates", "Les meilleurs tarifs de livraison"), ""],
       [t("API access & multi-location", "Accès API & multi-emplacements"), ""],
@@ -112,7 +112,7 @@ export default function Plans() {
                 <button className="btn ghost" disabled style={{ width: "100%" }}>{t("Current plan", "Forfait actuel")}</button>
               ) : p.key === "free" ? (
                 needsPlan ? (
-                  <button className="btn" onClick={startFree} disabled={!!busy} style={{ width: "100%" }}>{busy === "free" ? "…" : t("Start Pay-as-you-go", "Commencer en paiement à l'usage")}</button>
+                  <button className="btn" onClick={startFree} disabled={!!busy} style={{ width: "100%" }}>{busy === "free" ? "…" : t("Start with Basic", "Commencer avec Basic")}</button>
                 ) : (
                   <button className="btn ghost" onClick={manage} disabled={busy === "portal"} style={{ width: "100%" }}>{t("Downgrade", "Rétrograder")}</button>
                 )

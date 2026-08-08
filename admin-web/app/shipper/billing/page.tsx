@@ -47,7 +47,7 @@ export default function Billing() {
     <>
       <h1>{t("Billing", "Facturation")}</h1>
       <div className="sub">{payg
-        ? t(`${active.name} · pay-as-you-go — your card on file is charged automatically for each shipment. No invoices, no minimums.`, `${active.name} · paiement à l’usage — votre carte enregistrée est débitée automatiquement pour chaque envoi. Aucune facture, aucun minimum.`)
+        ? t(`${active.name} · Basic — pay per shipment. Your card on file is charged automatically for each shipment. No invoices, no minimums.`, `${active.name} · De base — payez à l’envoi. Votre carte enregistrée est débitée automatiquement pour chaque envoi. Aucune facture, aucun minimum.`)
         : t(`${active.name} · net terms — shipments bill on a monthly invoice. A card on file is a backstop for overdue invoices.`, `${active.name} · conditions nettes — les envois sont facturés sur une facture mensuelle. Une carte enregistrée sert de garantie pour les factures en souffrance.`)}</div>
 
       {ov && ov.credit_cents > 0 && (

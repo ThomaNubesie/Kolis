@@ -16,8 +16,8 @@ const SITE = Deno.env.get("KOLIS_BUSINESS_URL") || "https://business.kolis.ca";
 
 // Plan catalogue — the source of truth for price + commission.
 export const PLANS: Record<string, { name: string; price_cad: number; fee: number; lookup: string }> = {
-  business: { name: "Kolis Business", price_cad: 79, fee: 0.15, lookup: "kolis_business_monthly" },
-  pro: { name: "Kolis Pro", price_cad: 199, fee: 0.12, lookup: "kolis_pro_monthly" },
+  business: { name: "Kolis Business", price_cad: 124.99, fee: 0.15, lookup: "kolis_business_monthly_v2" },
+  pro: { name: "Kolis Pro", price_cad: 199.99, fee: 0.12, lookup: "kolis_pro_monthly_v2" },
 };
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
@@ -32,7 +32,7 @@ async function ensurePrice(admin: any, planKey: string): Promise<string> {
   let priceId = found.data[0]?.id;
   if (!priceId) {
     const product = await stripe.products.create({ name: p.name, metadata: { plan: planKey } });
-    const price = await stripe.prices.create({ product: product.id, currency: "cad", unit_amount: p.price_cad * 100, recurring: { interval: "month" }, lookup_key: p.lookup, metadata: { plan: planKey } });
+    const price = await stripe.prices.create({ product: product.id, currency: "cad", unit_amount: Math.round(p.price_cad * 100), recurring: { interval: "month" }, lookup_key: p.lookup, metadata: { plan: planKey } });
     priceId = price.id;
   }
   await admin.from("kolis_plan_prices").upsert({ plan: planKey, stripe_price_id: priceId });

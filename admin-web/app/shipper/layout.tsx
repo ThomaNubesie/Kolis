@@ -15,20 +15,39 @@ type NavItem = { href: string; Icon: any; en: string; fr: string };
 type NavGroup = { head: { en: string; fr: string } | null; items: NavItem[] };
 
 // Per-plan feature gating: the minimum plan that unlocks each feature. Anything
-// not listed is available on every plan (incl. Pay-as-you-go). Mirrors the
+// not listed is available on every plan (incl. Basic). Mirrors the
 // features advertised on /shipper/plans.
 type Plan = "free" | "business" | "pro";
 const PLAN_RANK: Record<Plan, number> = { free: 0, business: 1, pro: 2 };
 const FEATURE_MIN: Record<string, Plan> = {
   "/shipper/import": "business",   // Bulk import
   "/shipper/bulk": "business",     // Bulk shipment
+  "/shipper/products": "business",
+  "/shipper/promotions": "business",
+  "/shipper/campaigns": "business",
   "/shipper/analytics": "business",
+  "/shipper/invoices": "business",
   "/shipper/branding": "business",
   "/shipper/team": "business",     // Team & seats
   "/freight": "business",          // Freight quoting
   "/developer": "pro",             // API access
 };
+// What each locked feature does — shown in the upgrade modal.
+const FEATURE_INFO: Record<string, { en: string; fr: string }> = {
+  "/shipper/import": { en: "Import hundreds of shipments at once from a CSV or Excel file, instead of entering them one by one.", fr: "Importez des centaines d'envois d'un coup depuis un fichier CSV ou Excel, au lieu de les saisir un par un." },
+  "/shipper/bulk": { en: "Create and dispatch many shipments together in a single batch.", fr: "Créez et expédiez plusieurs envois ensemble en un seul lot." },
+  "/shipper/products": { en: "Keep a catalogue of the products you ship for faster, error-free order entry.", fr: "Gardez un catalogue des produits que vous expédiez pour une saisie plus rapide et sans erreur." },
+  "/shipper/promotions": { en: "Create discount codes and promotions for your customers.", fr: "Créez des codes de réduction et des promotions pour vos clients." },
+  "/shipper/campaigns": { en: "Send branded marketing campaigns to your customer list.", fr: "Envoyez des campagnes marketing à votre marque à votre liste de clients." },
+  "/shipper/invoices": { en: "Consolidated monthly invoices you can download and reconcile.", fr: "Factures mensuelles consolidées, téléchargeables et rapprochables." },
+  "/shipper/analytics": { en: "See volume, spend, delivery performance and trends over time.", fr: "Visualisez le volume, les dépenses, la performance de livraison et les tendances." },
+  "/shipper/branding": { en: "Put your logo and colours on the tracking page and customer emails.", fr: "Ajoutez votre logo et vos couleurs à la page de suivi et aux courriels clients." },
+  "/shipper/team": { en: "Invite teammates and manage seats and roles for your business.", fr: "Invitez des coéquipiers et gérez les sièges et les rôles de votre entreprise." },
+  "/freight": { en: "Quote and book LTL pallet freight across the network.", fr: "Cotez et réservez du fret palettisé (LTL) sur le réseau." },
+  "/developer": { en: "API keys, webhooks and multi-location integration for your systems.", fr: "Clés API, webhooks et intégration multi-emplacements pour vos systèmes." },
+};
 const rankOf = (p?: string) => PLAN_RANK[(p as Plan) || "free"] ?? 0;
+const planLabel = (p: Plan) => (p === "pro" ? "Pro" : "Business");
 
 // Grouped sidebar (scrollable). Overview is pinned on top; the rest live under
 // SHIP / GROW / MONEY / WORKSPACE section headers.
@@ -111,6 +130,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     );
   }, [active.org_id]);
   const locked = (href: string) => { const m = FEATURE_MIN[href]; return !!m && rankOf(plan) < PLAN_RANK[m]; };
+  const [lockItem, setLockItem] = useState<NavItem | null>(null); // feature shown in the upgrade modal
   // Block direct-URL access to a shipper feature the plan doesn't include.
   useEffect(() => {
     if (needsPlan || plan === undefined) return;
@@ -186,11 +206,12 @@ function Shell({ children }: { children: React.ReactNode }) {
                 {g.head && <div className={"bp-navhead" + (gi === 1 ? " first" : "")}>{lang === "fr" ? g.head.fr : g.head.en}</div>}
                 {g.items.map((n) => (
                   locked(n.href) ? (
-                    <Link key={n.href} href="/shipper/plans" className="bp-nav" style={{ opacity: 0.55 }}
+                    <button key={n.href} className="bp-nav" onClick={() => setLockItem(n)}
+                      style={{ opacity: 0.6, width: "100%", background: "none", border: "none", font: "inherit", textAlign: "left", cursor: "pointer" }}
                       title={t("Upgrade your plan to unlock", "Améliorez votre forfait pour débloquer")}>
                       <n.Icon size={17} strokeWidth={2} />{lang === "fr" ? n.fr : n.en}
                       <Lock size={13} strokeWidth={2.2} style={{ marginLeft: "auto" }} />
-                    </Link>
+                    </button>
                   ) : (
                     <Link key={n.href} href={n.href} className={"bp-nav" + (isActive(n.href) ? " on" : "")}>
                       <n.Icon size={17} strokeWidth={2} />{lang === "fr" ? n.fr : n.en}
@@ -219,6 +240,45 @@ function Shell({ children }: { children: React.ReactNode }) {
             : children}
         </main>
       </div>
+
+      {/* Locked-feature upgrade modal */}
+      {lockItem && (() => {
+        const need = FEATURE_MIN[lockItem.href] || "business";
+        const info = FEATURE_INFO[lockItem.href];
+        return (
+          <div onClick={() => setLockItem(null)} style={{ position: "fixed", inset: 0, background: "rgba(20,15,25,.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 300, padding: 20 }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, maxWidth: 430, width: "100%", padding: 24, boxShadow: "0 24px 70px rgba(0,0,0,.35)" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+                <div style={{ width: 46, height: 46, borderRadius: 12, background: "var(--accent,#E11D6B)", opacity: 0.14, position: "absolute" }} />
+                <div style={{ width: 46, height: 46, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--accent,#E11D6B)", background: "rgba(225,29,107,.12)" }}>
+                  <lockItem.Icon size={23} strokeWidth={2} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 18 }}>{lang === "fr" ? lockItem.fr : lockItem.en}</div>
+                  <div style={{ fontSize: 12, color: "#8a8676", display: "inline-flex", alignItems: "center", gap: 4, marginTop: 2 }}>
+                    <Lock size={12} strokeWidth={2.2} /> {t(`Included in ${planLabel(need)}`, `Inclus dans ${planLabel(need)}`)}
+                  </div>
+                </div>
+              </div>
+              {info && <p style={{ fontSize: 14, lineHeight: 1.6, color: "#3a3744", margin: "0 0 10px" }}>{lang === "fr" ? info.fr : info.en}</p>}
+              <p style={{ fontSize: 13, lineHeight: 1.6, color: "#8a8676", margin: "0 0 20px" }}>
+                {t(`Your current plan doesn't include this. Upgrade to ${planLabel(need)} to switch it on.`,
+                   `Votre forfait actuel ne l'inclut pas. Passez à ${planLabel(need)} pour l'activer.`)}
+              </p>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => { setLockItem(null); router.push("/shipper/plans"); }}
+                  style={{ background: "var(--accent,#E11D6B)", color: "#fff", border: "none", borderRadius: 10, padding: "12px 20px", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>
+                  {t(`Subscribe to ${planLabel(need)}`, `S'abonner à ${planLabel(need)}`)}
+                </button>
+                <button onClick={() => setLockItem(null)}
+                  style={{ background: "none", color: "#6B6675", border: "1px solid #e2ddd0", borderRadius: 10, padding: "12px 18px", fontWeight: 600, fontSize: 14, cursor: "pointer" }}>
+                  {t("Not now", "Plus tard")}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

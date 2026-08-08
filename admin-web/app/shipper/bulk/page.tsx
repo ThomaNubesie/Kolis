@@ -537,7 +537,7 @@ export default function BulkShip() {
 
               {/* Payment + footer */}
               <div style={{ marginTop: 16, padding: 12, borderRadius: 11, background: "#FBF3F7", border: "1px solid #f0d8e5", fontSize: 12.5, color: "#6b1440" }}>
-                💳 {t("Pay-as-you-go: the card on file is charged when you confirm. Invoice accounts are added to the billing cycle. Nothing is created or charged until you confirm.", "À l’usage : la carte enregistrée est débitée à la confirmation. Les comptes sur facture sont ajoutés au cycle. Rien n’est créé ni débité avant votre confirmation.")}
+                💳 {t("Basic: the card on file is charged when you confirm. Invoice accounts are added to the billing cycle. Nothing is created or charged until you confirm.", "De base : la carte enregistrée est débitée à la confirmation. Les comptes sur facture sont ajoutés au cycle. Rien n’est créé ni débité avant votre confirmation.")}
               </div>
               <div className="sub" style={{ fontSize: 11, marginTop: 12, textAlign: "center" }}>
                 {t("Concord Express Co Inc.", "Concord Express Co Inc.")} · support@concordexpress.ca · {t("Tax by destination province", "Taxe selon la province de destination")}

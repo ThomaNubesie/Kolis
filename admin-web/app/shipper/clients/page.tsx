@@ -4,6 +4,8 @@ import { org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
 import { COUNTRIES, countryByCode, toE164 } from "@/lib/countries";
+import { cityList, regionFor } from "@/lib/cities";
+import { emailOk, phoneOk, nameOk, cityOk } from "@/lib/validate";
 import { Smartphone, Home, Briefcase } from "lucide-react";
 
 type Client = {
@@ -29,10 +31,12 @@ export default function Clients() {
   const set = (k: string, v: string) => setEdit((s) => ({ ...s, [k]: v }));
 
   const save = async () => {
-    if (!edit?.full_name?.trim()) { setErr(t("Full name is required.", "Le nom complet est requis.")); return; }
-    if (!edit?.email?.trim()) { setErr(t("Email address is required.", "L’adresse courriel est requise.")); return; }
-    if (!edit?.mobile?.trim()) { setErr(t("Phone number is required.", "Le numéro de téléphone est requis.")); return; }
+    const ca = (edit?.country || "CA") === "CA";
+    if (!nameOk(edit?.full_name)) { setErr(t("Enter the client's full name.", "Entrez le nom complet du client.")); return; }
+    if (!emailOk(edit?.email)) { setErr(t("A valid email address is required.", "Une adresse courriel valide est requise.")); return; }
+    if (ca ? !phoneOk(edit?.mobile) : !edit?.mobile?.trim()) { setErr(t("Enter a valid 10-digit mobile number.", "Entrez un numéro de mobile valide (10 chiffres).")); return; }
     if (!edit?.address?.trim()) { setErr(t("Home address is required.", "L’adresse est requise.")); return; }
+    if (ca && !cityOk(edit?.city)) { setErr(t("Choose a served city from the list so the address matches a city we cover.", "Choisissez une ville desservie dans la liste pour que l’adresse corresponde à une ville couverte.")); return; }
     setBusy(true); setErr("");
     const dial = countryByCode(edit.country).dial;
     const payload = { ...edit, mobile: edit.mobile ? toE164(edit.mobile, dial) : edit.mobile };
@@ -99,7 +103,10 @@ export default function Clients() {
             <div className="mono" style={{ marginTop: 10 }}>{t("Home address *", "Adresse *")}</div>
             <input className="input" value={edit.address || ""} onChange={(e) => set("address", e.target.value)} placeholder={t("Street, unit", "Rue, unité")} />
             <div className="row" style={{ gap: 10, marginTop: 10 }}>
-              <div style={{ flex: 2 }}><div className="mono">{t("City", "Ville")}</div><input className="input" value={edit.city || ""} onChange={(e) => set("city", e.target.value)} /></div>
+              <div style={{ flex: 2 }}><div className="mono">{t("City", "Ville")}</div>
+                <input className="input" list="client-cities" value={edit.city || ""} onChange={(e) => { const v = e.target.value; set("city", v); const r = regionFor(v); if (r && r !== v && !edit.province) set("province", r); }} />
+                <datalist id="client-cities">{cityList.map((c) => <option key={c} value={c} />)}</datalist>
+              </div>
               <div style={{ flex: 1 }}><div className="mono">{countryByCode(edit.country).region}</div><input className="input" value={edit.province || ""} onChange={(e) => set("province", e.target.value)} /></div>
               <div style={{ flex: 1 }}><div className="mono">{countryByCode(edit.country).postal}</div><input className="input" value={edit.postal || ""} onChange={(e) => set("postal", e.target.value)} placeholder={countryByCode(edit.country).postalPh} /></div>
             </div>

@@ -19,5 +19,6 @@ export const CITIES: Record<string, string> = {
   // Maritimes
   "Moncton": "NB", "Halifax": "NS",
 };
-export const cityList = Object.keys(CITIES);
+// Alphabetical (fr-aware so accented city names sort naturally).
+export const cityList = Object.keys(CITIES).sort((a, b) => a.localeCompare(b, "fr"));
 export const regionFor = (city: string) => CITIES[city] || city;

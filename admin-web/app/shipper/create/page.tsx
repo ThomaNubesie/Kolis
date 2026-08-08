@@ -3,12 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { org } from "@/lib/supabase";
 import { cityList } from "@/lib/cities";
+import { emailOk, phoneOk, nameOk, cityOk } from "@/lib/validate";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
 import { MapPin, Check, X, Search, CreditCard, AlertTriangle, Printer, Users, ArrowLeft, ShieldCheck } from "lucide-react";
 
 const money = (c: number) => "$" + ((c || 0) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const emailOk = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((e || "").trim());
 type RRow = { size: string; to_city: string; to_address: string; email: string; phone: string; declared: string; insured: boolean | null };
 type Line = { name: string; route: string; size: string; price_cents: number | null };
 type Review = { lines: Line[]; subtotal: number; premium: number; tax: number; total: number; taxLabel: string; payg: boolean; has_card: boolean };
@@ -112,19 +112,19 @@ export default function CreateShipment() {
     let rowsForQuote: { size: string; to_city: string }[] = [];
     let lines: Line[] = [];
     if (mode === "manual") {
-      if (!f.p_recipient_name.trim()) { setErr(t("Recipient name is required.", "Le nom du destinataire est requis.")); return; }
+      if (!nameOk(f.p_recipient_name)) { setErr(t("Enter the recipient's full name.", "Entrez le nom complet du destinataire.")); return; }
       if (!emailOk(f.p_recipient_email)) { setErr(t("A valid recipient email is required.", "Un courriel valide du destinataire est requis.")); return; }
-      if (!f.p_recipient_phone.trim()) { setErr(t("Recipient phone is required.", "Le téléphone du destinataire est requis.")); return; }
+      if (!phoneOk(f.p_recipient_phone)) { setErr(t("Enter a valid 10-digit phone number.", "Entrez un numéro de téléphone valide (10 chiffres).")); return; }
       if (!f.p_dropoff_addr.trim()) { setErr(t("Delivery address is required.", "L’adresse de livraison est requise.")); return; }
-      if (!f.p_to_city.trim()) { setErr(t("Destination city is required.", "La ville de destination est requise.")); return; }
+      if (!cityOk(f.p_to_city)) { setErr(t("Choose a served destination city from the list.", "Choisissez une ville de destination desservie dans la liste.")); return; }
       if (!(parseFloat(declared) > 0)) { setErr(t("Enter the parcel’s declared value.", "Indiquez la valeur déclarée du colis.")); return; }
       if (insured === null) { setErr(t("Choose insurance — insure or decline.", "Choisissez l’assurance — assurer ou refuser.")); return; }
       rowsForQuote = [{ size: f.p_size, to_city: f.p_to_city }];
       lines = [{ name: f.p_recipient_name.trim(), route: `${f.p_from_city} → ${f.p_to_city}`, size: f.p_size, price_cents: null }];
     } else {
       if (selectedIds.length === 0) { setErr(t("Select at least one client as a recipient.", "Sélectionnez au moins un client comme destinataire.")); return; }
-      const bad = selectedIds.find((id) => { const r = R[id]; return !r.to_city.trim() || !r.to_address.trim() || !emailOk(r.email) || !r.phone.trim() || (r.insured === true && !(parseFloat(r.declared) > 0)); });
-      if (bad) { const c = clients.find((x) => x.id === bad); setErr(t(`Complete the city, address, email, phone (and declared value if insuring) for ${c?.full_name || "each recipient"}.`, `Renseignez la ville, l’adresse, le courriel, le téléphone (et la valeur déclarée si assuré) pour ${c?.full_name || "chaque destinataire"}.`)); return; }
+      const bad = selectedIds.find((id) => { const r = R[id]; return !cityOk(r.to_city) || !r.to_address.trim() || !emailOk(r.email) || !phoneOk(r.phone) || (r.insured === true && !(parseFloat(r.declared) > 0)); });
+      if (bad) { const c = clients.find((x) => x.id === bad); setErr(t(`Check the recipient details for ${c?.full_name || "each recipient"}: a served city, delivery address, valid email and 10-digit phone (and declared value if insuring).`, `Vérifiez les infos du destinataire ${c?.full_name || ""} : une ville desservie, l’adresse, un courriel valide et un téléphone à 10 chiffres (et la valeur déclarée si assuré).`)); return; }
       rowsForQuote = selectedIds.map((id) => ({ size: R[id].size, to_city: R[id].to_city }));
       lines = selectedIds.map((id) => { const c = clients.find((x) => x.id === id); return { name: c?.full_name || "—", route: `${f.p_from_city} → ${R[id].to_city}`, size: R[id].size, price_cents: null }; });
     }

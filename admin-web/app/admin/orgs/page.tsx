@@ -14,7 +14,7 @@ export default function Organizations() {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [f, setF] = useState({ name: "", type: "shipper", billing_email: "", net_terms: "30", discount: "0", credit: "0" });
+  const [f, setF] = useState({ name: "", type: "shipper", billing_email: "", net_terms: "30", discount: "0" });
   const set = (k: string, v: string) => setF((s) => ({ ...s, [k]: v }));
 
   const load = () => api.orgs().then(setRows).catch(() => {});
@@ -27,7 +27,6 @@ export default function Organizations() {
       const id = await api.createOrg({
         name: f.name.trim(), type: f.type, billing_email: f.billing_email.trim() || undefined,
         net_terms: Number(f.net_terms) || 30, discount: (Number(f.discount) || 0) / 100,
-        credit_limit_cents: Math.round((Number(f.credit) || 0) * 100),
       });
       setOpen(false); router.push(`/admin/orgs/${id}`);
     } catch (e: any) { setErr(e?.message || t("Failed.", "Échec.")); }
@@ -54,7 +53,7 @@ export default function Organizations() {
       </div>
 
       <table>
-        <thead><tr><th>{t("Name", "Nom")}</th><th>{t("Type", "Type")}</th><th>{t("KYB", "KYB")}</th><th>{t("Status", "Statut")}</th><th>{t("Credit limit", "Limite de crédit")}</th><th>{t("Net", "Net")}</th></tr></thead>
+        <thead><tr><th>{t("Name", "Nom")}</th><th>{t("Type", "Type")}</th><th>{t("KYB", "KYB")}</th><th>{t("Status", "Statut")}</th><th>{t("Net", "Net")}</th></tr></thead>
         <tbody>
           {rows.map((o) => (
             <tr key={o.id} className="clk" onClick={() => router.push(`/admin/orgs/${o.id}`)}>
@@ -62,11 +61,10 @@ export default function Organizations() {
               <td style={{ textTransform: "capitalize" }}>{typeLabel(o.type)}</td>
               <td><span className={"pill " + (KYB[o.kyb_status] || "pgrey")}>{kybLabel(o.kyb_status)}</span></td>
               <td><span className={"pill " + (o.status === "active" ? "pg" : "pred")}>{statusLabel(o.status)}</span></td>
-              <td>{money(o.credit_limit_cents)}</td>
               <td>net-{o.net_terms_days}</td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan={6} style={{ color: "var(--t3)" }}>{t("No organizations yet — create one to onboard a business.", "Aucune organisation — créez-en une pour intégrer une entreprise.")}</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={5} style={{ color: "var(--t3)" }}>{t("No organizations yet — create one to onboard a business.", "Aucune organisation — créez-en une pour intégrer une entreprise.")}</td></tr>}
         </tbody>
       </table>
 
@@ -87,7 +85,6 @@ export default function Organizations() {
             <div className="row" style={{ gap: 10, marginTop: 10 }}>
               <div style={{ flex: 1 }}><div className="mono">{t("Net terms (days)", "Délai net (jours)")}</div><input className="input" value={f.net_terms} onChange={(e) => set("net_terms", e.target.value)} inputMode="numeric" /></div>
               <div style={{ flex: 1 }}><div className="mono">{t("Volume discount %", "Remise volume %")}</div><input className="input" value={f.discount} onChange={(e) => set("discount", e.target.value)} inputMode="decimal" /></div>
-              <div style={{ flex: 1 }}><div className="mono">{t("Credit limit $", "Limite de crédit $")}</div><input className="input" value={f.credit} onChange={(e) => set("credit", e.target.value)} inputMode="numeric" /></div>
             </div>
             {err ? <div style={{ color: "var(--red)", fontSize: 12.5, marginTop: 10 }}>{err}</div> : null}
             <div className="row" style={{ marginTop: 14 }}>

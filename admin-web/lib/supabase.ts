@@ -100,13 +100,13 @@ export const api = {
   // ── Organizations (staff-provisioned business accounts) ──
   orgs: () => r<any[]>("kolis_admin_orgs"),
   org: (id: string) => r<any[]>("kolis_admin_org", { p_org: id }),
-  createOrg: (a: { name: string; type: string; billing_email?: string; net_terms?: number; discount?: number; credit_limit_cents?: number }) =>
-    r<string>("kolis_admin_create_org", { p_name: a.name, p_type: a.type, p_billing_email: a.billing_email ?? null, p_net_terms: a.net_terms ?? 30, p_discount: a.discount ?? 0, p_credit_limit_cents: a.credit_limit_cents ?? 0 }),
+  createOrg: (a: { name: string; type: string; billing_email?: string; net_terms?: number; discount?: number }) =>
+    r<string>("kolis_admin_create_org", { p_name: a.name, p_type: a.type, p_billing_email: a.billing_email ?? null, p_net_terms: a.net_terms ?? 30, p_discount: a.discount ?? 0, p_credit_limit_cents: 0 }),
   orgMembers: (id: string) => r<any[]>("kolis_admin_org_members", { p_org: id }),
   setOrgProfile: (id: string, a: { name?: string; billing_email?: string }) =>
     r("kolis_admin_set_org_profile", { p_org: id, p_name: a.name ?? null, p_billing_email: a.billing_email ?? null }),
-  setOrgLimits: (id: string, a: { credit_limit_cents?: number; discount?: number; net_terms?: number; platform_fee?: number }) =>
-    r("kolis_admin_set_org_limits", { p_org: id, p_credit_limit_cents: a.credit_limit_cents ?? null, p_discount: a.discount ?? null, p_net_terms: a.net_terms ?? null, p_platform_fee: a.platform_fee ?? null }),
+  setOrgLimits: (id: string, a: { discount?: number; net_terms?: number; platform_fee?: number }) =>
+    r("kolis_admin_set_org_limits", { p_org: id, p_credit_limit_cents: null, p_discount: a.discount ?? null, p_net_terms: a.net_terms ?? null, p_platform_fee: a.platform_fee ?? null }),
   setOrgKyb: (id: string, status: string) => r("kolis_admin_set_kyb", { p_org: id, p_status: status }),
   setOrgStatus: (id: string, status: string) => r("kolis_admin_set_org_status", { p_org: id, p_status: status }),
   async orgInviteEmail(id: string, email: string, role: string, name?: string) {

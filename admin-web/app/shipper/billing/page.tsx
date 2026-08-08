@@ -41,7 +41,6 @@ export default function Billing() {
     setBusy(false);
   };
 
-  const usedPct = ov && ov.credit_limit_cents > 0 ? Math.min(100, Math.round((ov.outstanding_cents / ov.credit_limit_cents) * 100)) : 0;
   const payg = ov ? ov.payg !== false : true; // default to PAYG until overview loads
 
   return (
@@ -65,19 +64,13 @@ export default function Billing() {
 
       {!payg && (
         <div className="tiles">
-          <div className="tile"><div className="l">{t("Credit limit", "Limite de crédit")}</div><div className="n">{ov ? money(ov.credit_limit_cents) : "—"}</div></div>
           <div className="tile"><div className="l">{t("Outstanding", "Solde dû")}</div><div className="n">{ov ? money(ov.outstanding_cents) : "—"}</div></div>
-          <div className="tile"><div className="l">{t("Available", "Disponible")}</div><div className="n" style={{ color: "var(--green)" }}>{ov ? money(ov.available_cents) : "—"}</div></div>
         </div>
       )}
 
-      {ov && !payg && (
+      {ov && !payg && ov.org_status === "suspended" && (
         <div className="card" style={{ maxWidth: 520 }}>
-          <div className="mono">{t("Credit used", "Crédit utilisé")} · {usedPct}%</div>
-          <div style={{ height: 10, background: "var(--cardAlt)", borderRadius: 999, overflow: "hidden" }}>
-            <div style={{ width: `${usedPct}%`, height: "100%", background: usedPct > 90 ? "var(--red)" : "var(--accent)" }} />
-          </div>
-          {ov.org_status === "suspended" && <div className="warn" style={{ marginTop: 10 }}>{t("⚠️ This account is suspended (over limit or overdue). New shipments are blocked until the balance is paid down.", "⚠️ Ce compte est suspendu (limite dépassée ou en souffrance). Les nouveaux envois sont bloqués tant que le solde n’est pas réglé.")}</div>}
+          <div className="warn">{t("⚠️ This account is suspended (overdue). New shipments are blocked until the balance is paid down.", "⚠️ Ce compte est suspendu (en souffrance). Les nouveaux envois sont bloqués tant que le solde n’est pas réglé.")}</div>
         </div>
       )}
 

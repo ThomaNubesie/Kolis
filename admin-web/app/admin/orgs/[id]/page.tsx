@@ -18,7 +18,6 @@ export default function OrgDetail() {
   // editable profile + limits
   const [name, setName] = useState("");
   const [billing, setBilling] = useState("");
-  const [credit, setCredit] = useState("");
   const [discount, setDiscount] = useState("");
   const [net, setNet] = useState("");
   // invite
@@ -30,7 +29,7 @@ export default function OrgDetail() {
   const load = async () => {
     const o = (await api.org(id).catch(() => []))?.[0] ?? null;
     setOrg(o);
-    if (o) { setName(o.name ?? ""); setBilling(o.billing_email ?? ""); setCredit(dollars(o.credit_limit_cents)); setDiscount(String(Math.round((o.discount_rate || 0) * 100))); setNet(String(o.net_terms_days)); }
+    if (o) { setName(o.name ?? ""); setBilling(o.billing_email ?? ""); setDiscount(String(Math.round((o.discount_rate || 0) * 100))); setNet(String(o.net_terms_days)); }
     setMembers(await api.orgMembers(id).catch(() => []));
   };
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
@@ -48,7 +47,7 @@ export default function OrgDetail() {
   };
   const saveLimits = async () => {
     try {
-      await api.setOrgLimits(id, { credit_limit_cents: Math.round((Number(credit) || 0) * 100), discount: (Number(discount) || 0) / 100, net_terms: Number(net) || 30 });
+      await api.setOrgLimits(id, { discount: (Number(discount) || 0) / 100, net_terms: Number(net) || 30 });
       flash(t("Saved.", "Enregistré.")); load();
     } catch (e) { fail(e); }
   };
@@ -117,11 +116,10 @@ export default function OrgDetail() {
           <div className="sub" style={{ fontSize: 12 }}>
             {org.payg
               ? t(`Card charged per shipment. ${org.stripe_default_pm ? "Card on file ✓" : "No card on file yet."}`, `Carte débitée par envoi. ${org.stripe_default_pm ? "Carte enregistrée ✓" : "Aucune carte enregistrée."}`)
-              : t("Shipments billed to invoice on net terms (uses credit limit below).", "Envois facturés selon les conditions nettes (utilise la limite de crédit ci-dessous).")}
+              : t("Shipments billed to invoice on net terms.", "Envois facturés selon les conditions nettes.")}
           </div>
           {!org.payg && <>
             <div className="row" style={{ gap: 10, marginTop: 10 }}>
-              <div style={{ flex: 1 }}><div className="mono">{t("Credit limit $", "Limite de crédit $")}</div><input className="input" value={credit} onChange={(e) => setCredit(e.target.value)} inputMode="numeric" /></div>
               <div style={{ flex: 1 }}><div className="mono">{t("Discount %", "Remise %")}</div><input className="input" value={discount} onChange={(e) => setDiscount(e.target.value)} inputMode="decimal" /></div>
               <div style={{ flex: 1 }}><div className="mono">{t("Net days", "Jours net")}</div><input className="input" value={net} onChange={(e) => setNet(e.target.value)} inputMode="numeric" /></div>
             </div>

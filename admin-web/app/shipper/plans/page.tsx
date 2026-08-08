@@ -31,14 +31,14 @@ export default function Plans() {
     ] },
     { key: "business", name: "Business", price: 79, fee: "15%", features: [
       [t("Everything in Pay-as-you-go", "Tout du paiement à l'usage"), ""],
-      [t("Lower 15% delivery fee", "Frais de livraison réduits à 15 %"), ""],
+      [t("Better delivery rates", "Meilleurs tarifs de livraison"), ""],
       [t("Branded tracking & emails", "Suivi et courriels à votre marque"), ""],
       [t("Bulk import & analytics", "Import en lot & statistiques"), ""],
       [t("Up to 3 team seats · freight quoting", "Jusqu'à 3 sièges · cotation de fret"), ""],
     ] },
     { key: "pro", name: "Pro", price: 199, fee: "12%", features: [
       [t("Everything in Business", "Tout de Business"), ""],
-      [t("Lowest 12% delivery fee", "Frais de livraison les plus bas à 12 %"), ""],
+      [t("Best delivery rates", "Les meilleurs tarifs de livraison"), ""],
       [t("API access & multi-location", "Accès API & multi-emplacements"), ""],
       [t("Priority dispatch", "Répartition prioritaire"), ""],
       [t("Dedicated support", "Soutien dédié"), ""],
@@ -83,15 +83,14 @@ export default function Plans() {
     <>
       <h1>{t("Plans & pricing", "Forfaits & tarifs")}</h1>
       <div className="sub" style={{ marginBottom: 6 }}>{t(
-        "Pick the plan that fits your volume. Higher plans lower your per-delivery fee and unlock tools.",
-        "Choisissez le forfait selon votre volume. Les forfaits supérieurs réduisent vos frais par livraison et débloquent des outils.")}</div>
+        "Pick the plan that fits your volume. Higher plans unlock more tools and better rates.",
+        "Choisissez le forfait selon votre volume. Les forfaits supérieurs débloquent plus d'outils et de meilleurs tarifs.")}</div>
       {needsPlan && <div className="card" style={{ marginBottom: 14, borderColor: "#E11D6B", background: "#fdeef4", color: "#9c1048", fontWeight: 600 }}>{t(
         "Choose a subscription to activate your account. The portal stays locked until you select a plan.",
         "Choisissez un abonnement pour activer votre compte. Le portail reste verrouillé tant qu'aucun forfait n'est sélectionné.")}</div>}
       {!needsPlan && (
         <div style={{ marginBottom: 18, fontSize: 13, color: "var(--t2)" }}>
           {t("Current plan", "Forfait actuel")}: <b style={{ color: "#E11D6B" }}>{PLANS.find((p) => p.key === curPlan)?.name || curPlan}</b>
-          {cur ? ` · ${t("delivery fee", "frais de livraison")} ${Math.round((cur.fee_rate || 0.2) * 100)}%` : ""}
           {cur?.renews_at && curPlan !== "free" ? ` · ${t("renews", "renouvellement")} ${day(cur.renews_at)}` : ""}
           {curPlan !== "free" && <> · <a onClick={manage} style={{ color: "#E11D6B", cursor: "pointer", fontWeight: 700 }}>{busy === "portal" ? "…" : t("Manage billing", "Gérer la facturation")}</a></>}
         </div>
@@ -106,7 +105,6 @@ export default function Plans() {
               {p.key === "business" && <div style={{ position: "absolute", top: -10, right: 16, background: "#E11D6B", color: "#fff", fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 20 }}>{t("Most popular", "Le plus populaire")}</div>}
               <div style={{ fontSize: 18, fontWeight: 800 }}>{p.name}</div>
               <div style={{ margin: "8px 0 2px" }}><span style={{ fontSize: 30, fontWeight: 900 }}>${p.price}</span><span style={{ color: "var(--t3)", fontSize: 13 }}>{p.price ? t("/mo", "/mois") : ""}</span></div>
-              <div style={{ fontSize: 12.5, color: "var(--t2)", marginBottom: 14 }}>{t("Delivery fee", "Frais de livraison")}: <b>{p.fee}</b></div>
               <div style={{ display: "flex", flexDirection: "column", gap: 7, marginBottom: 16 }}>
                 {p.features.map((f, i) => <div key={i} style={{ fontSize: 13, color: "var(--t2)", display: "flex", gap: 8 }}><span style={{ color: "#178a5e", fontWeight: 800 }}>✓</span>{f[0]}</div>)}
               </div>

@@ -18,6 +18,12 @@ const LEVEL_LABEL: Record<string, [string, string]> = {
   engaged: ["Engaged", "Engagé"], replied: ["Replied", "A répondu"], met: ["Met / Won", "Rencontré / Gagné"],
   closed: ["Closed", "Fermé"], bounced: ["Bounced", "Courriel rejeté"], stopped: ["Stopped", "Arrêté"], rejected: ["Rejected", "Refusé"],
 };
+// Legend key — mirrors concord_level() colours + order (ord 1→10) for the swatch strip.
+const LEVEL_COLOR: Record<string, string> = {
+  suggested: "#64748B", new: "#2563EB", contacted: "#F59E0B", engaged: "#14B8A6", replied: "#7C3AED",
+  met: "#16A34A", closed: "#334155", bounced: "#EA580C", stopped: "#9CA3AF", rejected: "#DC2626",
+};
+const LEVEL_ORDER = ["suggested", "new", "contacted", "engaged", "replied", "met", "closed", "bounced", "stopped", "rejected"];
 const FILTERS: [string, string, string][] = [
   ["", "All", "Tous"], ["suggested", "Suggested", "Suggéré"], ["engaged", "Engaged", "Engagé"],
   ["replied", "Replied", "A répondu"], ["contacted", "Contacted", "Contacté"], ["met", "Met / Won", "Rencontré"],
@@ -60,6 +66,12 @@ export default function Prospects() {
     } catch (e: any) { setErr(t("Download failed — status unchanged.", "Échec du téléchargement — statut inchangé.") + " " + e.message); }
   };
   const contacted = async (p: P) => { await api.prospectContacted(p.id); load(); };
+  const reopen = async (p: P) => {
+    if (!confirm(t(`Reopen "${p.business_name}" into the active queue?`, `Rouvrir « ${p.business_name} » dans la file active ?`))) return;
+    try { await api.prospectReopen(p.id); load(); } catch (e: any) { setErr(e.message); }
+  };
+  // Terminal states that can be reopened (from concord_level level keys).
+  const TERMINAL = new Set(["closed", "stopped", "rejected", "bounced"]);
 
   const submitAdd = async () => {
     if (!f.name.trim()) return;
@@ -98,6 +110,17 @@ export default function Prospects() {
         ))}
       </div>
 
+      {/* Colour key — what each urgency colour means */}
+      <div className="row" style={{ gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 14, fontSize: 12, color: "#6B6675" }}>
+        <span style={{ fontWeight: 700 }}>{t("Key", "Légende")}:</span>
+        {LEVEL_ORDER.map((k) => (
+          <span key={k} style={{ display: "inline-flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
+            <span style={{ width: 11, height: 11, borderRadius: 3, background: LEVEL_COLOR[k], display: "inline-block" }} />
+            {LEVEL_LABEL[k][lang === "fr" ? 1 : 0]}
+          </span>
+        ))}
+      </div>
+
       {err && <div className="warn">{err}</div>}
       {!rows ? <div className="center">{t("Loading…", "Chargement…")}</div> :
         rows.length === 0 ? <p>{t("No prospects.", "Aucun prospect.")}</p> : (
@@ -121,8 +144,10 @@ export default function Prospects() {
                 <td>{p.clicks > 0 ? `🔗 ${p.clicks}` : "—"}</td>
                 <td style={{ textAlign: "right", whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
                   <button className="chip" onClick={() => download(p)}>{t("Letter", "Lettre")}</button>{" "}
-                  {p.stage !== "met" && p.stage !== "won" && p.stage !== "lost" &&
-                    <button className="chip" onClick={() => contacted(p)}>{t("Contacted", "Contacté")}</button>}
+                  {p.level && TERMINAL.has(p.level)
+                    ? <button className="chip" onClick={() => reopen(p)}>↻ {t("Reopen", "Rouvrir")}</button>
+                    : p.stage !== "met" && p.stage !== "won" && p.stage !== "lost" &&
+                      <button className="chip" onClick={() => contacted(p)}>{t("Contacted", "Contacté")}</button>}
                 </td>
               </tr>
             ))}</tbody>

@@ -2,6 +2,8 @@
 // Logs delivered/opened/clicked/bounced/complained events into
 // concord_outreach_events and updates the matching concord_outreach recipient
 // (opened_at / clicked_at / bounced_at; clicked or bounced stops follow-ups).
+// On a NEW click it also fires the AI follow-up drafter (kolis-followup-ai),
+// which drafts next steps + a Kolis-branded email and emails the admin for approval.
 // Deploy with --no-verify-jwt (Resend calls it; authenticity via Svix signature).
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -9,6 +11,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const WHSEC = Deno.env.get("RESEND_WEBHOOK_SECRET") || ""; // "whsec_<base64>"
+const KOLIS_SECRET = "kolis_notify_9f3a2c7b1e6d4084";
 
 function b64decode(s: string): Uint8Array {
   const bin = atob(s); const out = new Uint8Array(bin.length);
@@ -50,6 +53,22 @@ Deno.serve(async (req) => {
     if (type === "clicked") { patch.clicked_at = now; patch.status = "clicked"; } // strong signal → stop follow-ups
     if (type === "bounced") { patch.bounced_at = now; patch.status = "bounced"; }
     if (Object.keys(patch).length) await admin.from("concord_outreach").update(patch).eq("email", email);
+
+    // A click is a buying signal → draft an AI follow-up for the admin to approve.
+    if (type === "clicked") {
+      const { data: pr } = await admin.from("concord_outreach")
+        .select("id, followup_ai_sent_at, followup_draft_at").eq("email", email).maybeSingle();
+      const recent = pr?.followup_draft_at && (Date.now() - new Date(pr.followup_draft_at as string).getTime()) < 3 * 86400000;
+      if (pr && !pr.followup_ai_sent_at && !recent) {
+        const fire = fetch(`${SUPABASE_URL}/functions/v1/kolis-followup-ai`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-kolis-secret": KOLIS_SECRET },
+          body: JSON.stringify({ action: "draft", id: pr.id }),
+        }).then(() => {}).catch(() => {});
+        const rt = (globalThis as any).EdgeRuntime;
+        if (rt?.waitUntil) rt.waitUntil(fire); else await fire;
+      }
+    }
   }
   return new Response("ok");
 });

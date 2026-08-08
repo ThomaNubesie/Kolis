@@ -16,7 +16,12 @@ const SUGGEST: [string, string][] = [
 ];
 const ACTION_LABEL: Record<string, [string, string]> = {
   create_shipment: ["Create shipment", "Créer un envoi"],
+  edit_shipment: ["Edit shipment", "Modifier l'envoi"],
+  charge_shipment: ["Charge shipment", "Débiter l'envoi"],
+  email_label: ["Email the label", "Envoyer l'étiquette"],
   send_email: ["Send email", "Envoyer un courriel"],
+  create_campaign: ["Create campaign", "Créer une campagne"],
+  send_campaign: ["Send campaign", "Envoyer la campagne"],
   set_prospect_stage: ["Move prospect stage", "Changer l'étape du prospect"],
   reopen_prospect: ["Reopen prospect", "Rouvrir le prospect"],
   draft_prospect_followup: ["Draft prospect follow-up", "Rédiger une relance"],
@@ -25,7 +30,12 @@ const ACTION_LABEL: Record<string, [string, string]> = {
 function okSummary(name: string, res: any, fr: boolean): string {
   const r = res.result ?? res;
   if (name === "create_shipment") { const code = r?.code || r?.parcel_code || (typeof r === "string" ? r : ""); return (fr ? "✓ Envoi créé" : "✓ Shipment created") + (code ? " · " + code : ""); }
+  if (name === "edit_shipment") return fr ? "✓ Envoi mis à jour" : "✓ Shipment updated";
+  if (name === "charge_shipment") { const c = r?.charged_cents ?? r?.total_cents; return (fr ? "✓ Débité" : "✓ Charged") + (c ? " · $" + (c / 100).toFixed(2) : ""); }
+  if (name === "email_label") return fr ? "✓ Étiquette envoyée" : "✓ Label emailed";
   if (name === "send_email") return fr ? "✓ Courriel envoyé" : "✓ Email sent";
+  if (name === "create_campaign") return fr ? "✓ Campagne créée (brouillon)" : "✓ Campaign draft created";
+  if (name === "send_campaign") return fr ? "✓ Campagne envoyée" : "✓ Campaign sent";
   if (name === "set_prospect_stage") return fr ? "✓ Étape mise à jour" : "✓ Stage updated";
   if (name === "reopen_prospect") return fr ? "✓ Prospect rouvert" : "✓ Prospect reopened";
   if (name === "draft_prospect_followup") return fr ? "✓ Brouillon envoyé pour approbation" : "✓ Draft sent for approval";

@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { org } from "@/lib/supabase";
 import { cityList } from "@/lib/cities";
-import { emailOk, phoneOk, nameOk, cityOk } from "@/lib/validate";
+import { emailOk, phoneOk, nameOk, cityOk, contentsOk } from "@/lib/validate";
+import { verifyEmail, emailReason } from "@/lib/emailVerify";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
 import { MapPin, Check, X, Search, CreditCard, AlertTriangle, Printer, Users, ArrowLeft, ShieldCheck } from "lucide-react";
@@ -108,7 +109,7 @@ export default function CreateShipment() {
   const openReview = async () => {
     setErr("");
     if (f.p_dropoff_type === "zone" && !zoneId) { setErr(t("Pick a LoadQ zone (choose a city, then a zone).", "Choisissez une zone LoadQ (choisissez une ville, puis une zone).")); return; }
-    if (!f.p_contents.trim()) { setErr(t("Contents are required.", "Le contenu est requis.")); return; }
+    if (!contentsOk(f.p_contents)) { setErr(t("Describe the parcel contents in real words (e.g. “documents”, “auto parts”).", "Décrivez le contenu en mots réels (ex. « documents », « pièces d’auto »).")); return; }
     let rowsForQuote: { size: string; to_city: string }[] = [];
     let lines: Line[] = [];
     if (mode === "manual") {
@@ -119,12 +120,19 @@ export default function CreateShipment() {
       if (!cityOk(f.p_to_city)) { setErr(t("Choose a served destination city from the list.", "Choisissez une ville de destination desservie dans la liste.")); return; }
       if (!(parseFloat(declared) > 0)) { setErr(t("Enter the parcel’s declared value.", "Indiquez la valeur déclarée du colis.")); return; }
       if (insured === null) { setErr(t("Choose insurance — insure or decline.", "Choisissez l’assurance — assurer ou refuser.")); return; }
+      setBusy(true);
+      const v = await verifyEmail(f.p_recipient_email);
+      if (!v.ok) { setBusy(false); setErr(emailReason(v, lang === "fr")); return; }
       rowsForQuote = [{ size: f.p_size, to_city: f.p_to_city }];
       lines = [{ name: f.p_recipient_name.trim(), route: `${f.p_from_city} → ${f.p_to_city}`, size: f.p_size, price_cents: null }];
     } else {
       if (selectedIds.length === 0) { setErr(t("Select at least one client as a recipient.", "Sélectionnez au moins un client comme destinataire.")); return; }
       const bad = selectedIds.find((id) => { const r = R[id]; return !cityOk(r.to_city) || !r.to_address.trim() || !emailOk(r.email) || !phoneOk(r.phone) || (r.insured === true && !(parseFloat(r.declared) > 0)); });
       if (bad) { const c = clients.find((x) => x.id === bad); setErr(t(`Check the recipient details for ${c?.full_name || "each recipient"}: a served city, delivery address, valid email and 10-digit phone (and declared value if insuring).`, `Vérifiez les infos du destinataire ${c?.full_name || ""} : une ville desservie, l’adresse, un courriel valide et un téléphone à 10 chiffres (et la valeur déclarée si assuré).`)); return; }
+      setBusy(true);
+      const verds = await Promise.all(selectedIds.map((id) => verifyEmail(R[id].email)));
+      const vi = verds.findIndex((v) => !v.ok);
+      if (vi >= 0) { setBusy(false); const c = clients.find((x) => x.id === selectedIds[vi]); setErr(`${c?.full_name || ""}: ${emailReason(verds[vi], lang === "fr")}`); return; }
       rowsForQuote = selectedIds.map((id) => ({ size: R[id].size, to_city: R[id].to_city }));
       lines = selectedIds.map((id) => { const c = clients.find((x) => x.id === id); return { name: c?.full_name || "—", route: `${f.p_from_city} → ${R[id].to_city}`, size: R[id].size, price_cents: null }; });
     }

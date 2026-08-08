@@ -6,6 +6,7 @@ import { useLang } from "@/lib/i18n";
 import { COUNTRIES, countryByCode, toE164 } from "@/lib/countries";
 import { cityList, regionFor } from "@/lib/cities";
 import { emailOk, phoneOk, nameOk, cityOk } from "@/lib/validate";
+import { verifyEmail, emailReason } from "@/lib/emailVerify";
 import { Smartphone, Home, Briefcase } from "lucide-react";
 
 type Client = {
@@ -17,7 +18,7 @@ const EMPTY: Partial<Client> = { full_name: "", email: "", mobile: "", home_phon
 
 export default function Clients() {
   const { active } = useOrg();
-  const { t } = useLang();
+  const { t, lang } = useLang();
   const [rows, setRows] = useState<Client[]>([]);
   const [search, setSearch] = useState("");
   const [msg, setMsg] = useState("");
@@ -38,6 +39,8 @@ export default function Clients() {
     if (!edit?.address?.trim()) { setErr(t("Home address is required.", "L’adresse est requise.")); return; }
     if (ca && !cityOk(edit?.city)) { setErr(t("Choose a served city from the list so the address matches a city we cover.", "Choisissez une ville desservie dans la liste pour que l’adresse corresponde à une ville couverte.")); return; }
     setBusy(true); setErr("");
+    const v = await verifyEmail(edit?.email);
+    if (!v.ok) { setBusy(false); setErr(emailReason(v, lang === "fr")); return; }
     const dial = countryByCode(edit.country).dial;
     const payload = { ...edit, mobile: edit.mobile ? toE164(edit.mobile, dial) : edit.mobile };
     try { await org.clientSave(active.org_id, payload); setEdit(null); flash(t("Client saved.", "Client enregistré.")); load(); }

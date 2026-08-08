@@ -20,3 +20,16 @@ export const nameOk = (n?: string | null) => {
 // real destination we cover). Case-insensitive.
 const CITY_SET = new Set(cityList.map((c) => c.toLowerCase()));
 export const cityOk = (c?: string | null) => CITY_SET.has((c || "").trim().toLowerCase());
+
+// Reject obvious gibberish for the parcel contents description: needs real
+// letters, a vowel, and some variety (so "asdfgh", "xxxxx", "....", "123" fail
+// while "documents", "auto parts", "vêtements" pass).
+export const contentsOk = (c?: string | null) => {
+  const s = (c || "").trim();
+  if (s.length < 3) return false;
+  const letters = (s.match(/\p{L}/gu) || []).length;
+  if (letters < 3) return false;
+  if (!/[aeiouyàâäéèêëïîôöùûü]/i.test(s)) return false;              // must contain a vowel
+  const distinct = new Set(s.toLowerCase().replace(/[^a-zà-ÿ]/gi, "")).size;
+  return distinct >= 3;                                              // enough letter variety
+};

@@ -67,17 +67,27 @@ function Shell({ children }: { children: React.ReactNode }) {
   useEffect(() => { org.branding(active.org_id).then(setBrand).catch(() => setBrand(null)); }, [active.org_id]);
   const isActive = (href: string) => (href === "/shipper" ? path === "/shipper" : path.startsWith(href));
 
-  // Hard gate: an owner/admin whose account is missing phone/email/business address
+  // Hard gate #1 (first): a new/invited org must choose a subscription before the
+  // portal activates. Blocks EVERY page (redirects to /shipper/plans) until done.
+  const [needsPlan, setNeedsPlan] = useState<boolean | undefined>(undefined);
+  useEffect(() => { org.needsPlan(active.org_id).then(setNeedsPlan).catch(() => setNeedsPlan(false)); }, [active.org_id]);
+  useEffect(() => {
+    if (needsPlan && path !== "/shipper/plans") { router.replace("/shipper/plans"); }
+  }, [needsPlan, path, router]);
+
+  // Hard gate #2: an owner/admin whose account is missing phone/email/business address
   // is redirected to /shipper/account and can't use the rest of the portal until done.
   const [acct, setAcct] = useState<any>(undefined);
   useEffect(() => { org.account(active.org_id).then(setAcct).catch(() => setAcct(null)); }, [active.org_id]);
   useEffect(() => {
+    if (needsPlan) return; // choose a plan first
     if (acct && !acct.complete && (acct.role === "owner" || acct.role === "admin") && path !== "/shipper/account") {
       router.replace("/shipper/account");
     }
-  }, [acct, path, router]);
+  }, [acct, needsPlan, path, router]);
 
-  const gated = acct && !acct.complete && (acct.role === "owner" || acct.role === "admin") && path !== "/shipper/account";
+  const planGate = needsPlan === true && path !== "/shipper/plans";
+  const gated = planGate || (!needsPlan && acct && !acct.complete && (acct.role === "owner" || acct.role === "admin") && path !== "/shipper/account");
   const initials = (active.name || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 
   return (

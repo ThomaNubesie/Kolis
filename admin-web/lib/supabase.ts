@@ -233,6 +233,8 @@ export const org = {
   },
   // ── Business account details (required: phone, email, business address) ──
   account: (o: string) => r<any>("kolis_org_account_get", { p_org: o }),
+  needsPlan: (o: string) => r<boolean>("kolis_org_needs_plan", { p_org: o }),
+  chooseFree: (o: string) => r<string>("kolis_org_choose_free", { p_org: o }),
   accountSave: (o: string, a: { phone: string; email: string; address: string; city?: string; postal?: string; country?: string }) =>
     r<any>("kolis_org_account_save", { p_org: o, p_phone: a.phone, p_email: a.email, p_address: a.address, p_city: a.city ?? null, p_postal: a.postal ?? null, p_country: a.country ?? "CA" }),
   // ── Bulk shipping from the client database ──

@@ -1,7 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { supabase, org } from "@/lib/supabase";
 import { useOrg } from "@/lib/org-context";
 import { useLang } from "@/lib/i18n";
 
@@ -14,6 +14,14 @@ export default function Plans() {
   const [cur, setCur] = useState<{ plan: string; plan_status?: string; fee_rate: number; renews_at?: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
+  const [needsPlan, setNeedsPlan] = useState(false); // org not yet activated — must pick a plan first
+
+  const startFree = async () => {
+    if (!active?.org_id) return;
+    setBusy("free"); setMsg("");
+    try { await org.chooseFree(active.org_id); window.location.href = "/shipper"; }
+    catch (e: any) { setMsg(e?.message || "Error"); setBusy(null); }
+  };
 
   const PLANS: PlanDef[] = [
     { key: "free", name: t("Pay-as-you-go", "Paiement à l'usage"), price: 0, fee: "20%", features: [
@@ -40,6 +48,7 @@ export default function Plans() {
   const load = useCallback(() => {
     if (!active?.org_id) return;
     supabase.rpc("kolis_org_plan", { p_org: active.org_id }).then(({ data }) => setCur(Array.isArray(data) ? data[0] : data));
+    org.needsPlan(active.org_id).then(setNeedsPlan).catch(() => {});
   }, [active?.org_id]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => {
@@ -76,17 +85,22 @@ export default function Plans() {
       <div className="sub" style={{ marginBottom: 6 }}>{t(
         "Pick the plan that fits your volume. Higher plans lower your per-delivery fee and unlock tools.",
         "Choisissez le forfait selon votre volume. Les forfaits supérieurs réduisent vos frais par livraison et débloquent des outils.")}</div>
-      <div style={{ marginBottom: 18, fontSize: 13, color: "var(--t2)" }}>
-        {t("Current plan", "Forfait actuel")}: <b style={{ color: "#E11D6B" }}>{PLANS.find((p) => p.key === curPlan)?.name || curPlan}</b>
-        {cur ? ` · ${t("delivery fee", "frais de livraison")} ${Math.round((cur.fee_rate || 0.2) * 100)}%` : ""}
-        {cur?.renews_at && curPlan !== "free" ? ` · ${t("renews", "renouvellement")} ${day(cur.renews_at)}` : ""}
-        {curPlan !== "free" && <> · <a onClick={manage} style={{ color: "#E11D6B", cursor: "pointer", fontWeight: 700 }}>{busy === "portal" ? "…" : t("Manage billing", "Gérer la facturation")}</a></>}
-      </div>
+      {needsPlan && <div className="card" style={{ marginBottom: 14, borderColor: "#E11D6B", background: "#fdeef4", color: "#9c1048", fontWeight: 600 }}>{t(
+        "Choose a subscription to activate your account. The portal stays locked until you select a plan.",
+        "Choisissez un abonnement pour activer votre compte. Le portail reste verrouillé tant qu'aucun forfait n'est sélectionné.")}</div>}
+      {!needsPlan && (
+        <div style={{ marginBottom: 18, fontSize: 13, color: "var(--t2)" }}>
+          {t("Current plan", "Forfait actuel")}: <b style={{ color: "#E11D6B" }}>{PLANS.find((p) => p.key === curPlan)?.name || curPlan}</b>
+          {cur ? ` · ${t("delivery fee", "frais de livraison")} ${Math.round((cur.fee_rate || 0.2) * 100)}%` : ""}
+          {cur?.renews_at && curPlan !== "free" ? ` · ${t("renews", "renouvellement")} ${day(cur.renews_at)}` : ""}
+          {curPlan !== "free" && <> · <a onClick={manage} style={{ color: "#E11D6B", cursor: "pointer", fontWeight: 700 }}>{busy === "portal" ? "…" : t("Manage billing", "Gérer la facturation")}</a></>}
+        </div>
+      )}
       {msg && <div className="card" style={{ marginBottom: 14, borderColor: "#E11D6B", color: "#9c1048" }}>{msg}</div>}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(240px,1fr))", gap: 16 }}>
         {PLANS.map((p) => {
-          const isCur = p.key === curPlan;
+          const isCur = !needsPlan && p.key === curPlan;
           return (
             <div key={p.key} className="card" style={{ borderColor: isCur ? "#E11D6B" : undefined, borderWidth: isCur ? 2 : undefined, position: "relative" }}>
               {p.key === "business" && <div style={{ position: "absolute", top: -10, right: 16, background: "#E11D6B", color: "#fff", fontSize: 11, fontWeight: 800, padding: "3px 10px", borderRadius: 20 }}>{t("Most popular", "Le plus populaire")}</div>}
@@ -99,7 +113,11 @@ export default function Plans() {
               {isCur ? (
                 <button className="btn ghost" disabled style={{ width: "100%" }}>{t("Current plan", "Forfait actuel")}</button>
               ) : p.key === "free" ? (
-                <button className="btn ghost" onClick={manage} disabled={busy === "portal"} style={{ width: "100%" }}>{t("Downgrade", "Rétrograder")}</button>
+                needsPlan ? (
+                  <button className="btn" onClick={startFree} disabled={!!busy} style={{ width: "100%" }}>{busy === "free" ? "…" : t("Start Pay-as-you-go", "Commencer en paiement à l'usage")}</button>
+                ) : (
+                  <button className="btn ghost" onClick={manage} disabled={busy === "portal"} style={{ width: "100%" }}>{t("Downgrade", "Rétrograder")}</button>
+                )
               ) : (
                 <button className="btn" onClick={() => choose(p.key)} disabled={!!busy} style={{ width: "100%" }}>{busy === p.key ? "…" : t("Choose", "Choisir")}</button>
               )}

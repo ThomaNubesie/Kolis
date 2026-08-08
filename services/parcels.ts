@@ -96,6 +96,7 @@ export const ParcelsAPI = {
     declared_value?: number | null; // dollars
     insured?: boolean;
     terms_accepted?: boolean;
+    payment_method?: "card" | "interac" | null; // 'interac' → pay by e-Transfer, gated until admin marks paid
   }) {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { parcel: null, error: "Not signed in" };
@@ -133,6 +134,11 @@ export const ParcelsAPI = {
         // 5% of declared value, charged on top of shipping when insured.
         insurance_premium_cents: input.insured && input.declared_value ? Math.round(input.declared_value * 100 * 0.05) : 0,
         terms_accepted_at: input.terms_accepted ? new Date().toISOString() : null,
+        // Interac: mark the method + start 'pending' so pickup is gated until an
+        // admin confirms the e-Transfer (kolis_admin_mark_paid). Card/Stripe path
+        // leaves these null and keeps its existing escrow behaviour.
+        payment_method: input.payment_method ?? null,
+        ...(input.payment_method === "interac" ? { payment_status: "pending" } : {}),
       })
       .select()
       .single();
@@ -195,6 +201,15 @@ export const ParcelsAPI = {
       .eq("status", "received_at_hub")
       .order("created_at", { ascending: true });
     return { parcels: (data ?? []) as Parcel[], error: error?.message };
+  },
+
+  // Send the sender an Interac e-Transfer payment request (SMS + email, bilingual)
+  // for this parcel. Returns the Interac address + amount for on-screen display.
+  async interacRequest(parcelId: string): Promise<{ ok: boolean; interac?: string; amount?: string; error?: string }> {
+    const { data, error } = await supabase.functions.invoke("kolis-interac-request", { body: { parcel_id: parcelId } });
+    if (error) return { ok: false, error: error.message };
+    if ((data as any)?.error) return { ok: false, error: (data as any).error };
+    return { ok: true, interac: (data as any)?.interac, amount: (data as any)?.amount };
   },
 
   // Notify queued LoadQ drivers that a zone parcel is available (push).

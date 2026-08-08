@@ -8,7 +8,7 @@ import { useStrings } from "../../hooks/useStrings";
 import { ParcelsAPI } from "../../services/parcels";
 import { PaymentsAPI } from "../../services/payments";
 import { SizeKey, DropType } from "../../constants/pricing";
-import { Car, CreditCard, Lock } from "lucide-react-native";
+import { Car, CreditCard, Lock, Banknote, Check } from "lucide-react-native";
 
 export default function Confirm() {
   const { t } = useStrings();
@@ -16,6 +16,7 @@ export default function Confirm() {
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const p = useLocalSearchParams<{ drop: string; size: string; from: string; to: string; price: string; pickup_zone?: string; pickup_hub?: string; pickup_addr?: string; zoneName?: string; hubName?: string; preferred_driver_name?: string; preferred_driver_id?: string; form?: string }>();
   const [busy, setBusy] = useState(false);
+  const [method, setMethod] = useState<"card" | "interac">("card");
   const price = Number(p.price ?? 0);
   const drop = (p.drop as DropType) ?? "zone";
   const form = p.form ? JSON.parse(p.form) : {};
@@ -34,9 +35,27 @@ export default function Confirm() {
       pickup_addr: p.pickup_addr ?? null,
       price,
       preferred_driver_id: p.preferred_driver_id || null,
+      payment_method: method === "interac" ? "interac" : null,
       ...form,
     });
     if (error || !parcel) { setBusy(false); Alert.alert("Error", error ?? "Could not create the request."); return; }
+
+    const goRequest = () => router.replace({ pathname: "/(app)/request", params: { id: parcel.id, to: p.to ?? "", drop, where: p.hubName || p.zoneName || "" } });
+
+    // Interac: no Stripe intent — send the e-Transfer request; pickup stays gated
+    // until an admin confirms payment (kolis_admin_mark_paid).
+    if (method === "interac") {
+      const r = await ParcelsAPI.interacRequest(parcel.id);
+      setBusy(false);
+      if (!r.ok) { Alert.alert(t("payment"), r.error ?? t("paymentError")); return; }
+      if (drop === "door") ParcelsAPI.notifyDrivers(parcel.id);
+      Alert.alert(
+        t("interacSentTitle"),
+        t("interacSentBody", { addr: r.interac ?? "", amount: r.amount ?? total.toFixed(2), code: parcel.code }),
+        [{ text: "OK", onPress: goRequest }],
+      );
+      return;
+    }
 
     // Escrow hold via Stripe (manual-capture PaymentIntent), then PaymentSheet.
     const { clientSecret, error: pErr } = await PaymentsAPI.createIntent(parcel.id);
@@ -53,7 +72,7 @@ export default function Confirm() {
     }
     // Authorized & held — funds captured on delivery. Ping queued drivers.
     if (drop === "door") ParcelsAPI.notifyDrivers(parcel.id);
-    router.replace({ pathname: "/(app)/request", params: { id: parcel.id, to: p.to ?? "", drop, where: p.hubName || p.zoneName || "" } });
+    goRequest();
   };
 
   const Card = ({ children }: { children: React.ReactNode }) => (
@@ -84,8 +103,17 @@ export default function Confirm() {
         </Card>
 
         <Text style={{ fontSize: 10.5, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 6, marginTop: 4, fontWeight: "600" }}>{t("payment")}</Text>
-        <Card><View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}><CreditCard size={15} color={Colors.ink} strokeWidth={2.2} /><Text style={{ fontWeight: "700", color: Colors.ink }}>Visa •••• 4242</Text></View></Card>
-        <Card><Text style={{ fontWeight: "700", color: Colors.t2 }}>＋ {t("addCard")}</Text></Card>
+        {([["card", CreditCard, t("payByCard")], ["interac", Banknote, "Interac e-Transfer"]] as const).map(([m, Icon, label]) => {
+          const on = method === m;
+          return (
+            <Pressable key={m} onPress={() => setMethod(m)} style={{ flexDirection: "row", alignItems: "center", gap: 9, borderWidth: 1.5, borderColor: on ? Colors.accent : Colors.line, borderRadius: 14, padding: 13, backgroundColor: on ? "#fdeef4" : "#fff", marginBottom: 10 }}>
+              <Icon size={17} color={on ? Colors.accentDk : Colors.ink} strokeWidth={2.2} />
+              <Text style={{ fontWeight: "800", color: on ? Colors.accentDk : Colors.ink, fontSize: 14 }}>{label}</Text>
+              {on ? <View style={{ marginLeft: "auto" }}><Check size={17} color={Colors.accent} strokeWidth={3} /></View> : null}
+            </Pressable>
+          );
+        })}
+        {method === "interac" && <Text style={{ fontSize: 11.5, color: Colors.t2, marginTop: -2, marginBottom: 8, lineHeight: 16 }}>{t("interacNote")}</Text>}
 
         <View style={{ backgroundColor: Colors.ink, borderRadius: 15, padding: 15, marginTop: 6, marginBottom: 10 }}>
           {premium > 0 && (
@@ -96,19 +124,19 @@ export default function Confirm() {
           )}
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <View>
-              <Text style={{ fontSize: 10, color: "#fff", opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.6 }}>{t("totalEscrow")}</Text>
+              <Text style={{ fontSize: 10, color: "#fff", opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.6 }}>{method === "interac" ? t("amountDue") : t("totalEscrow")}</Text>
               <Text style={{ fontSize: 24, fontWeight: "800", color: "#ff7eb0" }}>C${total.toFixed(2)}</Text>
             </View>
-            <Text style={{ fontSize: 11, color: "#fff", opacity: 0.75, maxWidth: 120, textAlign: "right" }}>{t("releasedOnDelivery")}</Text>
+            <Text style={{ fontSize: 11, color: "#fff", opacity: 0.75, maxWidth: 120, textAlign: "right" }}>{method === "interac" ? t("payByInteracShort") : t("releasedOnDelivery")}</Text>
           </View>
         </View>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 14 }}>
           <Lock size={12} color={Colors.t2} strokeWidth={2.2} />
-          <Text style={{ fontSize: 11.5, color: Colors.t2 }}>{t("chargedWhenDispatched")}</Text>
+          <Text style={{ fontSize: 11.5, color: Colors.t2 }}>{method === "interac" ? t("interacGateNote") : t("chargedWhenDispatched")}</Text>
         </View>
 
         <Pressable onPress={request} disabled={busy} style={{ backgroundColor: Colors.accent, borderRadius: 13, padding: 16, alignItems: "center", opacity: busy ? 0.7 : 1 }}>
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{t("holdRequest", { amount: total.toFixed(2) })}</Text>}
+          {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{method === "interac" ? t("requestInterac", { amount: total.toFixed(2) }) : t("holdRequest", { amount: total.toFixed(2) })}</Text>}
         </Pressable>
       </ScrollView>
     </SafeAreaView>

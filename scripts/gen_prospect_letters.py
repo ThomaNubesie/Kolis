@@ -14,8 +14,9 @@ FEATURES = [
   "STAT / after-hours backup","Backs up your current service: overflow, STAT runs, evenings and weekends."),
  ("Chaîne de possession","Manipulation soignée et sensible à la température, traçabilité de bout en bout, code de remise.",
   "Chain-of-custody","Careful, temperature-aware handling, end-to-end traceability, delivery code."),
- ("Facturation mensuelle","20 % du prix de livraison, sur compte — aucun abonnement, aucune flotte à gérer.",
-  "Monthly billing","20% of the delivery price, on account — no subscription, no fleet to manage."),
+ # Pricing/billing cell intentionally removed — proposals no longer state a price
+ # (no "20% of the delivery price", no monthly-billing claim). Pricing is per
+ # shipment, quoted per package; kept off the printed letter.
 ]
 ABOUT_FR=("Kolis est une plateforme de livraison de Concord Express Co Inc., entreprise technologique de transport basée à Ottawa. "
  "Nos conducteurs, issus du réseau LoadQ, couvrent le corridor Ottawa–Gatineau–Montréal toute la journée — prêts à transporter vos spécimens rapidement et de façon fiable.")

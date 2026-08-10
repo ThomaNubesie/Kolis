@@ -69,6 +69,16 @@ export default function Prospects() {
     if (!confirm(t(`Reopen "${p.business_name}" into the active queue?`, `Rouvrir « ${p.business_name} » dans la file active ?`))) return;
     try { await api.prospectReopen(p.id); load(); } catch (e: any) { setErr(e.message); }
   };
+  // C2 · Suggested review — approve into the active queue, or reject.
+  const approveSuggest = async (p: P) => {
+    try { await api.suggestApprove(p.id); load(); } catch (e: any) { setErr(e.message); }
+  };
+  const rejectSuggest = async (p: P) => {
+    if (!confirm(t(`Reject the suggestion "${p.business_name}"?`, `Rejeter la suggestion « ${p.business_name} » ?`))) return;
+    try { await api.suggestReject(p.id); load(); } catch (e: any) { setErr(e.message); }
+  };
+  const isSuggested = (p: P) => p.level === "suggested" || p.stage === "suggested";
+
   // Terminal states that can be reopened (from concord_level level keys).
   const TERMINAL = new Set(["closed", "stopped", "rejected", "bounced"]);
 
@@ -81,6 +91,7 @@ export default function Prospects() {
 
   const counts = rows ? {
     total: rows.length,
+    suggested: rows.filter((r) => r.level === "suggested" || r.stage === "suggested").length,
     met: rows.filter((r) => r.stage === "met").length,
     pending: rows.filter((r) => r.stage === "pending").length,
     won: rows.filter((r) => r.stage === "won").length,
@@ -97,6 +108,12 @@ export default function Prospects() {
       {counts && (
         <div className="tiles" style={{ marginBottom: 14 }}>
           <div className="tile"><div className="l">{t("Prospects", "Prospects")}</div><div className="n">{counts.total}</div></div>
+          {counts.suggested > 0 && (
+            <div className="tile" onClick={() => setFilter(filter === "suggested" ? "" : "suggested")}
+              style={{ cursor: "pointer", outline: filter === "suggested" ? "2px solid #64748B" : undefined }}
+              title={t("Review AI-suggested prospects", "Réviser les prospects suggérés par l'IA")}>
+              <div className="l">{t("Suggested", "Suggérés")}</div><div className="n" style={{ color: "#64748B" }}>{counts.suggested}</div></div>
+          )}
           <div className="tile"><div className="l">{t("Pending", "En attente")}</div><div className="n" style={{ color: "#b45309" }}>{counts.pending}</div></div>
           <div className="tile"><div className="l">{t("Met", "Contacté")}</div><div className="n" style={{ color: "#2563eb" }}>{counts.met}</div></div>
           <div className="tile"><div className="l">{t("Won", "Gagné")}</div><div className="n" style={{ color: "#178a5e" }}>{counts.won}</div></div>
@@ -149,7 +166,12 @@ export default function Prospects() {
                 <td>{p.clicks > 0 ? `🔗 ${p.clicks}` : "—"}</td>
                 <td style={{ textAlign: "right", whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
                   <button className="chip" onClick={() => download(p)}>{t("Letter", "Lettre")}</button>{" "}
-                  {p.level && TERMINAL.has(p.level)
+                  {isSuggested(p) ? (
+                    <>
+                      <button className="chip" style={{ borderColor: "#16A34A", color: "#16A34A" }} onClick={() => approveSuggest(p)}>✓ {t("Approve", "Approuver")}</button>{" "}
+                      <button className="chip" style={{ borderColor: "#DC2626", color: "#DC2626" }} onClick={() => rejectSuggest(p)}>✕ {t("Reject", "Rejeter")}</button>
+                    </>
+                  ) : p.level && TERMINAL.has(p.level)
                     ? <button className="chip" onClick={() => reopen(p)}>↻ {t("Reopen", "Rouvrir")}</button>
                     : p.stage !== "met" && p.stage !== "won" && p.stage !== "lost" &&
                       <button className="chip" onClick={() => contacted(p)}>{t("Contacted", "Contacté")}</button>}

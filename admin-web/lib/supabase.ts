@@ -142,6 +142,8 @@ export const api = {
   prospectContacted: (id: string) => r("kolis_prospect_mark_contacted", { p_id: id }),
   prospectStage: (id: string, stage: string) => r("kolis_prospect_set_stage", { p_id: id, p_stage: stage }),
   prospectReopen: (id: string) => r("kolis_prospect_reopen", { p_id: id }),
+  suggestApprove: (id: string) => r<string>("concord_suggest_approve", { p_id: id }),
+  suggestReject: (id: string) => r<string>("concord_suggest_reject", { p_id: id }),
   async prospectAdvice(id: string, task?: string) {
     const { data, error } = await supabase.functions.invoke("kolis-prospect-advisor", { body: { id, task } });
     if (error) throw error;

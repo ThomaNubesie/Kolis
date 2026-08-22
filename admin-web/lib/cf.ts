@@ -20,8 +20,17 @@ export const cf = {
   entries: (id: string): Promise<CfEntry[]> => rpc("cf_entries", { p_form: id }),
   createForm: (p: { name: string; description?: string; features: any; approval: number; color: string; fields?: any[]; invites?: { contact: string }[] }) =>
     rpc("cf_create_form", { p_name: p.name, p_description: p.description ?? "", p_features: p.features, p_approval: p.approval, p_color: p.color, p_fields: p.fields ?? [], p_invites: p.invites ?? [] }),
-  invite: (form: string, contact: string) => rpc("cf_invite", { p_form: form, p_contact: contact }),
+  invite: async (form: string, contact: string) => {
+    const res = await rpc("cf_invite", { p_form: form, p_contact: contact });
+    if (res?.ok && res.token) {
+      const base = typeof window !== "undefined" ? window.location.origin : "";
+      try { await supabase.functions.invoke("cf-invite-send", { body: { token: res.token, base_url: base } }); } catch { /* best-effort */ }
+    }
+    return res;
+  },
   join: (form: string, color: string) => rpc("cf_join", { p_form: form, p_color: color }),
+  inviteInfo: (token: string): Promise<{ form_id?: string; form_name?: string; admin?: string; taken_colors?: string[]; error?: string }> => rpc("cf_invite_info", { p_token: token }),
+  joinToken: (token: string, color: string) => rpc("cf_join_token", { p_token: token, p_color: color }),
   setColor: (form: string, color: string) => rpc("cf_set_color", { p_form: form, p_color: color }),
   setFeatures: (form: string, features: any, approval: number) => rpc("cf_set_features", { p_form: form, p_features: features, p_approval: approval }),
   setFields: (form: string, fields: any[]) => rpc("cf_set_fields", { p_form: form, p_fields: fields }),

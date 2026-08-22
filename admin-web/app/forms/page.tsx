@@ -3,7 +3,8 @@
 // feed · members rail. Admin-selected features (voting, AI writing, translation,
 // photos), colour-coded members, numbered/timed structured entries + comments.
 // Self-contained + bilingual for review; wires to Supabase (cf_* RPCs) next.
-import { useMemo, useState } from "react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 
 /* ---------- palette (curated member colours) ---------- */
 const COLORS = ["#3B6FE0", "#E4632A", "#1F9D6B", "#8A4FD0", "#C99A1E", "#D14D8B", "#2AA6B8", "#7A8340"];
@@ -56,6 +57,7 @@ const T = {
 };
 
 export default function FormsPage() {
+  const router = useRouter();
   const [lang, setLang] = useState<"en" | "fr">("en");
   const tr = (o: { en: string; fr: string }) => o[lang];
   const [form, setForm] = useState<Form>(FORM);
@@ -77,13 +79,13 @@ export default function FormsPage() {
         {/* sidebar */}
         <aside style={{ background: "#F4F1EB", borderRight: `1px solid ${C.line}`, padding: "18px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "2px 6px 16px" }}>
-            <div style={{ width: 26, height: 26, borderRadius: 7, background: C.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13 }}>L</div>
-            <div style={{ fontWeight: 800, fontSize: 15 }}>Ledger</div>
+            <div style={{ width: 26, height: 26, borderRadius: 7, background: C.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13 }}>Q</div>
+            <div style={{ fontWeight: 800, fontSize: 15 }}>Quorly</div>
           </div>
           <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: .9, textTransform: "uppercase", color: C.faint, padding: "10px 6px 4px" }}>{tr(T.forms)}</div>
           <div style={sItem(true)}><span style={sDot(COLORS[0])} />{tr(form.name)}</div>
           <div style={sItem(false)}><span style={sDot(COLORS[2])} />Weekly Safety Log</div>
-          <div style={{ marginTop: "auto", border: `1px dashed ${C.line}`, borderRadius: 9, padding: 10, textAlign: "center", fontSize: 12.5, fontWeight: 700, color: C.accent, cursor: "pointer" }}>{tr(T.newForm)}</div>
+          <div style={{ marginTop: "auto", border: `1px dashed ${C.line}`, borderRadius: 9, padding: 10, textAlign: "center", fontSize: 12.5, fontWeight: 700, color: C.accent, cursor: "pointer" }} onClick={() => router.push("/forms/new")}>{tr(T.newForm)}</div>
         </aside>
 
         {/* main */}

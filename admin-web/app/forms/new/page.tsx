@@ -3,6 +3,7 @@
 // approval count + admin colour pick + invite by email/phone. Bilingual.
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { cf } from "@/lib/cf";
 
 const COLORS = ["#3B6FE0", "#E4632A", "#1F9D6B", "#8A4FD0", "#C99A1E", "#D14D8B", "#2AA6B8", "#7A8340"];
 const C = { paper: "#FAF8F4", panel: "#FFFFFF", ink: "#1C1B19", ink2: "#6B6863", faint: "#A8A29A", line: "#EAE4DA", line2: "#F1ECE3", accent: "#2F3AA3", accentSoft: "#EEEFF9" };
@@ -44,11 +45,19 @@ export default function NewFormPage() {
   const rmField = (id: number) => setFields((f) => f.filter((x) => x.id !== id));
   const addInvite = () => { const v = invite.trim(); if (v && !invited.includes(v)) { setInvited((a) => [...a, v]); setInvite(""); } };
 
-  function create() {
-    const payload = { name, desc, features: feats, approvalCount: feats.voting ? approval : null, adminColor: color, fields: feats.fields ? fields.filter((f) => f.label.trim()) : [], invited };
-    console.log("cf_create_form", payload);
-    alert((lang === "fr" ? "Formulaire créé (démo)\n\n" : "Form created (demo)\n\n") + JSON.stringify(payload, null, 2));
-    router.push("/forms");
+  const [busy, setBusy] = useState(false);
+  async function create() {
+    if (!name.trim() || busy) return;
+    setBusy(true);
+    try {
+      const res = await cf.createForm({
+        name: name.trim(), description: desc.trim(), features: feats, approval: feats.voting ? approval : 1, color,
+        fields: feats.fields ? fields.filter((f) => f.label.trim()).map((f) => ({ label: f.label.trim(), type: f.type, options: f.type === "select" ? f.options.split(",").map((s) => s.trim()).filter(Boolean) : [] })) : [],
+        invites: invited.map((c) => ({ contact: c })),
+      });
+      if (res?.ok) router.push("/forms"); else alert(res?.error || "Failed");
+    } catch (e: any) { alert(e.message); }
+    setBusy(false);
   }
 
   return (

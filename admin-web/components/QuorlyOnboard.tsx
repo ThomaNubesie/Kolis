@@ -22,6 +22,8 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
   const [phoneMode, setPhoneMode] = useState<"attach" | "login">("attach"); // "login" = the number already has an account; sign into it
+  const [mode, setMode] = useState<"onboard" | "signin">("onboard");
+  const [signinChan, setSigninChan] = useState<"email" | "phone">("email");
 
   const e164 = (p: string) => { const d = p.replace(/[^\d+]/g, ""); return d.startsWith("+") ? d : d.length === 10 ? "+1" + d : "+" + d; };
 
@@ -76,6 +78,14 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
   }
   async function saveName() { if (!name.trim()) return; setBusy(true); setMsg(""); try { await cf.setProfile(name.trim()); onDone(name.trim()); setStep("done"); } catch (e: any) { setMsg(e.message); } setBusy(false); }
 
+  // Direct sign-in for returning users (email OR phone OTP). After verify, evalStep
+  // routes: fully-onboarded → straight in; otherwise resume the remaining steps.
+  async function signinSend() { setBusy(true); setMsg(""); const { error } = signinChan === "email" ? await supabase.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: false } }) : await supabase.auth.signInWithOtp({ phone: e164(phone), options: { shouldCreateUser: false } }); setBusy(false); if (error) setMsg(/not.*found|no.*user|signups?.*not|otp_disabled/i.test(error.message) ? tr(L("No account found for that. Create one below.", "Aucun compte trouvé. Créez-en un ci-dessous.")) : error.message); else setSent(true); }
+  async function signinVerify() { setBusy(true); setMsg(""); const { error } = signinChan === "email" ? await supabase.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: "email" }) : await supabase.auth.verifyOtp({ phone: e164(phone), token: code.trim(), type: "sms" }); if (error) { setBusy(false); setMsg(error.message); return; } setSent(false); setCode(""); setMode("onboard"); await evalStep(); setBusy(false); }
+  async function pivotToPhoneLogin() { setBusy(true); setMsg(""); setPhoneMode("login"); await supabase.auth.signOut(); const { error } = await supabase.auth.signInWithOtp({ phone: e164(phone) }); setBusy(false); if (error) setMsg(error.message); else { setSent(true); setMsg(tr(L("Enter the code we texted to sign in.", "Entrez le code envoyé par SMS pour vous connecter."))); } }
+  function toSignin() { setMode("signin"); setSent(false); setCode(""); setMsg(""); }
+  function toOnboard() { setMode("onboard"); setSent(false); setCode(""); setMsg(""); setStep("email"); }
+
   const inp: any = { border: `1px solid ${C.line}`, borderRadius: 9, padding: "11px", fontSize: 14, background: "#fff", color: C.ink, width: "100%", outline: "none" };
   const btn: any = { background: C.accent, color: "#fff", borderRadius: 9, padding: 12, textAlign: "center", fontWeight: 800, fontSize: 14, cursor: "pointer", opacity: busy ? .6 : 1 };
   const stepNo = step === "email" ? 1 : step === "phone" ? 2 : 3;
@@ -89,41 +99,64 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
         <div style={{ display: "flex", alignItems: "center", padding: "16px 18px", borderBottom: `1px solid ${C.line}` }}>
           <div style={{ width: 26, height: 26, borderRadius: 7, background: C.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, marginRight: 9 }}>Q</div>
           <div style={{ fontWeight: 800, fontSize: 15, color: C.ink }}>Quorly</div>
-          <div style={{ marginLeft: "auto", display: "flex", gap: 5 }}>{[1, 2, 3].map((n) => <span key={n} style={{ width: 7, height: 7, borderRadius: "50%", background: n <= stepNo ? C.accent : C.line }} />)}</div>
+          {mode === "onboard" && <div style={{ marginLeft: "auto", display: "flex", gap: 5 }}>{[1, 2, 3].map((n) => <span key={n} style={{ width: 7, height: 7, borderRadius: "50%", background: n <= stepNo ? C.accent : C.line }} />)}</div>}
         </div>
         <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 13 }}>
-          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: .7, textTransform: "uppercase", color: C.faint }}>{tr(L("Step", "Étape"))} {stepNo}/3</div>
+          {mode === "signin" ? (
+            <>
+              <div style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>{tr(L("Sign in", "Connexion"))}</div>
+              <div style={{ display: "inline-flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden", alignSelf: "flex-start" }}>
+                {(["email", "phone"] as const).map((m) => <span key={m} onClick={() => { setSigninChan(m); setSent(false); }} style={{ padding: "6px 14px", fontSize: 12, fontWeight: 800, cursor: "pointer", background: signinChan === m ? C.accent : "#fff", color: signinChan === m ? "#fff" : C.ink2 }}>{m === "email" ? tr(L("Email", "Courriel")) : tr(L("Phone", "Téléphone"))}</span>)}
+              </div>
+              {signinChan === "email"
+                ? <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={tr(L("Your email", "Votre courriel"))} style={inp} disabled={sent} />
+                : <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={tr(L("Your mobile number", "Votre numéro mobile"))} style={inp} disabled={sent} />}
+              {!sent ? <div style={btn} onClick={signinSend}>{tr(L("Send code", "Envoyer le code"))}</div> : <>
+                <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={tr(L("6-digit code", "Code à 6 chiffres"))} style={inp} />
+                <div style={btn} onClick={signinVerify}>{tr(L("Sign in", "Se connecter"))}</div>
+                <div onClick={signinSend} style={{ fontSize: 12, color: C.accent, fontWeight: 700, cursor: "pointer", textAlign: "center" }}>{tr(L("Resend code", "Renvoyer le code"))}</div>
+              </>}
+              <div onClick={toOnboard} style={{ fontSize: 12, color: C.ink2, fontWeight: 700, cursor: "pointer", textAlign: "center", marginTop: 2 }}>{tr(L("New here? Create an account", "Nouveau ? Créer un compte"))}</div>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: .7, textTransform: "uppercase", color: C.faint }}>{tr(L("Step", "Étape"))} {stepNo}/3</div>
 
-          {step === "email" && <>
-            <div style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>{tr(L("Verify your email", "Vérifiez votre courriel"))}</div>
-            <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={tr(L("Your email", "Votre courriel"))} style={inp} disabled={sent} />
-            {!sent ? <div style={btn} onClick={sendEmail}>{tr(L("Send code", "Envoyer le code"))}</div> : <>
-              <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={tr(L("6-digit code", "Code à 6 chiffres"))} style={inp} />
-              <div style={btn} onClick={verifyEmail}>{tr(L("Verify email", "Vérifier le courriel"))}</div>
-              <div onClick={sendEmail} style={{ fontSize: 12, color: C.accent, fontWeight: 700, cursor: "pointer", textAlign: "center" }}>{tr(L("Resend code", "Renvoyer le code"))}</div>
-            </>}
-          </>}
+              {step === "email" && <>
+                <div style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>{tr(L("Verify your email", "Vérifiez votre courriel"))}</div>
+                <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder={tr(L("Your email", "Votre courriel"))} style={inp} disabled={sent} />
+                {!sent ? <div style={btn} onClick={sendEmail}>{tr(L("Send code", "Envoyer le code"))}</div> : <>
+                  <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={tr(L("6-digit code", "Code à 6 chiffres"))} style={inp} />
+                  <div style={btn} onClick={verifyEmail}>{tr(L("Verify email", "Vérifier le courriel"))}</div>
+                  <div onClick={sendEmail} style={{ fontSize: 12, color: C.accent, fontWeight: 700, cursor: "pointer", textAlign: "center" }}>{tr(L("Resend code", "Renvoyer le code"))}</div>
+                </>}
+                <div onClick={toSignin} style={{ fontSize: 12.5, color: C.accent, fontWeight: 800, cursor: "pointer", textAlign: "center", marginTop: 2 }}>{tr(L("Already have an account? Sign in", "Vous avez déjà un compte ? Connectez-vous"))}</div>
+              </>}
 
-          {step === "phone" && <>
-            <div style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>{phoneMode === "login" ? tr(L("Sign in with your phone", "Connexion par téléphone")) : tr(L("Verify your phone", "Vérifiez votre téléphone"))}</div>
-            {phoneMode === "attach" && <div style={{ fontSize: 12.5, color: C.green, fontWeight: 700 }}>✓ {email}</div>}
-            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={tr(L("Your mobile number", "Votre numéro mobile"))} style={inp} disabled={sent} />
-            {!sent ? <div style={btn} onClick={sendPhone}>{tr(L("Send code", "Envoyer le code"))}</div> : <>
-              <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={tr(L("6-digit code", "Code à 6 chiffres"))} style={inp} />
-              <div style={btn} onClick={verifyPhone}>{phoneMode === "login" ? tr(L("Sign in", "Se connecter")) : tr(L("Verify phone", "Vérifier le téléphone"))}</div>
-              <div onClick={sendPhone} style={{ fontSize: 12, color: C.accent, fontWeight: 700, cursor: "pointer", textAlign: "center" }}>{tr(L("Resend code", "Renvoyer le code"))}</div>
-            </>}
-          </>}
+              {step === "phone" && <>
+                <div style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>{phoneMode === "login" ? tr(L("Sign in with your phone", "Connexion par téléphone")) : tr(L("Verify your phone", "Vérifiez votre téléphone"))}</div>
+                {phoneMode === "attach" && <div style={{ fontSize: 12.5, color: C.green, fontWeight: 700 }}>✓ {email}</div>}
+                <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={tr(L("Your mobile number", "Votre numéro mobile"))} style={inp} disabled={sent} />
+                {!sent ? <div style={btn} onClick={sendPhone}>{tr(L("Send code", "Envoyer le code"))}</div> : <>
+                  <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={tr(L("6-digit code", "Code à 6 chiffres"))} style={inp} />
+                  <div style={btn} onClick={verifyPhone}>{phoneMode === "login" ? tr(L("Sign in", "Se connecter")) : tr(L("Verify phone", "Vérifier le téléphone"))}</div>
+                  <div onClick={sendPhone} style={{ fontSize: 12, color: C.accent, fontWeight: 700, cursor: "pointer", textAlign: "center" }}>{tr(L("Resend code", "Renvoyer le code"))}</div>
+                </>}
+                {phoneMode === "attach" && msg && <div onClick={pivotToPhoneLogin} style={{ background: C.accentSoft, color: C.accent, borderRadius: 9, padding: "10px 12px", textAlign: "center", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>{tr(L("Sign in with this number instead", "Se connecter avec ce numéro"))}</div>}
+              </>}
 
-          {step === "name" && <>
-            <div style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>{tr(L("Create your profile", "Créez votre profil"))}</div>
-            <div style={{ fontSize: 12.5, color: C.green, fontWeight: 700 }}>✓ {email} · ✓ {phone}</div>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr(L("Your name", "Votre nom"))} style={inp} onKeyDown={(e) => e.key === "Enter" && saveName()} />
-            <div style={{ ...btn, opacity: busy || !name.trim() ? .6 : 1 }} onClick={saveName}>{tr(L("Continue", "Continuer"))}</div>
-          </>}
+              {step === "name" && <>
+                <div style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>{tr(L("Create your profile", "Créez votre profil"))}</div>
+                <div style={{ fontSize: 12.5, color: C.green, fontWeight: 700 }}>✓ {email} · ✓ {phone}</div>
+                <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr(L("Your name", "Votre nom"))} style={inp} onKeyDown={(e) => e.key === "Enter" && saveName()} />
+                <div style={{ ...btn, opacity: busy || !name.trim() ? .6 : 1 }} onClick={saveName}>{tr(L("Continue", "Continuer"))}</div>
+              </>}
+
+              {(step === "phone" || step === "name") && <div onClick={restart} style={{ fontSize: 11.5, color: C.ink2, fontWeight: 700, cursor: "pointer", textAlign: "center", marginTop: 2 }}>{tr(L("Use a different account", "Utiliser un autre compte"))}</div>}
+            </>
+          )}
 
           {msg && <div style={{ color: "#B4531F", fontSize: 12.5 }}>{msg}</div>}
-          {(step === "phone" || step === "name") && <div onClick={restart} style={{ fontSize: 11.5, color: C.ink2, fontWeight: 700, cursor: "pointer", textAlign: "center", marginTop: 2 }}>{tr(L("Use a different account", "Utiliser un autre compte"))}</div>}
         </div>
       </div>
     </div>

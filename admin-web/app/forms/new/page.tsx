@@ -153,7 +153,8 @@ function NewFormInner() {
   return (
     <div style={{ background: "#2A2824", minHeight: "100vh", padding: 24, fontFamily: "-apple-system,Inter,Segoe UI,Roboto,sans-serif" }}>
       <div style={{ maxWidth: 720, margin: "0 auto", background: C.paper, borderRadius: 14, overflow: "hidden", boxShadow: "0 30px 70px rgba(0,0,0,.45)" }}>
-        <div style={{ display: "flex", alignItems: "center", padding: "16px 22px", borderBottom: `1px solid ${C.line}` }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 22px", borderBottom: `1px solid ${C.line}` }}>
+          <span onClick={() => router.push("/forms")} title={tr(L("Back to home", "Retour à l'accueil"))} style={{ fontSize: 24, fontWeight: 800, color: C.ink, cursor: "pointer", lineHeight: 1 }}>‹</span>
           <div style={{ fontSize: 18, fontWeight: 800 }}>{tr(L("New form", "Nouveau formulaire"))}</div>
           <div style={{ marginLeft: "auto", display: "inline-flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
             {(["en", "fr"] as const).map((l) => <span key={l} onClick={() => setLang(l)} style={{ padding: "5px 11px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", background: lang === l ? C.accent : "transparent", color: lang === l ? "#fff" : C.ink2 }}>{l.toUpperCase()}</span>)}
@@ -268,7 +269,10 @@ function NewFormInner() {
             </div>}
           </div>
 
-          <div onClick={create} style={{ background: name.trim() && adminName.trim() ? C.accent : "#C9C3B8", color: "#fff", borderRadius: 10, padding: 13, textAlign: "center", fontWeight: 800, fontSize: 14, cursor: name.trim() && adminName.trim() ? "pointer" : "default" }}>{tr(L("Create & invite", "Créer et inviter"))}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div onClick={() => router.push("/forms")} style={{ flex: "0 0 auto", border: `1px solid ${C.line}`, color: C.ink2, borderRadius: 10, padding: "13px 18px", textAlign: "center", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>{tr(L("Cancel", "Annuler"))}</div>
+            <div onClick={create} style={{ flex: 1, background: name.trim() && adminName.trim() ? C.accent : "#C9C3B8", color: "#fff", borderRadius: 10, padding: 13, textAlign: "center", fontWeight: 800, fontSize: 14, cursor: name.trim() && adminName.trim() ? "pointer" : "default" }}>{tr(L("Create & invite", "Créer et inviter"))}</div>
+          </div>
         </div>
       </div>
 

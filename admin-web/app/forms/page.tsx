@@ -12,6 +12,7 @@ const C = { paper: "#FAF8F4", panel: "#FFFFFF", ink: "#1C1B19", ink2: "#6B6863",
 const L = (en: string, fr: string) => ({ en, fr });
 const initials = (n?: string | null) => { if (!n) return "?"; const p = n.trim().split(/\s+/); return ((p[0]?.[0] ?? "") + (p[1]?.[0] ?? "")).toUpperCase(); };
 const fmt = (iso: string, lang: string) => { try { return new Date(iso).toLocaleString(lang === "fr" ? "fr-CA" : "en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch { return iso; } };
+const fmtDate = (iso: string, lang: string) => { try { return new Date(iso).toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { year: "numeric", month: "short", day: "numeric" }); } catch { return iso; } };
 function useMobile(bp = 820) { const [m, setM] = useState(false); useEffect(() => { const f = () => setM(window.innerWidth < bp); f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, [bp]); return m; }
 
 export default function FormsPage() {
@@ -79,7 +80,16 @@ function FormsInner() {
             {list.length === 0 && <div style={{ fontSize: 12.5, color: C.faint, padding: "6px" }}>{tr(L("No forms yet.", "Aucun formulaire."))}</div>}
             <div style={{ display: "flex", flexDirection: "column", gap: 4, overflow: "auto" }}>
               {list.map((f) => (
-                <div key={f.id} onClick={() => setSel(f.id)} style={sItem(f.id === sel)}><span style={{ width: 7, height: 7, borderRadius: "50%", background: C.accent, flex: "0 0 auto" }} />{f.name}</div>
+                <div key={f.id} onClick={() => setSel(f.id)} style={{ ...sItem(f.id === sel), flexDirection: "column", alignItems: "stretch", gap: 3, padding: "9px 10px" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.accent, flex: "0 0 auto" }} />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                  </div>
+                  <div style={{ fontSize: 10.5, color: C.faint, paddingLeft: 15, lineHeight: 1.3 }}>
+                    {f.is_admin ? tr(L("You're admin", "Vous êtes admin")) : `${tr(L("Admin", "Admin"))}: ${f.admin ?? "—"}`}
+                    {f.joined_at ? ` · ${tr(L("joined", "rejoint"))} ${fmtDate(f.joined_at, lang)}` : ""}
+                  </div>
+                </div>
               ))}
             </div>
           </aside>

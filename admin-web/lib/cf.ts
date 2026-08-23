@@ -12,7 +12,7 @@ export type CfMember = { id: string | null; name: string | null; color: string |
 export type CfComment = { id: string; author: string; body: string; created_at: string };
 export type CfEntry = { id: string; seq: number; author: string; values: Record<string, any>; status: string | null; created_at: string; approvals: number; my_vote: string | null; comments: CfComment[] };
 export type CfFormFull = { id: string; name: string; description: string; features: Record<string, boolean>; approval_count: number; is_admin: boolean; nda?: string | null; fields: CfField[]; members: CfMember[]; error?: string };
-export type CfFormBrief = { id: string; name: string; description: string; features: Record<string, boolean>; is_admin: boolean; members: number };
+export type CfFormBrief = { id: string; name: string; description: string; features: Record<string, boolean>; is_admin: boolean; admin?: string | null; joined_at?: string | null; members: number };
 
 export const cf = {
   canCreate: (): Promise<boolean> => rpc("cf_can_create"),

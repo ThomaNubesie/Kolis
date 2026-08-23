@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cf } from "@/lib/cf";
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
+import { FilePlus, Wallet, Receipt, FileSpreadsheet, Gavel, NotebookPen, HardHat, UserCheck, Vote, CalendarDays, X } from "lucide-react";
 
 const COLORS = ["#3B6FE0", "#E4632A", "#1F9D6B", "#8A4FD0", "#C99A1E", "#D14D8B", "#2AA6B8", "#7A8340", "#D93A3A", "#6D28D9", "#0891B2", "#BE5D1E", "#3F8F3F", "#C2417E", "#5B7C99", "#8A6D3B"];
 const C = { paper: "#FAF8F4", panel: "#FFFFFF", ink: "#1C1B19", ink2: "#6B6863", faint: "#A8A29A", line: "#EAE4DA", line2: "#F1ECE3", accent: "#2F3AA3", accentSoft: "#EEEFF9" };
@@ -30,31 +31,51 @@ const FTYPES: { v: FType; t: { en: string; fr: string } }[] = [
 ];
 
 type TF = { label: string; type: FType; options?: string };
-type Tmpl = { id: string; t: { en: string; fr: string }; icon: string; feats: Partial<Record<Feat, boolean>>; approval?: number; fields: TF[] };
+type Tmpl = { id: string; t: { en: string; fr: string }; d: { en: string; fr: string }; Icon: any; color: string; feats: Partial<Record<Feat, boolean>>; approval?: number; fields: TF[] };
 const FEAT_BASE: Record<Feat, boolean> = { fields: false, member_entries: false, voting: false, ai: true, translation: true, comments: true, photos: false };
 const TEMPLATES: Tmpl[] = [
-  { id: "blank", t: L("Blank", "Vierge"), icon: "✎", feats: { fields: false, member_entries: true }, fields: [] },
-  { id: "ledger", t: L("Financial ledger", "Registre financier"), icon: "₵", feats: { fields: true, member_entries: true, comments: true }, fields: [
+  { id: "blank", t: L("Blank", "Vierge"), Icon: FilePlus, color: "#6B6863",
+    d: L("Start from scratch. A simple free-text log where members post notes and reply — no set fields. Add your own fields and features after.", "Partez de zéro. Un journal texte simple où les membres publient des notes et répondent — aucun champ prédéfini. Ajoutez vos champs et fonctions ensuite."),
+    feats: { fields: false, member_entries: true }, fields: [] },
+  { id: "ledger", t: L("Financial ledger", "Registre financier"), Icon: Wallet, color: "#1F9D6B",
+    d: L("Track shared money. Each entry is a transaction — date, description, category, money in/out — so a group can keep a running record of income and expenses together.", "Suivez l'argent commun. Chaque entrée est une transaction — date, description, catégorie, entrées/sorties — pour tenir ensemble un registre des revenus et dépenses."),
+    feats: { fields: true, member_entries: true, comments: true }, fields: [
     { label: "Date", type: "date" }, { label: "Description", type: "text" },
     { label: "Category", type: "select", options: "Income,Expense,Transfer" },
     { label: "Money in", type: "number" }, { label: "Money out", type: "number" }, { label: "Note", type: "longtext" } ] },
-  { id: "expense", t: L("Expense approval", "Approbation de dépense"), icon: "🧾", feats: { fields: true, member_entries: true, voting: true, photos: true }, approval: 1, fields: [
+  { id: "expense", t: L("Expense approval", "Approbation de dépense"), Icon: Receipt, color: "#E4632A",
+    d: L("Submit expenses for sign-off. Members post an expense with a receipt photo; approvers vote to approve before it's marked cleared.", "Soumettez des dépenses pour approbation. Les membres publient une dépense avec photo du reçu; les approbateurs votent avant qu'elle soit validée."),
+    feats: { fields: true, member_entries: true, voting: true, photos: true }, approval: 1, fields: [
     { label: "Date", type: "date" }, { label: "Vendor", type: "text" }, { label: "Amount", type: "number" },
     { label: "Category", type: "select", options: "Travel,Supplies,Meals,Software,Other" }, { label: "Receipt", type: "photo" }, { label: "Note", type: "longtext" } ] },
-  { id: "invoice", t: L("Invoice / payment log", "Registre de paiements"), icon: "📒", feats: { fields: true, member_entries: true, voting: true }, approval: 1, fields: [
+  { id: "invoice", t: L("Invoice / payment log", "Registre de paiements"), Icon: FileSpreadsheet, color: "#2F3AA3",
+    d: L("Follow invoices and payments. Log each invoice with client, amount, due date and status (Draft/Sent/Paid/Overdue) to see what's outstanding.", "Suivez factures et paiements. Enregistrez chaque facture — client, montant, échéance et statut (Brouillon/Envoyée/Payée/En retard) — pour voir les impayés."),
+    feats: { fields: true, member_entries: true, voting: true }, approval: 1, fields: [
     { label: "Invoice #", type: "text" }, { label: "Client", type: "text" }, { label: "Amount", type: "number" },
     { label: "Due date", type: "date" }, { label: "Status", type: "select", options: "Draft,Sent,Paid,Overdue" }, { label: "Note", type: "longtext" } ] },
-  { id: "motions", t: L("Board motions", "Motions du conseil"), icon: "⚖", feats: { fields: true, member_entries: true, voting: true }, approval: 2, fields: [
+  { id: "motions", t: L("Board motions", "Motions du conseil"), Icon: Gavel, color: "#8A4FD0",
+    d: L("Run votes on decisions. Each entry is a motion with a mover and seconder; members vote and it's marked approved once it hits the threshold.", "Votez des décisions. Chaque entrée est une motion avec proposeur et second; les membres votent et elle est approuvée dès le seuil atteint."),
+    feats: { fields: true, member_entries: true, voting: true }, approval: 2, fields: [
     { label: "Motion", type: "longtext" }, { label: "Mover", type: "text" }, { label: "Seconder", type: "text" } ] },
-  { id: "minutes", t: L("Meeting minutes", "Procès-verbal"), icon: "🗒", feats: { fields: true, member_entries: true, comments: true }, fields: [
+  { id: "minutes", t: L("Meeting minutes", "Procès-verbal"), Icon: NotebookPen, color: "#2AA6B8",
+    d: L("Record what a meeting decided. Log each decision with an owner and due date; members can comment for clarifications. Export the minutes as a PDF.", "Consignez les décisions d'une réunion. Notez chaque décision avec responsable et échéance; les membres commentent. Exportez le procès-verbal en PDF."),
+    feats: { fields: true, member_entries: true, comments: true }, fields: [
     { label: "Decision", type: "longtext" }, { label: "Owner", type: "text" }, { label: "Due", type: "date" } ] },
-  { id: "inspection", t: L("Site inspection", "Inspection de site"), icon: "🛠", feats: { fields: true, member_entries: true, voting: true, photos: true }, approval: 1, fields: [
+  { id: "inspection", t: L("Site inspection", "Inspection de site"), Icon: HardHat, color: "#C99A1E",
+    d: L("Log findings on site. Each entry captures location, severity, a description and a photo; approve items to sign them off, then export a report.", "Consignez les constats sur site. Chaque entrée note le lieu, la gravité, une description et une photo; approuvez pour valider, puis exportez un rapport."),
+    feats: { fields: true, member_entries: true, voting: true, photos: true }, approval: 1, fields: [
     { label: "Location", type: "text" }, { label: "Severity", type: "select", options: "Low,Medium,High" }, { label: "Finding", type: "longtext" }, { label: "Photo", type: "photo" } ] },
-  { id: "hiring", t: L("Hiring scorecard", "Évaluation d'embauche"), icon: "👤", feats: { fields: true, member_entries: true, voting: true }, approval: 2, fields: [
+  { id: "hiring", t: L("Hiring scorecard", "Évaluation d'embauche"), Icon: UserCheck, color: "#D14D8B",
+    d: L("Evaluate candidates as a panel. Each interviewer posts a rating with strengths and concerns; the panel votes and you export a summary.", "Évaluez des candidats en comité. Chaque intervieweur publie une note avec forces et réserves; le comité vote et vous exportez un résumé."),
+    feats: { fields: true, member_entries: true, voting: true }, approval: 2, fields: [
     { label: "Candidate", type: "text" }, { label: "Role", type: "text" }, { label: "Rating", type: "select", options: "1,2,3,4,5" }, { label: "Strengths", type: "longtext" }, { label: "Concerns", type: "longtext" } ] },
-  { id: "picks", t: L("Group picks / vote", "Choix du groupe"), icon: "🗳", feats: { fields: true, member_entries: true, voting: true }, approval: 3, fields: [
+  { id: "picks", t: L("Group picks / vote", "Choix du groupe"), Icon: Vote, color: "#0891B2",
+    d: L("Let the group choose. Members propose options (a book, a place, a date) with a reason; everyone votes and the winner rises to the top.", "Laissez le groupe choisir. Les membres proposent des options (un livre, un lieu, une date) avec une raison; tout le monde vote et le gagnant ressort."),
+    feats: { fields: true, member_entries: true, voting: true }, approval: 3, fields: [
     { label: "Title", type: "text" }, { label: "Why", type: "longtext" } ] },
-  { id: "event", t: L("Event planning", "Organisation d'événement"), icon: "📅", feats: { fields: true, member_entries: true, comments: true }, fields: [
+  { id: "event", t: L("Event planning", "Organisation d'événement"), Icon: CalendarDays, color: "#BE5D1E",
+    d: L("Coordinate an event. Track tasks with an owner, due date and status (To do/Doing/Done) so everyone sees who's doing what.", "Coordonnez un événement. Suivez les tâches avec responsable, échéance et statut (À faire/En cours/Terminé) pour voir qui fait quoi."),
+    feats: { fields: true, member_entries: true, comments: true }, fields: [
     { label: "Task", type: "text" }, { label: "Owner", type: "text" }, { label: "Due", type: "date" }, { label: "Status", type: "select", options: "To do,Doing,Done" } ] },
 ];
 
@@ -84,12 +105,14 @@ function NewFormInner() {
     "Toutes les informations partagées dans ce formulaire — entrées, commentaires et pièces jointes — sont confidentielles. En rejoignant, chaque membre s'engage à ne pas les divulguer, copier ou partager avec quiconque à l'extérieur de ce formulaire sans le consentement écrit de l'administrateur."));
   const [ndaText, setNdaText] = useState("");
   const [tmplId, setTmplId] = useState("blank");
+  const [preview, setPreview] = useState<Tmpl | null>(null); // template whose description popup is open
   const applyTemplate = (t: Tmpl) => {
     setTmplId(t.id);
     setFeats({ ...FEAT_BASE, ...t.feats });
     setApproval(t.approval ?? 2);
     setFields(t.fields.length ? t.fields.map((f, i) => ({ id: i + 1, label: f.label, type: f.type, options: f.options ?? "" })) : [{ id: 1, label: "", type: "text", options: "" }]);
     setName((n) => n || tr(t.t));
+    setPreview(null);
   };
 
   const addField = () => setFields((f) => [...f, { id: Date.now(), label: "", type: "text", options: "" }]);
@@ -140,14 +163,20 @@ function NewFormInner() {
         <div style={{ padding: 22, display: "flex", flexDirection: "column", gap: 18 }}>
           <div>
             <div style={lbl}>{tr(L("Start from a template", "Partir d'un modèle"))}</div>
-            <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 4, margin: "0 -2px" }}>
-              {TEMPLATES.map((t) => (
-                <div key={t.id} onClick={() => applyTemplate(t)} style={{ flex: "0 0 auto", cursor: "pointer", border: `1px solid ${tmplId === t.id ? C.accent : C.line}`, background: tmplId === t.id ? C.accentSoft : "#fff", borderRadius: 11, padding: "9px 12px", minWidth: 96, textAlign: "center" }}>
-                  <div style={{ fontSize: 18, lineHeight: 1 }}>{t.icon}</div>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: tmplId === t.id ? C.accent : C.ink2, marginTop: 5 }}>{tr(t.t)}</div>
-                </div>
-              ))}
+            <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4, margin: "0 -2px" }}>
+              {TEMPLATES.map((t) => {
+                const on = tmplId === t.id;
+                return (
+                  <div key={t.id} onClick={() => setPreview(t)} title={tr(t.t)} style={{ flex: "0 0 auto", cursor: "pointer", border: `1px solid ${on ? t.color : C.line}`, background: on ? "#fff" : "#fff", boxShadow: on ? `0 0 0 2px ${t.color}22` : "none", borderRadius: 13, padding: "11px 10px 9px", width: 104, textAlign: "center" }}>
+                    <div style={{ width: 38, height: 38, borderRadius: 10, background: `${t.color}18`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto" }}>
+                      <t.Icon size={20} color={t.color} strokeWidth={2.2} />
+                    </div>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: on ? t.color : C.ink2, marginTop: 7, lineHeight: 1.2 }}>{tr(t.t)}</div>
+                  </div>
+                );
+              })}
             </div>
+            <div style={{ fontSize: 11, color: C.faint, marginTop: 6 }}>{tr(L("Tap a template to see what it's for.", "Touchez un modèle pour voir à quoi il sert."))}</div>
           </div>
           <div>
             <div style={lbl}>{tr(L("Your name", "Votre nom"))}</div>
@@ -242,6 +271,32 @@ function NewFormInner() {
           <div onClick={create} style={{ background: name.trim() && adminName.trim() ? C.accent : "#C9C3B8", color: "#fff", borderRadius: 10, padding: 13, textAlign: "center", fontWeight: 800, fontSize: 14, cursor: name.trim() && adminName.trim() ? "pointer" : "default" }}>{tr(L("Create & invite", "Créer et inviter"))}</div>
         </div>
       </div>
+
+      {preview && (
+        <div onClick={() => setPreview(null)} style={{ position: "fixed", inset: 0, background: "rgba(20,18,16,.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 100 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, width: "100%", background: C.paper, borderRadius: 16, overflow: "hidden", boxShadow: "0 30px 70px rgba(0,0,0,.5)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 18px 10px" }}>
+              <div style={{ width: 46, height: 46, borderRadius: 12, background: `${preview.color}18`, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>
+                <preview.Icon size={24} color={preview.color} strokeWidth={2.2} />
+              </div>
+              <div style={{ fontSize: 17, fontWeight: 800, color: C.ink }}>{tr(preview.t)}</div>
+              <span onClick={() => setPreview(null)} style={{ marginLeft: "auto", cursor: "pointer", color: C.faint, display: "flex" }}><X size={20} /></span>
+            </div>
+            <div style={{ padding: "0 18px", fontSize: 13.5, color: C.ink2, lineHeight: 1.55 }}>{tr(preview.d)}</div>
+            <div style={{ padding: "12px 18px 2px" }}>
+              <div style={lbl}>{tr(L("Includes", "Comprend"))}</div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {preview.fields.map((f) => <span key={f.label} style={{ fontSize: 11.5, fontWeight: 700, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, padding: "4px 10px", color: C.ink2 }}>{f.label}</span>)}
+                {(Object.keys(preview.feats) as Feat[]).filter((k) => preview.feats[k] && (k === "voting" || k === "photos")).map((k) => <span key={k} style={{ fontSize: 11.5, fontWeight: 800, background: `${preview.color}14`, borderRadius: 999, padding: "4px 10px", color: preview.color }}>{k === "voting" ? tr(L("Voting / approval", "Vote / approbation")) : tr(L("Photos", "Photos"))}</span>)}
+              </div>
+            </div>
+            <div style={{ padding: 18, display: "flex", gap: 8 }}>
+              <div onClick={() => setPreview(null)} style={{ flex: 1, border: `1px solid ${C.line}`, borderRadius: 10, padding: 12, textAlign: "center", fontWeight: 800, fontSize: 13.5, color: C.ink2, cursor: "pointer" }}>{tr(L("Close", "Fermer"))}</div>
+              <div onClick={() => applyTemplate(preview)} style={{ flex: 2, background: preview.color, color: "#fff", borderRadius: 10, padding: 12, textAlign: "center", fontWeight: 800, fontSize: 13.5, cursor: "pointer" }}>{tr(L("Use this template", "Utiliser ce modèle"))}</div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

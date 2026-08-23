@@ -46,7 +46,7 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
 
   useEffect(() => { evalStep().finally(() => setReady(true)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function restart() { await supabase.auth.signOut(); setSent(false); setCode(""); setPhone(""); setMsg(""); setPhoneMode("attach"); setStep("email"); }
+  async function restart() { await supabase.auth.signOut({ scope: "local" }); setSent(false); setCode(""); setPhone(""); setMsg(""); setPhoneMode("attach"); setStep("email"); }
 
   async function sendEmail() { setBusy(true); setMsg(""); const { error } = await supabase.auth.signInWithOtp({ email: email.trim() }); setBusy(false); if (error) setMsg(error.message); else setSent(true); }
   async function verifyEmail() {
@@ -66,7 +66,7 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
       if (/already|registered|exists|taken|in use|duplicate/i.test(error.message)) {
         // The number already belongs to an account → sign into THAT account instead of attaching.
         setPhoneMode("login");
-        await supabase.auth.signOut();
+        await supabase.auth.signOut({ scope: "local" });
         const { error: e2 } = await supabase.auth.signInWithOtp({ phone: e164(phone) });
         setBusy(false);
         if (e2) setMsg(e2.message);
@@ -76,7 +76,7 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
       setBusy(false); setMsg(error.message); return;
     }
     // login mode: (re)send the sign-in code to the number
-    await supabase.auth.signOut();
+    await supabase.auth.signOut({ scope: "local" });
     const { error } = await supabase.auth.signInWithOtp({ phone: e164(phone) });
     setBusy(false); if (error) setMsg(error.message); else setSent(true);
   }
@@ -92,7 +92,7 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
   // routes: fully-onboarded → straight in; otherwise resume the remaining steps.
   async function signinSend() { setBusy(true); setMsg(""); const { error } = signinChan === "email" ? await supabase.auth.signInWithOtp({ email: email.trim(), options: { shouldCreateUser: false } }) : await supabase.auth.signInWithOtp({ phone: e164(phone), options: { shouldCreateUser: false } }); setBusy(false); if (error) setMsg(/not.*found|no.*user|signups?.*not|otp_disabled/i.test(error.message) ? tr(L("No account found for that. Create one below.", "Aucun compte trouvé. Créez-en un ci-dessous.")) : error.message); else setSent(true); }
   async function signinVerify() { setBusy(true); setMsg(""); const { error } = signinChan === "email" ? await supabase.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: "email" }) : await supabase.auth.verifyOtp({ phone: e164(phone), token: code.trim(), type: "sms" }); if (error) { setBusy(false); setMsg(error.message); return; } setSent(false); setCode(""); setMode("onboard"); await evalStep(); setBusy(false); }
-  async function pivotToPhoneLogin() { setBusy(true); setMsg(""); setPhoneMode("login"); await supabase.auth.signOut(); const { error } = await supabase.auth.signInWithOtp({ phone: e164(phone) }); setBusy(false); if (error) setMsg(error.message); else { setSent(true); setMsg(tr(L("Enter the code we texted to sign in.", "Entrez le code envoyé par SMS pour vous connecter."))); } }
+  async function pivotToPhoneLogin() { setBusy(true); setMsg(""); setPhoneMode("login"); await supabase.auth.signOut({ scope: "local" }); const { error } = await supabase.auth.signInWithOtp({ phone: e164(phone) }); setBusy(false); if (error) setMsg(error.message); else { setSent(true); setMsg(tr(L("Enter the code we texted to sign in.", "Entrez le code envoyé par SMS pour vous connecter."))); } }
   function toSignin() { setMode("signin"); setSent(false); setCode(""); setMsg(""); }
   function toOnboard() { setMode("onboard"); setSent(false); setCode(""); setMsg(""); setStep("email"); }
 

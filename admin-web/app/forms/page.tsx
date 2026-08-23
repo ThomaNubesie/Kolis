@@ -93,8 +93,12 @@ function FormsInner() {
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: mobile ? 16 : 18, fontWeight: 800, letterSpacing: -.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{form.name}</div>
                 <div style={{ fontSize: 11.5, color: C.faint, marginTop: 2 }}>{form.members.filter((m) => m.status === "active").length} {tr(L("members", "membres"))}{form.is_admin ? " · " + tr(L("You're admin", "Vous êtes admin")) : ""}</div>
+                {form.description && <div style={{ fontSize: 12, color: C.ink2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: mobile ? 220 : 380 }}>{form.description}</div>}
               </div>
-              {!mobile && <div style={{ marginLeft: "auto", flex: "0 0 auto" }}>{langToggle}</div>}
+              <div style={{ marginLeft: "auto", flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8 }}>
+                {form.is_admin && <FormEdit form={form} tr={tr} onSaved={() => sel && loadForm(sel)} />}
+                {!mobile && langToggle}
+              </div>
             </div>
             <div style={{ padding: mobile ? "14px 16px" : "18px 22px", display: "flex", flexDirection: "column", gap: 16, overflow: "auto" }}>
               {form.is_admin && <PdfPanel form={form} entries={entries} memberOf={memberOf} tr={tr} />}
@@ -175,6 +179,49 @@ function PdfPanel({ form, entries, memberOf, tr }: any) {
       <input value={extra} onChange={(e) => setExtra(e.target.value)} placeholder={tr(L("email, email…", "courriel, courriel…"))} style={inp} />
       <div onClick={email} style={{ background: C.accent, color: "#fff", borderRadius: 9, padding: "10px 12px", textAlign: "center", fontSize: 13, fontWeight: 800, cursor: "pointer", opacity: busy ? .6 : 1 }}>{busy ? "…" : tr(L("Send PDF", "Envoyer le PDF"))}</div>
     </div>
+  );
+}
+
+function FormEdit({ form, tr, onSaved }: any) {
+  const [open, setOpen] = useState(false);
+  const [n, setN] = useState(form.name || "");
+  const [d, setD] = useState(form.description || "");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { setN(form.name || ""); setD(form.description || ""); }, [form.id, form.name, form.description]);
+  const save = async () => {
+    if (!n.trim()) return; setBusy(true);
+    try { const r = await cf.updateForm(form.id, n.trim(), d); if (r?.ok) { setOpen(false); onSaved(); } else alert(r?.error || "Failed"); }
+    catch (e: any) { alert(e.message); }
+    setBusy(false);
+  };
+  return (
+    <>
+      <span onClick={() => setOpen(true)} style={{ fontSize: 12, fontWeight: 800, color: C.accent, background: C.accentSoft, borderRadius: 8, padding: "5px 11px", cursor: "pointer", whiteSpace: "nowrap" }}>✎ {tr(L("Edit", "Modifier"))}</span>
+      {open && (
+        <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(20,18,16,.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 100 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, width: "100%", background: C.paper, borderRadius: 16, overflow: "hidden", boxShadow: "0 30px 70px rgba(0,0,0,.5)" }}>
+            <div style={{ display: "flex", alignItems: "center", padding: "16px 18px", borderBottom: `1px solid ${C.line}` }}>
+              <div style={{ fontSize: 16, fontWeight: 800 }}>{tr(L("Edit form", "Modifier le formulaire"))}</div>
+              <span onClick={() => setOpen(false)} style={{ marginLeft: "auto", color: C.faint, fontWeight: 800, cursor: "pointer" }}>✕</span>
+            </div>
+            <div style={{ padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+              <div>
+                <div style={railLbl}>{tr(L("Form title", "Titre du formulaire"))}</div>
+                <input value={n} onChange={(e) => setN(e.target.value)} style={{ ...inp, marginTop: 6 }} />
+              </div>
+              <div>
+                <div style={railLbl}>{tr(L("Description", "Description"))}</div>
+                <textarea value={d} onChange={(e) => setD(e.target.value)} placeholder={tr(L("What this form is for…", "À quoi sert ce formulaire…"))} style={{ ...inp, minHeight: 80, marginTop: 6 }} />
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <div onClick={() => setOpen(false)} style={{ flex: 1, border: `1px solid ${C.line}`, borderRadius: 9, padding: 11, textAlign: "center", fontWeight: 800, fontSize: 13.5, color: C.ink2, cursor: "pointer" }}>{tr(L("Cancel", "Annuler"))}</div>
+                <div onClick={save} style={{ flex: 2, background: C.accent, color: "#fff", borderRadius: 9, padding: 11, textAlign: "center", fontWeight: 800, fontSize: 13.5, cursor: "pointer", opacity: busy || !n.trim() ? .6 : 1 }}>{busy ? "…" : tr(L("Save", "Enregistrer"))}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

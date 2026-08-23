@@ -49,6 +49,7 @@ export const cf = {
   joinToken: (token: string, color: string, name?: string) => rpc("cf_join_token", { p_token: token, p_color: color, p_name: name ?? "" }),
   setColor: (form: string, color: string) => rpc("cf_set_color", { p_form: form, p_color: color }),
   setNda: (form: string, text: string) => rpc("cf_set_nda", { p_form: form, p_text: text }),
+  updateForm: (form: string, name: string, description: string) => rpc("cf_update_form", { p_form: form, p_name: name, p_description: description }),
   sendPdf: async (form: string, opts: { filename: string; pdf_base64: string; recipients: string[]; message?: string }) => {
     const { data, error } = await supabase.functions.invoke("cf-send-pdf", { body: { form_id: form, ...opts } });
     if (error) throw error; return data as { ok?: boolean; sent?: number; error?: string };

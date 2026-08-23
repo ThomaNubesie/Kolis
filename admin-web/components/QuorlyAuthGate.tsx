@@ -15,7 +15,7 @@ export default function QuorlyAuthGate({ children }: { children: React.ReactNode
     (async () => {
       const check = async () => {
         const { data: { user } } = await supabase.auth.getUser();
-        if (user?.email && user?.phone) { const p: any = await cf.myProfile().catch(() => ({})); return !!p?.name; }
+        if (user?.email || user?.phone) { const p: any = await cf.myProfile().catch(() => ({})); return !!p?.name; }
         return false;
       };
       setDone(await check());

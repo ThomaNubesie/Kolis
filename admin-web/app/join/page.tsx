@@ -32,7 +32,7 @@ function JoinInner() {
   useEffect(() => { if (token) cf.inviteInfo(token).then(setInfo).catch(() => setInfo({ error: "invalid" })); }, [token]);
   useEffect(() => { (async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    if (user?.email && user?.phone) { const p: any = await cf.myProfile().catch(() => ({})); setOnboarded(!!p?.name); } else setOnboarded(false);
+    if (user?.email || user?.phone) { const p: any = await cf.myProfile().catch(() => ({})); setOnboarded(!!p?.name); } else setOnboarded(false);
   })(); }, []);
 
   async function useMemberCode() {

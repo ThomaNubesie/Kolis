@@ -36,9 +36,11 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
     if (user?.email) setEmail(user.email);
     if (user?.phone) setPhone(user.phone);
     if (prof?.name) setName(prof.name);
-    if (user?.email && user?.phone && prof?.name) { onDone(prof.name); setStep("done"); }
-    else if (user?.email && user?.phone) setStep("name");
-    else if (user?.email) setStep("phone");
+    // Loop-free: one verified identity (email OR phone) + a profile = done. A one-identity
+    // account with no profile goes straight to the profile step — NEVER bounced to the other
+    // identity (which may live on a different account, causing an infinite loop).
+    if (prof?.name && (user?.email || user?.phone)) { onDone(prof.name); setStep("done"); }
+    else if (user?.email || user?.phone) setStep("name");
     else setStep("email");
   }
 
@@ -47,7 +49,15 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
   async function restart() { await supabase.auth.signOut(); setSent(false); setCode(""); setPhone(""); setMsg(""); setPhoneMode("attach"); setStep("email"); }
 
   async function sendEmail() { setBusy(true); setMsg(""); const { error } = await supabase.auth.signInWithOtp({ email: email.trim() }); setBusy(false); if (error) setMsg(error.message); else setSent(true); }
-  async function verifyEmail() { setBusy(true); setMsg(""); const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: "email" }); if (error) { setBusy(false); setMsg(error.message); return; } setSent(false); setCode(""); await evalStep(); setBusy(false); }
+  async function verifyEmail() {
+    setBusy(true); setMsg("");
+    const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: "email" });
+    if (error) { setBusy(false); setMsg(error.message); return; }
+    setSent(false); setCode("");
+    const prof: any = await cf.myProfile().catch(() => ({}));
+    if (prof?.name) { onDone(prof.name); setStep("done"); } else setStep("phone"); // phone is optional next
+    setBusy(false);
+  }
   async function sendPhone() {
     setBusy(true); setMsg("");
     if (phoneMode === "attach") {
@@ -134,8 +144,8 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
               </>}
 
               {step === "phone" && <>
-                <div style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>{phoneMode === "login" ? tr(L("Sign in with your phone", "Connexion par téléphone")) : tr(L("Verify your phone", "Vérifiez votre téléphone"))}</div>
-                {phoneMode === "attach" && <div style={{ fontSize: 12.5, color: C.green, fontWeight: 700 }}>✓ {email}</div>}
+                <div style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>{phoneMode === "login" ? tr(L("Sign in with your phone", "Connexion par téléphone")) : tr(L("Add your phone", "Ajoutez votre téléphone"))}</div>
+                {phoneMode === "attach" && <div style={{ fontSize: 12.5, color: C.ink2 }}>{email ? <><span style={{ color: C.green, fontWeight: 700 }}>✓ {email}</span> · </> : null}{tr(L("Optional — helps recover your account.", "Optionnel — aide à récupérer votre compte."))}</div>}
                 <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={tr(L("Your mobile number", "Votre numéro mobile"))} style={inp} disabled={sent} />
                 {!sent ? <div style={btn} onClick={sendPhone}>{tr(L("Send code", "Envoyer le code"))}</div> : <>
                   <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={tr(L("6-digit code", "Code à 6 chiffres"))} style={inp} />
@@ -143,11 +153,12 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
                   <div onClick={sendPhone} style={{ fontSize: 12, color: C.accent, fontWeight: 700, cursor: "pointer", textAlign: "center" }}>{tr(L("Resend code", "Renvoyer le code"))}</div>
                 </>}
                 {phoneMode === "attach" && msg && <div onClick={pivotToPhoneLogin} style={{ background: C.accentSoft, color: C.accent, borderRadius: 9, padding: "10px 12px", textAlign: "center", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>{tr(L("Sign in with this number instead", "Se connecter avec ce numéro"))}</div>}
+                {phoneMode === "attach" && <div onClick={() => { setSent(false); setCode(""); setMsg(""); setStep("name"); }} style={{ fontSize: 12.5, color: C.ink2, fontWeight: 800, cursor: "pointer", textAlign: "center", marginTop: 2 }}>{tr(L("Skip for now →", "Passer pour l'instant →"))}</div>}
               </>}
 
               {step === "name" && <>
                 <div style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>{tr(L("Create your profile", "Créez votre profil"))}</div>
-                <div style={{ fontSize: 12.5, color: C.green, fontWeight: 700 }}>✓ {email} · ✓ {phone}</div>
+                <div style={{ fontSize: 12.5, color: C.green, fontWeight: 700 }}>{[email && `✓ ${email}`, phone && `✓ ${phone}`].filter(Boolean).join(" · ")}</div>
                 <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr(L("Your name", "Votre nom"))} style={inp} onKeyDown={(e) => e.key === "Enter" && saveName()} />
                 <div style={{ ...btn, opacity: busy || !name.trim() ? .6 : 1 }} onClick={saveName}>{tr(L("Continue", "Continuer"))}</div>
               </>}

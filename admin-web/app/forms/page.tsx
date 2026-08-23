@@ -35,7 +35,10 @@ function FormsInner() {
 
   const memberOf = useMemo(() => { const m: Record<string, any> = {}; (form?.members ?? []).forEach((x) => { if (x.id) m[x.id] = x; }); return m; }, [form]);
 
-  useEffect(() => { cf.myForms().then((f) => { setList(f); setSel((s) => s ?? f[0]?.id ?? null); }).catch((e) => setErr(e.message)).finally(() => setLoading(false)); }, []);
+  useEffect(() => { cf.myForms().then((f) => setList(f)).catch((e) => setErr(e.message)).finally(() => setLoading(false)); }, []);
+  // Desktop (three-pane) opens the first form for convenience; mobile lands on Home (list) so
+  // "back" from a form / new-form returns to the profile page, not into a form.
+  useEffect(() => { if (!loading && !mobile && !sel && list.length) setSel(list[0].id); }, [loading, mobile, list, sel]);
   useEffect(() => { cf.canCreate().then(setCanCreate).catch(() => {}); }, []);
   useEffect(() => { cf.myProfile().then((p) => setProfileName(p?.name || "")).catch(() => {}); }, []);
   const loadForm = useCallback(async (id: string) => {

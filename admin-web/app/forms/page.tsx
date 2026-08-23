@@ -5,14 +5,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cf, type CfFormBrief, type CfFormFull, type CfEntry } from "@/lib/cf";
+import QuorlyAuthGate from "@/components/QuorlyAuthGate";
+import { buildFormPdf, pdfFilename } from "@/lib/pdf";
 
 const C = { paper: "#FAF8F4", panel: "#FFFFFF", ink: "#1C1B19", ink2: "#6B6863", faint: "#A8A29A", line: "#EAE4DA", line2: "#F1ECE3", accent: "#2F3AA3", accentSoft: "#EEEFF9", green: "#1F9D6B" };
 const L = (en: string, fr: string) => ({ en, fr });
 const initials = (n?: string | null) => { if (!n) return "?"; const p = n.trim().split(/\s+/); return ((p[0]?.[0] ?? "") + (p[1]?.[0] ?? "")).toUpperCase(); };
 const fmt = (iso: string, lang: string) => { try { return new Date(iso).toLocaleString(lang === "fr" ? "fr-CA" : "en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch { return iso; } };
+function useMobile(bp = 820) { const [m, setM] = useState(false); useEffect(() => { const f = () => setM(window.innerWidth < bp); f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, [bp]); return m; }
 
 export default function FormsPage() {
+  return <QuorlyAuthGate><FormsInner /></QuorlyAuthGate>;
+}
+
+function FormsInner() {
   const router = useRouter();
+  const mobile = useMobile();
   const [lang, setLang] = useState<"en" | "fr">("en");
   const tr = (o: { en: string; fr: string }) => o[lang];
   const [list, setList] = useState<CfFormBrief[]>([]);
@@ -21,10 +29,14 @@ export default function FormsPage() {
   const [entries, setEntries] = useState<CfEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+  const [canCreate, setCanCreate] = useState(false);
+  const [profileName, setProfileName] = useState("");
 
   const memberOf = useMemo(() => { const m: Record<string, any> = {}; (form?.members ?? []).forEach((x) => { if (x.id) m[x.id] = x; }); return m; }, [form]);
 
   useEffect(() => { cf.myForms().then((f) => { setList(f); setSel((s) => s ?? f[0]?.id ?? null); }).catch((e) => setErr(e.message)).finally(() => setLoading(false)); }, []);
+  useEffect(() => { cf.canCreate().then(setCanCreate).catch(() => {}); }, []);
+  useEffect(() => { cf.myProfile().then((p) => setProfileName(p?.name || "")).catch(() => {}); }, []);
   const loadForm = useCallback(async (id: string) => {
     try { const [f, e] = await Promise.all([cf.form(id), cf.entries(id)]); setForm(f); setEntries(e); } catch (e: any) { setErr(e.message); }
   }, []);
@@ -33,50 +45,84 @@ export default function FormsPage() {
   if (loading) return <Shell><div style={{ padding: 40, color: C.faint }}>Loading…</div></Shell>;
   if (err) return <Shell><div style={{ padding: 40, color: "#B4531F" }}>{err}</div></Shell>;
 
+  const showHome = !mobile || !sel;
+  const showForm = !mobile || !!sel;
+  const editName = async () => {
+    const n = window.prompt(tr(L("Your name (shown in every form)", "Votre nom (affiché dans chaque formulaire)")), profileName);
+    if (n && n.trim()) { try { await cf.setProfile(n.trim()); setProfileName(n.trim()); if (sel) loadForm(sel); } catch (e: any) { alert(e.message); } }
+  };
+  const langToggle = (
+    <div style={{ display: "inline-flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
+      {(["en", "fr"] as const).map((l) => <span key={l} onClick={() => setLang(l)} style={{ padding: "5px 11px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", background: lang === l ? C.accent : "transparent", color: lang === l ? "#fff" : C.ink2 }}>{l.toUpperCase()}</span>)}
+    </div>
+  );
+
   return (
-    <div style={{ background: "#2A2824", minHeight: "100vh", padding: 24, fontFamily: "-apple-system,Inter,Segoe UI,Roboto,sans-serif" }}>
-      <div style={{ maxWidth: 1160, margin: "0 auto", display: "grid", gridTemplateColumns: "230px 1fr 250px", minHeight: 660, background: C.paper, borderRadius: 14, overflow: "hidden", boxShadow: "0 30px 70px rgba(0,0,0,.45)" }}>
-        <aside style={{ background: "#F4F1EB", borderRight: `1px solid ${C.line}`, padding: "18px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "2px 6px 16px" }}>
-            <div style={{ width: 26, height: 26, borderRadius: 7, background: C.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13 }}>Q</div>
-            <div style={{ fontWeight: 800, fontSize: 15 }}>Quorly</div>
-          </div>
-          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: .9, textTransform: "uppercase", color: C.faint, padding: "10px 6px 4px" }}>{tr(L("Your forms", "Vos formulaires"))}</div>
-          {list.length === 0 && <div style={{ fontSize: 12, color: C.faint, padding: "6px" }}>{tr(L("No forms yet", "Aucun formulaire"))}</div>}
-          {list.map((f) => (
-            <div key={f.id} onClick={() => setSel(f.id)} style={sItem(f.id === sel)}><span style={{ width: 7, height: 7, borderRadius: "50%", background: C.accent }} />{f.name}</div>
-          ))}
-          <div style={{ marginTop: "auto", border: `1px dashed ${C.line}`, borderRadius: 9, padding: 10, textAlign: "center", fontSize: 12.5, fontWeight: 700, color: C.accent, cursor: "pointer" }} onClick={() => router.push("/forms/new")}>{tr(L("+ New form", "+ Nouveau formulaire"))}</div>
-        </aside>
+    <div style={{ background: "#2A2824", minHeight: "100vh", padding: mobile ? 0 : 24, fontFamily: "-apple-system,Inter,Segoe UI,Roboto,sans-serif" }}>
+      <div style={{ maxWidth: 1160, margin: "0 auto", display: "grid", gridTemplateColumns: mobile ? "1fr" : "260px 1fr 250px", minHeight: mobile ? "100vh" : 660, background: C.paper, borderRadius: mobile ? 0 : 14, overflow: "hidden", boxShadow: mobile ? "none" : "0 30px 70px rgba(0,0,0,.45)" }}>
 
-        <section style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 22px", borderBottom: `1px solid ${C.line}` }}>
-            <div>
-              <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: -.3 }}>{form?.name ?? "—"}</div>
-              <div style={{ fontSize: 11.5, color: C.faint, marginTop: 2 }}>{(form?.members.filter((m) => m.status === "active").length ?? 0)} {tr(L("members", "membres"))}{form?.is_admin ? " · " + tr(L("You're admin", "Vous êtes admin")) : ""}</div>
+        {/* ===== HOME / PROFILE ===== */}
+        {showHome && (
+          <aside style={{ background: "#F4F1EB", borderRight: mobile ? "none" : `1px solid ${C.line}`, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 10, minHeight: mobile ? "100vh" : "auto" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+              <div style={{ width: 26, height: 26, borderRadius: 7, background: C.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13 }}>Q</div>
+              <div style={{ fontWeight: 800, fontSize: 15 }}>Quorly</div>
+              <div style={{ marginLeft: "auto" }}>{langToggle}</div>
             </div>
-            <div style={{ marginLeft: "auto", display: "inline-flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
-              {(["en", "fr"] as const).map((l) => <span key={l} onClick={() => setLang(l)} style={{ padding: "5px 11px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", background: lang === l ? C.accent : "transparent", color: lang === l ? "#fff" : C.ink2 }}>{l.toUpperCase()}</span>)}
+            <div onClick={editName} style={{ display: "flex", alignItems: "center", gap: 11, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, padding: 11, cursor: "pointer" }}>
+              <div style={{ width: 42, height: 42, borderRadius: "50%", background: C.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 16 }}>{initials(profileName) === "?" ? "🙂" : initials(profileName)}</div>
+              <div style={{ minWidth: 0 }}><div style={{ fontSize: 14.5, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{profileName || tr(L("Set your name", "Définir votre nom"))}</div><div style={{ fontSize: 11, color: C.accent, fontWeight: 700, marginTop: 1 }}>{tr(L("Tap to edit profile", "Modifier le profil"))}</div></div>
             </div>
-          </div>
-          <div style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 16, overflow: "auto" }}>
-            {form && <NewEntry form={form} tr={tr} onDone={() => sel && loadForm(sel)} />}
-            {entries.map((e) => <EntryCard key={e.id} e={e} form={form!} lang={lang} tr={tr} memberOf={memberOf} reload={() => sel && cf.entries(sel).then(setEntries)} />)}
-            {form && entries.length === 0 && <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("No entries yet.", "Aucune entrée."))}</div>}
-          </div>
-        </section>
+            {canCreate && <div style={{ background: C.accent, color: "#fff", borderRadius: 11, padding: 12, textAlign: "center", fontSize: 13.5, fontWeight: 800, cursor: "pointer" }} onClick={() => router.push("/forms/new")}>{tr(L("+ New form", "+ Nouveau formulaire"))}</div>}
+            <JoinCode tr={tr} router={router} />
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: .9, textTransform: "uppercase", color: C.faint, padding: "6px 6px 2px" }}>{tr(L("Your forms", "Vos formulaires"))}</div>
+            {list.length === 0 && <div style={{ fontSize: 12.5, color: C.faint, padding: "6px" }}>{tr(L("No forms yet.", "Aucun formulaire."))}</div>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, overflow: "auto" }}>
+              {list.map((f) => (
+                <div key={f.id} onClick={() => setSel(f.id)} style={sItem(f.id === sel)}><span style={{ width: 7, height: 7, borderRadius: "50%", background: C.accent, flex: "0 0 auto" }} />{f.name}</div>
+              ))}
+            </div>
+          </aside>
+        )}
 
-        <aside style={{ background: "#F7F4EE", borderLeft: `1px solid ${C.line}`, padding: "18px 16px" }}>
-          <div style={railLbl}>{tr(L("Members", "Membres"))} · {form?.members.length ?? 0}</div>
-          {(form?.members ?? []).map((m) => (
-            <div key={(m.id ?? m.contact) as string} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 4px", opacity: m.status === "invited" ? 0.55 : 1 }}>
-              <span style={{ width: 18, height: 18, borderRadius: 5, background: m.color ?? "#CCC" }} />
-              <div><div style={{ fontSize: 12.5, fontWeight: 700 }}>{m.name ?? m.contact}</div><div style={{ fontSize: 10, color: C.faint }}>{m.status === "invited" ? tr(L("invited", "invité")) : m.contact}</div></div>
-              {m.role === "admin" && <span style={{ marginLeft: "auto", fontSize: 8.5, fontWeight: 800, color: C.accent, background: C.accentSoft, padding: "2px 7px", borderRadius: 9 }}>ADMIN</span>}
+        {/* ===== FORM VIEW ===== */}
+        {showForm && form && (
+          <section style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: mobile ? "13px 14px" : "16px 22px", borderBottom: `1px solid ${C.line}` }}>
+              {mobile && <span onClick={() => setSel(null)} style={{ fontSize: 24, fontWeight: 800, color: C.ink, cursor: "pointer", lineHeight: 1, marginRight: 2 }}>‹</span>}
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: mobile ? 16 : 18, fontWeight: 800, letterSpacing: -.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{form.name}</div>
+                <div style={{ fontSize: 11.5, color: C.faint, marginTop: 2 }}>{form.members.filter((m) => m.status === "active").length} {tr(L("members", "membres"))}{form.is_admin ? " · " + tr(L("You're admin", "Vous êtes admin")) : ""}</div>
+              </div>
+              {!mobile && <div style={{ marginLeft: "auto", flex: "0 0 auto" }}>{langToggle}</div>}
             </div>
-          ))}
-          {form?.is_admin && <Invite form={form.id} tr={tr} onDone={() => sel && loadForm(sel)} />}
-        </aside>
+            <div style={{ padding: mobile ? "14px 16px" : "18px 22px", display: "flex", flexDirection: "column", gap: 16, overflow: "auto" }}>
+              {form.is_admin && <PdfPanel form={form} entries={entries} memberOf={memberOf} tr={tr} />}
+              <NewEntry form={form} tr={tr} mobile={mobile} onDone={() => sel && loadForm(sel)} />
+              {entries.map((e) => <EntryCard key={e.id} e={e} form={form!} lang={lang} tr={tr} mobile={mobile} memberOf={memberOf} reload={() => sel && cf.entries(sel).then(setEntries)} />)}
+              {entries.length === 0 && <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("No entries yet.", "Aucune entrée."))}</div>}
+              {mobile && (
+                <aside style={{ background: "#F7F4EE", border: `1px solid ${C.line}`, borderRadius: 12, padding: "14px 14px", marginTop: 4 }}>
+                  <MembersRail form={form} tr={tr} sel={sel} loadForm={loadForm} />
+                </aside>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ===== MEMBERS RAIL (desktop) ===== */}
+        {showForm && form && !mobile && (
+          <aside style={{ background: "#F7F4EE", borderLeft: `1px solid ${C.line}`, padding: "18px 16px", overflow: "auto" }}>
+            <MembersRail form={form} tr={tr} sel={sel} loadForm={loadForm} />
+          </aside>
+        )}
+
+        {/* ===== DESKTOP EMPTY STATE ===== */}
+        {!mobile && !form && (
+          <section style={{ display: "flex", alignItems: "center", justifyContent: "center", color: C.faint, fontSize: 14, padding: 40 }}>
+            {tr(L("Select a form, or create a new one.", "Sélectionnez un formulaire ou créez-en un."))}
+          </section>
+        )}
       </div>
     </div>
   );
@@ -86,9 +132,115 @@ function Shell({ children }: { children: any }) {
   return <div style={{ background: "#2A2824", minHeight: "100vh", padding: 24 }}><div style={{ maxWidth: 1160, margin: "0 auto", background: C.paper, borderRadius: 14, minHeight: 400 }}>{children}</div></div>;
 }
 
+function PdfPanel({ form, entries, memberOf, tr }: any) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [extra, setExtra] = useState("");
+  const memberEmails: string[] = (form.members ?? []).filter((m: any) => m.contact && String(m.contact).includes("@")).map((m: any) => m.contact);
+  const [off, setOff] = useState<Record<string, boolean>>({});
+  const download = async () => { setBusy(true); try { const doc = await buildFormPdf(form, entries, memberOf); doc.save(pdfFilename(form)); } catch (e: any) { alert(e.message); } setBusy(false); };
+  const email = async () => {
+    const chosen = memberEmails.filter((e) => !off[e]);
+    const extras = extra.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
+    const to = Array.from(new Set([...chosen, ...extras]));
+    if (to.length === 0) { alert(tr(L("Add at least one recipient.", "Ajoutez au moins un destinataire."))); return; }
+    setBusy(true);
+    try {
+      const doc = await buildFormPdf(form, entries, memberOf);
+      const b64 = doc.output("datauristring").split(",")[1];
+      const r = await cf.sendPdf(form.id, { filename: pdfFilename(form), pdf_base64: b64, recipients: to });
+      if (r?.ok) { alert(tr(L(`Sent to ${r.sent} recipient(s).`, `Envoyé à ${r.sent} destinataire(s).`))); setOpen(false); }
+      else alert(r?.error || "Failed");
+    } catch (e: any) { alert(e.message); }
+    setBusy(false);
+  };
+  if (!open) return <div onClick={() => setOpen(true)} style={{ alignSelf: "flex-start", background: C.accentSoft, color: C.accent, borderRadius: 999, padding: "7px 14px", fontSize: 12.5, fontWeight: 800, cursor: "pointer" }}>⤓ {tr(L("Export / Send PDF", "Exporter / Envoyer PDF"))}</div>;
+  return (
+    <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center" }}>
+        <div style={{ fontSize: 13.5, fontWeight: 800 }}>{tr(L("Export / Send PDF", "Exporter / Envoyer PDF"))}</div>
+        <span onClick={() => setOpen(false)} style={{ marginLeft: "auto", color: C.faint, cursor: "pointer", fontWeight: 800 }}>✕</span>
+      </div>
+      <div onClick={download} style={{ border: `1px solid ${C.line}`, borderRadius: 9, padding: "10px 12px", textAlign: "center", fontSize: 13, fontWeight: 800, color: C.accent, cursor: "pointer" }}>⬇ {tr(L("Download PDF", "Télécharger le PDF"))}</div>
+      <div style={{ ...railLbl, margin: "2px 0 0" }}>{tr(L("Email to members", "Envoyer aux membres"))}</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+        {memberEmails.length === 0 && <div style={{ fontSize: 12, color: C.faint }}>{tr(L("No member emails yet.", "Aucun courriel de membre."))}</div>}
+        {memberEmails.map((e) => (
+          <label key={e} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, cursor: "pointer" }}>
+            <input type="checkbox" checked={!off[e]} onChange={() => setOff((s) => ({ ...s, [e]: !s[e] }))} />{e}
+          </label>
+        ))}
+      </div>
+      <div style={{ ...railLbl, margin: "2px 0 0" }}>{tr(L("Other recipients", "Autres destinataires"))}</div>
+      <input value={extra} onChange={(e) => setExtra(e.target.value)} placeholder={tr(L("email, email…", "courriel, courriel…"))} style={inp} />
+      <div onClick={email} style={{ background: C.accent, color: "#fff", borderRadius: 9, padding: "10px 12px", textAlign: "center", fontSize: 13, fontWeight: 800, cursor: "pointer", opacity: busy ? .6 : 1 }}>{busy ? "…" : tr(L("Send PDF", "Envoyer le PDF"))}</div>
+    </div>
+  );
+}
+
+function MembersRail({ form, tr, sel, loadForm }: any) {
+  return (
+    <>
+      <div style={railLbl}>{tr(L("Members", "Membres"))} · {form?.members.length ?? 0}</div>
+      {(form?.members ?? []).map((m: any) => (
+        <div key={(m.id ?? m.contact) as string} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 4px", opacity: m.status === "invited" ? 0.55 : 1 }}>
+          <span style={{ width: 18, height: 18, borderRadius: 5, background: m.color ?? "#CCC" }} />
+          <div style={{ minWidth: 0 }}><div style={{ fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name ?? m.contact}</div><div style={{ fontSize: 10, color: C.faint }}>{m.status === "invited" ? tr(L("invited", "invité")) : m.contact}</div></div>
+          {m.role === "admin" && <span style={{ marginLeft: "auto", fontSize: 8.5, fontWeight: 800, color: C.accent, background: C.accentSoft, padding: "2px 7px", borderRadius: 9 }}>ADMIN</span>}
+          {m.status === "invited" && form?.is_admin && <ResendLink form={form.id} contact={m.contact} tr={tr} />}
+        </div>
+      ))}
+      {form?.is_admin && <Invite form={form.id} tr={tr} onDone={() => sel && loadForm(sel)} />}
+    </>
+  );
+}
+
+function JoinCode({ tr, router }: any) {
+  const [open, setOpen] = useState(false); const [c, setC] = useState(""); const [busy, setBusy] = useState(false);
+  const go = async () => {
+    if (!c.trim()) return; setBusy(true);
+    try { const r = await cf.resolveCode(c.trim()); if (r?.ok && r.token) router.push(`/join?token=${r.token}`); else alert(tr(L("Invalid or already-used code.", "Code invalide ou déjà utilisé."))); }
+    catch (e: any) { alert(e.message); }
+    setBusy(false);
+  };
+  if (!open) return <div onClick={() => setOpen(true)} style={{ background: C.accentSoft, color: C.accent, borderRadius: 11, padding: 11, textAlign: "center", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>{tr(L("Join with a code", "Rejoindre avec un code"))}</div>;
+  return (
+    <div style={{ display: "flex", gap: 6 }}>
+      <input value={c} onChange={(e) => setC(e.target.value.toUpperCase())} onKeyDown={(e) => e.key === "Enter" && go()} placeholder={tr(L("Enter code", "Entrez le code"))} style={{ ...inp, textAlign: "center", letterSpacing: 2, fontWeight: 800, textTransform: "uppercase" }} />
+      <div onClick={go} style={{ background: C.accent, color: "#fff", borderRadius: 9, padding: "0 14px", display: "flex", alignItems: "center", fontWeight: 800, cursor: "pointer", opacity: busy ? .6 : 1 }}>{busy ? "…" : "→"}</div>
+    </div>
+  );
+}
+
+function ResendLink({ form, contact, tr }: any) {
+  const [busy, setBusy] = useState(false);
+  const go = async () => {
+    if (busy) return; setBusy(true);
+    const r = await cf.sendInvites(form, contact); setBusy(false);
+    if (r?.ok) alert(tr(L("Invite resent.", "Invitation renvoyée.")));
+    else alert(tr(L("Couldn't resend: ", "Échec du renvoi : ")) + (r?.failed?.[0]?.error || r?.error || "unknown"));
+  };
+  return <span onClick={go} style={{ marginLeft: "auto", fontSize: 10.5, fontWeight: 800, color: C.accent, cursor: "pointer", opacity: busy ? .5 : 1 }}>{busy ? "…" : tr(L("Resend", "Renvoyer"))}</span>;
+}
+
 function Invite({ form, tr, onDone }: any) {
   const [v, setV] = useState(""); const [busy, setBusy] = useState(false);
-  const send = async () => { if (!v.trim()) return; setBusy(true); try { await cf.invite(form, v.trim()); setV(""); onDone(); } catch (e: any) { alert(e.message); } setBusy(false); };
+  const send = async () => {
+    if (!v.trim()) return; setBusy(true);
+    try {
+      const r = await cf.invite(form, v.trim());
+      if (r && r.ok === false) {
+        alert(r.error === "already_invited" ? tr(L("That email or phone is already on this form.", "Ce courriel ou téléphone est déjà sur ce formulaire."))
+          : r.error === "invalid_contact" ? tr(L("Enter a valid email or phone.", "Entrez un courriel ou téléphone valide."))
+          : (r.error || "Failed"));
+      } else {
+        const d = r?.delivery;
+        if (d && d.ok === false) alert(tr(L("Member added, but the invite couldn't be delivered: ", "Membre ajouté, mais l'invitation n'a pu être envoyée : ")) + (d.failed?.[0]?.error || d.error || "unknown"));
+        setV(""); onDone();
+      }
+    } catch (e: any) { alert(e.message); }
+    setBusy(false);
+  };
   return (
     <div style={{ marginTop: 14, borderTop: `1px solid ${C.line}`, paddingTop: 14 }}>
       <div style={{ ...railLbl, margin: "0 2px 2px" }}>{tr(L("Add member", "Ajouter un membre"))}</div>
@@ -99,14 +251,27 @@ function Invite({ form, tr, onDone }: any) {
 }
 
 function NewEntry({ form, tr, onDone }: any) {
+  const canPost = form.is_admin || form.features?.member_entries;
+  // When the form defines no structured fields, give a single free-text "Note" area.
+  const fields = (form.features?.fields && (form.fields?.length ?? 0) > 0) ? form.fields : [{ id: "__note", label: "Note", type: "longtext" }];
   const [open, setOpen] = useState(false);
   const [vals, setVals] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
-  const submit = async () => { setBusy(true); try { await cf.addEntry(form.id, vals); setVals({}); setOpen(false); onDone(); } catch (e: any) { alert(e.message); } setBusy(false); };
+  const submit = async () => {
+    if (!Object.values(vals).some((v) => String(v ?? "").trim())) { alert(tr(L("Enter something first.", "Entrez d'abord du contenu."))); return; }
+    setBusy(true);
+    try {
+      const r = await cf.addEntry(form.id, vals);
+      if (r && r.ok === false) alert(r.error === "entries_not_allowed" ? tr(L("The admin hasn't allowed members to add entries.", "L'admin n'a pas autorisé les membres à ajouter des entrées.")) : (r.error || "Failed"));
+      else { setVals({}); setOpen(false); onDone(); }
+    } catch (e: any) { alert(e.message); }
+    setBusy(false);
+  };
+  if (!canPost) return null;
   if (!open) return <div onClick={() => setOpen(true)} style={{ border: `1px dashed ${C.line}`, borderRadius: 11, padding: 12, textAlign: "center", fontWeight: 700, fontSize: 13, color: C.accent, cursor: "pointer" }}>{tr(L("+ New entry", "+ Nouvelle entrée"))}</div>;
   return (
     <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
-      {(form.fields ?? []).map((f: any) => (
+      {fields.map((f: any) => (
         <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
           <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint }}>{f.label}</span>
           {f.type === "longtext" ? <textarea value={vals[f.label] ?? ""} onChange={(e) => setVals((v) => ({ ...v, [f.label]: e.target.value }))} style={{ ...inp, minHeight: 60 }} />
@@ -122,7 +287,7 @@ function NewEntry({ form, tr, onDone }: any) {
   );
 }
 
-function EntryCard({ e, form, lang, tr, memberOf, reload }: any) {
+function EntryCard({ e, form, lang, tr, mobile, memberOf, reload }: any) {
   const a = memberOf[e.author];
   const [cmt, setCmt] = useState(""); const [trx, setTrx] = useState<string | null>(null); const [busy, setBusy] = useState(false);
   const vote = async () => { try { await cf.vote(e.id, "approve"); reload(); } catch (er: any) { alert(er.message); } };
@@ -137,13 +302,19 @@ function EntryCard({ e, form, lang, tr, memberOf, reload }: any) {
         <span style={chip(a?.color)}>{initials(a?.name)}</span><span style={{ fontSize: 13, fontWeight: 700 }}>{a?.name ?? "—"}</span>
         <span style={{ marginLeft: "auto", fontSize: 11, color: C.faint }}>{fmt(e.created_at, lang)}</span>
       </div>
-      <div style={{ padding: "4px 16px 12px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 18px" }}>
-        {(form.fields ?? []).map((f: any) => (
-          <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 2, gridColumn: f.type === "longtext" ? "1 / -1" : "auto" }}>
-            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint }}>{f.label}</span>
-            <span style={{ fontSize: 13, color: C.ink, fontWeight: f.type === "longtext" ? 500 : 600 }}>{String(e.values?.[f.label] ?? "—")}</span>
-          </div>
-        ))}
+      <div style={{ padding: "4px 16px 12px", display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: "10px 18px" }}>
+        {(() => {
+          const defined = (form.fields ?? []) as any[];
+          const labels = defined.map((f) => f.label);
+          const extras = Object.keys(e.values ?? {}).filter((k) => !labels.includes(k)).map((k) => ({ id: `x_${k}`, label: k, type: "longtext" }));
+          const all = [...defined, ...extras];
+          return all.map((f: any) => (
+            <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 2, gridColumn: f.type === "longtext" ? "1 / -1" : "auto" }}>
+              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint }}>{f.label}</span>
+              <span style={{ fontSize: 13, color: C.ink, fontWeight: f.type === "longtext" ? 500 : 600, whiteSpace: "pre-wrap" }}>{String(e.values?.[f.label] ?? "—")}</span>
+            </div>
+          ));
+        })()}
       </div>
       {form.features?.translation && (
         <div style={{ padding: "0 16px 12px" }}>

@@ -11,27 +11,48 @@ export type CfField = { id?: string; label: string; type: string; options?: stri
 export type CfMember = { id: string | null; name: string | null; color: string | null; role: string; status: string; contact: string | null };
 export type CfComment = { id: string; author: string; body: string; created_at: string };
 export type CfEntry = { id: string; seq: number; author: string; values: Record<string, any>; status: string | null; created_at: string; approvals: number; my_vote: string | null; comments: CfComment[] };
-export type CfFormFull = { id: string; name: string; description: string; features: Record<string, boolean>; approval_count: number; is_admin: boolean; fields: CfField[]; members: CfMember[]; error?: string };
+export type CfFormFull = { id: string; name: string; description: string; features: Record<string, boolean>; approval_count: number; is_admin: boolean; nda?: string | null; fields: CfField[]; members: CfMember[]; error?: string };
 export type CfFormBrief = { id: string; name: string; description: string; features: Record<string, boolean>; is_admin: boolean; members: number };
 
 export const cf = {
+  canCreate: (): Promise<boolean> => rpc("cf_can_create"),
+  myProfile: (): Promise<{ name?: string }> => rpc("cf_my_profile"),
+  setProfile: (name: string) => rpc("cf_set_profile", { p_name: name }),
   myForms: (): Promise<CfFormBrief[]> => rpc("cf_my_forms"),
   form: (id: string): Promise<CfFormFull> => rpc("cf_form", { p_form: id }),
   entries: (id: string): Promise<CfEntry[]> => rpc("cf_entries", { p_form: id }),
-  createForm: (p: { name: string; description?: string; features: any; approval: number; color: string; fields?: any[]; invites?: { contact: string }[] }) =>
-    rpc("cf_create_form", { p_name: p.name, p_description: p.description ?? "", p_features: p.features, p_approval: p.approval, p_color: p.color, p_fields: p.fields ?? [], p_invites: p.invites ?? [] }),
+  createForm: async (p: { name: string; description?: string; features: any; approval: number; color: string; adminName?: string; fields?: any[]; invites?: { contact: string }[] }) => {
+    const res = await rpc("cf_create_form", { p_name: p.name, p_description: p.description ?? "", p_features: p.features, p_approval: p.approval, p_color: p.color, p_admin_name: p.adminName ?? "", p_fields: p.fields ?? [], p_invites: p.invites ?? [] });
+    // Fire the invites entered at creation time (cf_create_form only stores them).
+    if (res?.ok && res.form_id && (p.invites?.length ?? 0) > 0) {
+      res.delivery = await cf.sendInvites(res.form_id);
+    }
+    return res;
+  },
+  // Send pending invites for a form (email/SMS). Pass `contact` to resend just one. Returns { ok, sent, failed, results }.
+  sendInvites: async (form: string, contact?: string) => {
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    try { const { data, error } = await supabase.functions.invoke("cf-invite-send", { body: { form_id: form, base_url: base, ...(contact ? { contact } : {}) } }); if (error) throw error; return data; }
+    catch (e: any) { return { ok: false, error: e?.message ?? "send_failed" }; }
+  },
   invite: async (form: string, contact: string) => {
     const res = await rpc("cf_invite", { p_form: form, p_contact: contact });
     if (res?.ok && res.token) {
       const base = typeof window !== "undefined" ? window.location.origin : "";
-      try { await supabase.functions.invoke("cf-invite-send", { body: { token: res.token, base_url: base } }); } catch { /* best-effort */ }
+      try { const { data } = await supabase.functions.invoke("cf-invite-send", { body: { token: res.token, base_url: base } }); res.delivery = data; } catch (e: any) { res.delivery = { ok: false, error: e?.message }; }
     }
     return res;
   },
   join: (form: string, color: string) => rpc("cf_join", { p_form: form, p_color: color }),
   inviteInfo: (token: string): Promise<{ form_id?: string; form_name?: string; admin?: string; taken_colors?: string[]; error?: string }> => rpc("cf_invite_info", { p_token: token }),
-  joinToken: (token: string, color: string) => rpc("cf_join_token", { p_token: token, p_color: color }),
+  resolveCode: (code: string): Promise<{ ok: boolean; token?: string; error?: string }> => rpc("cf_resolve_code", { p_code: code }),
+  joinToken: (token: string, color: string, name?: string) => rpc("cf_join_token", { p_token: token, p_color: color, p_name: name ?? "" }),
   setColor: (form: string, color: string) => rpc("cf_set_color", { p_form: form, p_color: color }),
+  setNda: (form: string, text: string) => rpc("cf_set_nda", { p_form: form, p_text: text }),
+  sendPdf: async (form: string, opts: { filename: string; pdf_base64: string; recipients: string[]; message?: string }) => {
+    const { data, error } = await supabase.functions.invoke("cf-send-pdf", { body: { form_id: form, ...opts } });
+    if (error) throw error; return data as { ok?: boolean; sent?: number; error?: string };
+  },
   setFeatures: (form: string, features: any, approval: number) => rpc("cf_set_features", { p_form: form, p_features: features, p_approval: approval }),
   setFields: (form: string, fields: any[]) => rpc("cf_set_fields", { p_form: form, p_fields: fields }),
   addEntry: (form: string, values: any) => rpc("cf_add_entry", { p_form: form, p_values: values }),

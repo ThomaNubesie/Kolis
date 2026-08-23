@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 
 // Google Places address autocomplete. Reads NEXT_PUBLIC_GOOGLE_MAPS_KEY; if the
 // key is absent it degrades to a plain text input, so the form always works.
@@ -25,7 +25,21 @@ export default function AddressInput({ value, onChange, onPlace, placeholder, cl
   value: string; onChange: (v: string) => void; onPlace?: (p: AddressParts) => void; placeholder?: string; className?: string;
 }) {
   const ref = useRef<HTMLInputElement>(null);
-  const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || "";
+  // Prefer the build-time key; if it's absent (env var not set at build), fetch the
+  // public Maps key at runtime from the kolis-maps-key edge function so autocomplete
+  // works without a Netlify env var. The key never lives in the repo/build.
+  const [key, setKey] = useState(process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY || "");
+  useEffect(() => {
+    if (key) return;
+    const base = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    if (!base) return;
+    let alive = true;
+    fetch(base + "/functions/v1/kolis-maps-key")
+      .then((r) => r.json())
+      .then((d) => { if (alive && d?.key) setKey(d.key); })
+      .catch(() => { /* stays a plain input */ });
+    return () => { alive = false; };
+  }, [key]);
   useEffect(() => {
     if (!key || !ref.current) return;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

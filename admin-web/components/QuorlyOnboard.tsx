@@ -21,6 +21,7 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
   const [sent, setSent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  const [phoneMode, setPhoneMode] = useState<"attach" | "login">("attach"); // "login" = the number already has an account; sign into it
 
   const e164 = (p: string) => { const d = p.replace(/[^\d+]/g, ""); return d.startsWith("+") ? d : d.length === 10 ? "+1" + d : "+" + d; };
 
@@ -41,12 +42,38 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
 
   useEffect(() => { evalStep().finally(() => setReady(true)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function restart() { await supabase.auth.signOut(); setSent(false); setCode(""); setPhone(""); setMsg(""); setStep("email"); }
+  async function restart() { await supabase.auth.signOut(); setSent(false); setCode(""); setPhone(""); setMsg(""); setPhoneMode("attach"); setStep("email"); }
 
   async function sendEmail() { setBusy(true); setMsg(""); const { error } = await supabase.auth.signInWithOtp({ email: email.trim() }); setBusy(false); if (error) setMsg(error.message); else setSent(true); }
   async function verifyEmail() { setBusy(true); setMsg(""); const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: "email" }); if (error) { setBusy(false); setMsg(error.message); return; } setSent(false); setCode(""); await evalStep(); setBusy(false); }
-  async function sendPhone() { setBusy(true); setMsg(""); const { error } = await supabase.auth.updateUser({ phone: e164(phone) }); setBusy(false); if (error) setMsg(/already|registered|exists|taken|in use/i.test(error.message) ? tr(L("This number is already linked to an account. Start over and sign in with that account's email.", "Ce numéro est déjà lié à un compte. Recommencez et connectez-vous avec le courriel de ce compte.")) : error.message); else setSent(true); }
-  async function verifyPhone() { setBusy(true); setMsg(""); const { error } = await supabase.auth.verifyOtp({ phone: e164(phone), token: code.trim(), type: "phone_change" }); if (error) { setBusy(false); setMsg(error.message); return; } setSent(false); setCode(""); await evalStep(); setBusy(false); }
+  async function sendPhone() {
+    setBusy(true); setMsg("");
+    if (phoneMode === "attach") {
+      const { error } = await supabase.auth.updateUser({ phone: e164(phone) });
+      if (!error) { setSent(true); setBusy(false); return; }
+      if (/already|registered|exists|taken|in use|duplicate/i.test(error.message)) {
+        // The number already belongs to an account → sign into THAT account instead of attaching.
+        setPhoneMode("login");
+        await supabase.auth.signOut();
+        const { error: e2 } = await supabase.auth.signInWithOtp({ phone: e164(phone) });
+        setBusy(false);
+        if (e2) setMsg(e2.message);
+        else { setSent(true); setMsg(tr(L("This number already has a Quorly account — enter the code to sign in.", "Ce numéro a déjà un compte Quorly — entrez le code pour vous connecter."))); }
+        return;
+      }
+      setBusy(false); setMsg(error.message); return;
+    }
+    // login mode: (re)send the sign-in code to the number
+    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signInWithOtp({ phone: e164(phone) });
+    setBusy(false); if (error) setMsg(error.message); else setSent(true);
+  }
+  async function verifyPhone() {
+    setBusy(true); setMsg("");
+    const { error } = await supabase.auth.verifyOtp({ phone: e164(phone), token: code.trim(), type: phoneMode === "login" ? "sms" : "phone_change" });
+    if (error) { setBusy(false); setMsg(error.message); return; }
+    setSent(false); setCode(""); await evalStep(); setBusy(false);
+  }
   async function saveName() { if (!name.trim()) return; setBusy(true); setMsg(""); try { await cf.setProfile(name.trim()); onDone(name.trim()); setStep("done"); } catch (e: any) { setMsg(e.message); } setBusy(false); }
 
   const inp: any = { border: `1px solid ${C.line}`, borderRadius: 9, padding: "11px", fontSize: 14, background: "#fff", color: C.ink, width: "100%", outline: "none" };
@@ -78,12 +105,12 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
           </>}
 
           {step === "phone" && <>
-            <div style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>{tr(L("Verify your phone", "Vérifiez votre téléphone"))}</div>
-            <div style={{ fontSize: 12.5, color: C.green, fontWeight: 700 }}>✓ {email}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: C.ink }}>{phoneMode === "login" ? tr(L("Sign in with your phone", "Connexion par téléphone")) : tr(L("Verify your phone", "Vérifiez votre téléphone"))}</div>
+            {phoneMode === "attach" && <div style={{ fontSize: 12.5, color: C.green, fontWeight: 700 }}>✓ {email}</div>}
             <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={tr(L("Your mobile number", "Votre numéro mobile"))} style={inp} disabled={sent} />
             {!sent ? <div style={btn} onClick={sendPhone}>{tr(L("Send code", "Envoyer le code"))}</div> : <>
               <input value={code} onChange={(e) => setCode(e.target.value)} placeholder={tr(L("6-digit code", "Code à 6 chiffres"))} style={inp} />
-              <div style={btn} onClick={verifyPhone}>{tr(L("Verify phone", "Vérifier le téléphone"))}</div>
+              <div style={btn} onClick={verifyPhone}>{phoneMode === "login" ? tr(L("Sign in", "Se connecter")) : tr(L("Verify phone", "Vérifier le téléphone"))}</div>
               <div onClick={sendPhone} style={{ fontSize: 12, color: C.accent, fontWeight: 700, cursor: "pointer", textAlign: "center" }}>{tr(L("Resend code", "Renvoyer le code"))}</div>
             </>}
           </>}

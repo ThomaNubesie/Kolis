@@ -8,7 +8,7 @@ const rpc = async (fn: string, args?: any) => {
 };
 
 export type CfField = { id?: string; label: string; type: string; options?: string[]; required?: boolean };
-export type CfMember = { id: string | null; name: string | null; color: string | null; role: string; status: string; contact: string | null };
+export type CfMember = { id: string | null; name: string | null; color: string | null; role: string; status: string; contact: string | null; joined_at?: string | null };
 export type CfComment = { id: string; author: string; body: string; created_at: string };
 export type CfEntry = { id: string; seq: number; author: string; values: Record<string, any>; status: string | null; created_at: string; approvals: number; my_vote: string | null; comments: CfComment[] };
 export type CfFormFull = { id: string; name: string; description: string; features: Record<string, boolean>; approval_count: number; is_admin: boolean; nda?: string | null; fields: CfField[]; members: CfMember[]; error?: string };

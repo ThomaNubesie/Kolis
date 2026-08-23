@@ -120,7 +120,7 @@ function FormsInner() {
               {entries.length === 0 && <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("No entries yet.", "Aucune entrée."))}</div>}
               {mobile && (
                 <aside style={{ background: "#F7F4EE", border: `1px solid ${C.line}`, borderRadius: 12, padding: "14px 14px", marginTop: 4 }}>
-                  <MembersRail form={form} tr={tr} sel={sel} loadForm={loadForm} />
+                  <MembersRail form={form} tr={tr} lang={lang} sel={sel} loadForm={loadForm} />
                 </aside>
               )}
             </div>
@@ -130,7 +130,7 @@ function FormsInner() {
         {/* ===== MEMBERS RAIL (desktop) ===== */}
         {showForm && form && !mobile && (
           <aside style={{ background: "#F7F4EE", borderLeft: `1px solid ${C.line}`, padding: "18px 16px", overflow: "auto" }}>
-            <MembersRail form={form} tr={tr} sel={sel} loadForm={loadForm} />
+            <MembersRail form={form} tr={tr} lang={lang} sel={sel} loadForm={loadForm} />
           </aside>
         )}
 
@@ -238,14 +238,14 @@ function FormEdit({ form, tr, onSaved }: any) {
   );
 }
 
-function MembersRail({ form, tr, sel, loadForm }: any) {
+function MembersRail({ form, tr, lang, sel, loadForm }: any) {
   return (
     <>
       <div style={railLbl}>{tr(L("Members", "Membres"))} · {form?.members.length ?? 0}</div>
       {(form?.members ?? []).map((m: any) => (
         <div key={(m.id ?? m.contact) as string} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 4px", opacity: m.status === "invited" ? 0.55 : 1 }}>
           <span style={{ width: 18, height: 18, borderRadius: 5, background: m.color ?? "#CCC" }} />
-          <div style={{ minWidth: 0 }}><div style={{ fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name ?? m.contact}</div><div style={{ fontSize: 10, color: C.faint }}>{m.status === "invited" ? tr(L("invited", "invité")) : m.contact}</div></div>
+          <div style={{ minWidth: 0 }}><div style={{ fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name ?? m.contact}</div><div style={{ fontSize: 10, color: C.faint }}>{m.status === "invited" ? tr(L("invited", "invité")) : (m.joined_at ? tr(L("joined", "rejoint")) + " " + fmtDate(m.joined_at, lang) : m.contact)}</div></div>
           {m.role === "admin" && <span style={{ marginLeft: "auto", fontSize: 8.5, fontWeight: 800, color: C.accent, background: C.accentSoft, padding: "2px 7px", borderRadius: 9 }}>ADMIN</span>}
           {m.status === "invited" && form?.is_admin && <ResendLink form={form.id} contact={m.contact} tr={tr} />}
         </div>

@@ -23,7 +23,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const authHeaders = () => ({ [AUTH_HEADER]: `${AUTH_PREFIX}${KEY}`, "Content-Type": "application/json" });
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function money(m: any): number { const v = m?.value ?? m; const n = typeof v === "string" ? parseFloat(v) : Number(v); return isFinite(n) ? (n > 100000 ? n / 100 : n) : NaN; } // Freightcom Money often in cents
+function money(m: any): number { const v = m?.value ?? m; const n = typeof v === "string" ? parseFloat(v) : Number(v); return isFinite(n) ? n / 100 : NaN; } // Freightcom Money is integer cents (string)
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -54,10 +54,12 @@ Deno.serve(async (req) => {
         expected_ship_date: { year: yy, month: mm, day: dd },
         packaging_type: "pallet",
         packaging_properties: {
+          pallet_type: "ltl",
+          has_stackable_pallets: false,
           pallets: Array.from({ length: pallets }, () => ({
             measurements: { weight: { unit: "lb", value: weight }, cuboid },
             description: (b.description as string) || "General freight",
-            ...(b.freight_class ? { freight_class: String(b.freight_class) } : {}),
+            freight_class: String(b.freight_class || "70"),
           })),
         },
       },
@@ -67,34 +69,41 @@ Deno.serve(async (req) => {
     const started = await fetch(`${BASE}/rate`, { method: "POST", headers: authHeaders(), body: JSON.stringify(body) });
     if (!started.ok) return json({ concierge: true, reason: `rate_${started.status}`, detail: (await started.text()).slice(0, 300) });
     const startedJson = await started.json().catch(() => ({}));
-    const rateId = startedJson.id || startedJson.rate_id;
+    const rateId = startedJson.request_id || startedJson.id || startedJson.rate_id;
     if (!rateId) return json({ concierge: true, reason: "no_rate_id" });
 
     // 2) poll for results (async API)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let rates: any[] = [];
-    for (let i = 0; i < 8; i++) {
-      await sleep(i === 0 ? 800 : 1400);
+    for (let i = 0; i < 16; i++) {
+      await sleep(i === 0 ? 1000 : 2000);
       const pr = await fetch(`${BASE}/rate/${rateId}`, { headers: authHeaders() });
       if (!pr.ok) continue;
       const pj = await pr.json().catch(() => ({}));
-      rates = pj.rates || [];
-      if (pj.status?.done || (rates.length && pj.status?.complete)) break;
+      if (Array.isArray(pj.rates)) rates = pj.rates;
+      if (pj.status?.done) break;                 // all carriers in
+      if (rates.length >= 6 && i >= 7) break;      // enough options + a fair wait
     }
     if (!rates.length) return json({ concierge: true, reason: "no_rates" });
 
     // 3) normalize + apply margin
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const norm = rates.map((r: any) => ({ cost: money(r.total), transit: Number(r.transit_time_days) || 99, service_id: r.service_id }))
+    const norm = rates.map((r: any) => ({ cost: money(r.total), transit: Number(r.transit_time_days) || 99, service_id: r.service_id, carrier: r.carrier_name || r.carrier || "Transporteur", service: r.service_name || r.service || "" }))
       .filter((r) => isFinite(r.cost) && r.cost > 0);
     if (!norm.length) return json({ concierge: true, reason: "parse" });
-    const cheapest = [...norm].sort((a, b2) => a.cost - b2.cost)[0];
-    const fastest = [...norm].sort((a, b2) => a.transit - b2.transit || a.cost - b2.cost)[0];
 
-    const tiers = [{ name: "Économique", price: kolisPrice(cheapest.cost), transit_days: cheapest.transit, service_id: cheapest.service_id }];
-    if (fastest.service_id !== cheapest.service_id && fastest.transit < cheapest.transit)
-      tiers.push({ name: "Express", price: kolisPrice(fastest.cost), transit_days: fastest.transit, service_id: fastest.service_id });
-
+    // Return up to 5 carrier options, cheapest first (one row per carrier — its cheapest service).
+    const cap = (s: string) => String(s || "").split(" ").map((w) => (w && w === w.toLowerCase()) ? w[0].toUpperCase() + w.slice(1) : w).join(" ");
+    const sorted = [...norm].sort((a, b2) => a.cost - b2.cost);
+    const seen = new Set<string>();
+    const tiers: { name: string; price: number; transit_days: number; service_id: string }[] = [];
+    for (const r of sorted) {
+      const name = cap(r.carrier);
+      if (seen.has(name)) continue;
+      seen.add(name);
+      tiers.push({ name, price: kolisPrice(r.cost), transit_days: r.transit, service_id: r.service_id });
+      if (tiers.length >= 5) break;
+    }
     return json({ ok: true, tiers, currency: "CAD", rate_id: rateId });
   } catch (e) {
     return json({ concierge: true, reason: "error", detail: String((e as Error)?.message ?? e).slice(0, 200) });

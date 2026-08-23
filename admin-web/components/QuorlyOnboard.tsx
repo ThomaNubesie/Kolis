@@ -24,25 +24,29 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
 
   const e164 = (p: string) => { const d = p.replace(/[^\d+]/g, ""); return d.startsWith("+") ? d : d.length === 10 ? "+1" + d : "+" + d; };
 
-  useEffect(() => { (async () => {
+  // Re-derive the correct step from the account's ACTUAL state — so a returning,
+  // already-registered user is logged in and skipped straight to the app instead
+  // of being forced to re-verify phone / re-enter name.
+  async function evalStep(): Promise<void> {
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      if (user.email) setEmail(user.email);
-      if (user.phone) setPhone(user.phone);
-      const prof: any = await cf.myProfile().catch(() => ({}));
-      if (prof?.name) setName(prof.name);
-      if (user.email && user.phone && prof?.name) { onDone(prof.name); setStep("done"); }
-      else if (user.email && user.phone) setStep("name");
-      else if (user.email) setStep("phone");
-      else setStep("email");
-    }
-    setReady(true);
-  })(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const prof: any = user ? await cf.myProfile().catch(() => ({})) : {};
+    if (user?.email) setEmail(user.email);
+    if (user?.phone) setPhone(user.phone);
+    if (prof?.name) setName(prof.name);
+    if (user?.email && user?.phone && prof?.name) { onDone(prof.name); setStep("done"); }
+    else if (user?.email && user?.phone) setStep("name");
+    else if (user?.email) setStep("phone");
+    else setStep("email");
+  }
+
+  useEffect(() => { evalStep().finally(() => setReady(true)); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function restart() { await supabase.auth.signOut(); setSent(false); setCode(""); setPhone(""); setMsg(""); setStep("email"); }
 
   async function sendEmail() { setBusy(true); setMsg(""); const { error } = await supabase.auth.signInWithOtp({ email: email.trim() }); setBusy(false); if (error) setMsg(error.message); else setSent(true); }
-  async function verifyEmail() { setBusy(true); setMsg(""); const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: "email" }); setBusy(false); if (error) { setMsg(error.message); return; } setSent(false); setCode(""); setStep("phone"); }
-  async function sendPhone() { setBusy(true); setMsg(""); const { error } = await supabase.auth.updateUser({ phone: e164(phone) }); setBusy(false); if (error) setMsg(error.message); else setSent(true); }
-  async function verifyPhone() { setBusy(true); setMsg(""); const { error } = await supabase.auth.verifyOtp({ phone: e164(phone), token: code.trim(), type: "phone_change" }); setBusy(false); if (error) { setMsg(error.message); return; } setSent(false); setCode(""); setStep("name"); }
+  async function verifyEmail() { setBusy(true); setMsg(""); const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: code.trim(), type: "email" }); if (error) { setBusy(false); setMsg(error.message); return; } setSent(false); setCode(""); await evalStep(); setBusy(false); }
+  async function sendPhone() { setBusy(true); setMsg(""); const { error } = await supabase.auth.updateUser({ phone: e164(phone) }); setBusy(false); if (error) setMsg(/already|registered|exists|taken|in use/i.test(error.message) ? tr(L("This number is already linked to an account. Start over and sign in with that account's email.", "Ce numéro est déjà lié à un compte. Recommencez et connectez-vous avec le courriel de ce compte.")) : error.message); else setSent(true); }
+  async function verifyPhone() { setBusy(true); setMsg(""); const { error } = await supabase.auth.verifyOtp({ phone: e164(phone), token: code.trim(), type: "phone_change" }); if (error) { setBusy(false); setMsg(error.message); return; } setSent(false); setCode(""); await evalStep(); setBusy(false); }
   async function saveName() { if (!name.trim()) return; setBusy(true); setMsg(""); try { await cf.setProfile(name.trim()); onDone(name.trim()); setStep("done"); } catch (e: any) { setMsg(e.message); } setBusy(false); }
 
   const inp: any = { border: `1px solid ${C.line}`, borderRadius: 9, padding: "11px", fontSize: 14, background: "#fff", color: C.ink, width: "100%", outline: "none" };
@@ -92,6 +96,7 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
           </>}
 
           {msg && <div style={{ color: "#B4531F", fontSize: 12.5 }}>{msg}</div>}
+          {(step === "phone" || step === "name") && <div onClick={restart} style={{ fontSize: 11.5, color: C.ink2, fontWeight: 700, cursor: "pointer", textAlign: "center", marginTop: 2 }}>{tr(L("Use a different account", "Utiliser un autre compte"))}</div>}
         </div>
       </div>
     </div>

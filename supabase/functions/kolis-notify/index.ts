@@ -18,6 +18,10 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+// CORS so browser callers (admin-web) can invoke this; server/pg_net callers ignore it.
+const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-api-version", "Access-Control-Allow-Methods": "POST, OPTIONS" };
+const J = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
+
 type PushMsg = {
   to: string; title: string; body: string; sound: "default";
   data?: Record<string, unknown>;
@@ -77,6 +81,7 @@ async function flushPush(pushQueue: PushMsg[]) {
 }
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
@@ -84,21 +89,21 @@ Deno.serve(async (req) => {
   let parcel_id = "", event = "";
   try { ({ parcel_id, event } = await req.json()); } catch { /* ignore */ }
   if (!parcel_id || (event !== "assigned" && event !== "offered" && event !== "direct")) {
-    return new Response(JSON.stringify({ error: "bad request" }), { status: 400 });
+    return J({ error: "bad request" }, 400);
   }
 
   const { data: p } = await supabase
     .from("kolis_parcels")
     .select("id, code, to_city, to_region, dropoff_type, status, driver_id, preferred_driver_id, offer_expires_at, driver_payout_cents")
     .eq("id", parcel_id).maybeSingle();
-  if (!p) return new Response(JSON.stringify({ error: "parcel not found" }), { status: 404 });
+  if (!p) return J({ error: "parcel not found" }, 404);
 
   const payout = `C$${((p.driver_payout_cents ?? 0) / 100).toFixed(2)}`;
   const pushQueue: PushMsg[] = [];
 
   if (event === "assigned") {
     if (!p.preferred_driver_id) {
-      return new Response(JSON.stringify({ ok: true, note: "no target" }), { headers: { "Content-Type": "application/json" } });
+      return J({ ok: true, note: "no target" });
     }
     await recordAndQueue(
       supabase, p.preferred_driver_id, "kolis_assigned",
@@ -111,7 +116,7 @@ Deno.serve(async (req) => {
   } else if (event === "direct") {
     // Dispatcher force-assigned this driver — no accept step, just go pick up.
     if (!p.driver_id) {
-      return new Response(JSON.stringify({ ok: true, note: "no driver" }), { headers: { "Content-Type": "application/json" } });
+      return J({ ok: true, note: "no driver" });
     }
     await recordAndQueue(
       supabase, p.driver_id, "kolis_assigned_direct",
@@ -124,7 +129,7 @@ Deno.serve(async (req) => {
   } else {
     // "offered": only meaningful while unassigned and not exclusively targeted.
     if (p.driver_id || (p.preferred_driver_id && p.offer_expires_at && new Date(p.offer_expires_at) > new Date())) {
-      return new Response(JSON.stringify({ ok: true, note: "not openly offerable" }), { headers: { "Content-Type": "application/json" } });
+      return J({ ok: true, note: "not openly offerable" });
     }
     const recipients = new Set<string>();
     // LoadQ queue drivers heading to the destination (door needs position >= 2).
@@ -155,5 +160,5 @@ Deno.serve(async (req) => {
   }
 
   await flushPush(pushQueue);
-  return new Response(JSON.stringify({ ok: true, pushed: pushQueue.length }), { headers: { "Content-Type": "application/json" } });
+  return J({ ok: true, pushed: pushQueue.length });
 });

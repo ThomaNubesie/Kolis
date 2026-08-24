@@ -10,9 +10,12 @@ const C = { paper: "#FAF8F4", ink: "#1C1B19", ink2: "#6B6863", faint: "#A8A29A",
 const L = (en: string, fr: string) => ({ en, fr });
 type Step = "email" | "phone" | "name" | "done";
 
-export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en", onDone }: { invitedEmail?: string; invitedPhone?: string; lang?: "en" | "fr"; onDone: (name: string) => void }) {
+export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang: langProp = "en", onDone }: { invitedEmail?: string; invitedPhone?: string; lang?: "en" | "fr"; onDone: (name: string) => void }) {
+  const [lang, setLang] = useState<"en" | "fr">(langProp);
   const tr = (o: { en: string; fr: string }) => o[lang];
   const [ready, setReady] = useState(false);
+  const [narrow, setNarrow] = useState(false);
+  useEffect(() => { const f = () => setNarrow(window.innerWidth < 720); f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState(invitedEmail || "");
   const [phone, setPhone] = useState(invitedPhone || "");
@@ -105,12 +108,25 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
 
   return (
     <div style={{ background: "#2A2824", minHeight: "100vh", padding: 24, display: "flex", alignItems: "flex-start", justifyContent: "center", fontFamily: "-apple-system,Inter,Segoe UI,Roboto,sans-serif" }}>
-      <div style={{ maxWidth: 400, width: "100%", margin: "40px auto 0", background: C.paper, borderRadius: 14, boxShadow: "0 24px 60px rgba(0,0,0,.4)", overflow: "hidden" }}>
-        <div style={{ display: "flex", alignItems: "center", padding: "16px 18px", borderBottom: `1px solid ${C.line}` }}>
-          <div style={{ width: 26, height: 26, borderRadius: 7, background: C.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, marginRight: 9 }}>Q</div>
-          <div style={{ fontWeight: 800, fontSize: 15, color: C.ink }}>Quorly</div>
-          {mode === "onboard" && <div style={{ marginLeft: "auto", display: "flex", gap: 5 }}>{[1, 2, 3].map((n) => <span key={n} style={{ width: 7, height: 7, borderRadius: "50%", background: n <= stepNo ? C.accent : C.line }} />)}</div>}
+      <div style={{ width: "100%", maxWidth: narrow ? 420 : 760, margin: "40px auto 0", background: C.paper, borderRadius: 16, boxShadow: "0 24px 60px rgba(0,0,0,.4)", overflow: "hidden", display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr" }}>
+        {/* Brand panel */}
+        <div style={{ background: "linear-gradient(160deg,#2F3AA3,#20245e)", color: "#fff", padding: narrow ? "20px 20px 18px" : "26px 24px", display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+            <div style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(255,255,255,.16)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13 }}>Q</div>
+            <div style={{ fontWeight: 900, fontSize: 16 }}>Quorly</div>
+            <div style={{ marginLeft: "auto", display: "inline-flex", background: "rgba(255,255,255,.14)", borderRadius: 8, padding: 2 }}>
+              {(["en", "fr"] as const).map((lg) => <span key={lg} onClick={() => setLang(lg)} style={{ padding: "3px 9px", fontSize: 11, fontWeight: 800, borderRadius: 6, cursor: "pointer", background: lang === lg ? "#fff" : "transparent", color: lang === lg ? C.accent : "#fff" }}>{lg.toUpperCase()}</span>)}
+            </div>
+          </div>
+          <div style={{ fontSize: narrow ? 19 : 22, fontWeight: 900, lineHeight: 1.22, margin: narrow ? "14px 0 6px" : "auto 0 8px" }}>{tr(L("Decide together,", "Décidez ensemble,"))}<br />{tr(L("on the record.", "de façon officielle."))}</div>
+          <div style={{ color: "#C9CBEC", fontSize: 12.5, lineHeight: 1.5 }}>{tr(L("Everyone gets a colour. Every entry is timed, numbered and signed.", "Chacun sa couleur. Chaque entrée est horodatée, numérotée et signée."))}</div>
+          {!narrow && <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 16 }}>
+            {[tr(L("Vote", "Vote")), tr(L("Comment", "Commentaires")), tr(L("Ledgers", "Registres")), tr(L("PDF & files", "PDF & fichiers"))].map((c) => <span key={c} style={{ background: "rgba(255,255,255,.14)", borderRadius: 20, padding: "4px 10px", fontSize: 11, fontWeight: 700 }}>{c}</span>)}
+          </div>}
         </div>
+        {/* Form panel */}
+        <div style={{ background: "#fff", display: "flex", flexDirection: "column" }}>
+          {mode === "onboard" && <div style={{ display: "flex", gap: 5, padding: "16px 20px 0", justifyContent: "flex-end" }}>{[1, 2, 3].map((n) => <span key={n} style={{ width: 7, height: 7, borderRadius: "50%", background: n <= stepNo ? C.accent : C.line }} />)}</div>}
         <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 13 }}>
           {mode === "signin" ? (
             <>
@@ -168,6 +184,7 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang = "en",
           )}
 
           {msg && <div style={{ color: "#B4531F", fontSize: 12.5 }}>{msg}</div>}
+          </div>
         </div>
       </div>
     </div>

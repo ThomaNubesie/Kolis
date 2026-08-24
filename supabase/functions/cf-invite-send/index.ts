@@ -31,20 +31,33 @@ async function sendSms(phone: string, formName: string, link: string, code: stri
   if (r.ok) return { ok: true };
   return { ok: false, error: `twilio_${r.status}: ${(await r.text().catch(() => "")).slice(0, 300)}` };
 }
+const CF_SECRET = "kolis_notify_9f3a2c7b1e6d4084";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
-    const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
-    if (!jwt) return json({ error: "unauthorized" }, 401);
-    const { data: u } = await admin.auth.getUser(jwt);
-    if (!u?.user) return json({ error: "unauthorized" }, 401);
-    const { token, form_id, contact, base_url } = await req.json().catch(() => ({} as any));
+    const body = await req.json().catch(() => ({} as any));
+    const secretOk = req.headers.get("x-kolis-secret") === CF_SECRET;
+    // Secret-gated test send (deliverability testing) — no form/JWT needed.
+    if (secretOk && body.test_to) {
+      const r = await sendEmail(String(body.test_to), body.form_name || "Your test form", body.link || "https://quorly-app.netlify.app/join?token=TEST", body.code || "AB12CD");
+      return json({ ok: r.ok, test: true, error: r.error });
+    }
+    // Normal flow needs the form admin's JWT; the server secret bypasses it (operator resend).
+    let uid: string | null = null;
+    if (!secretOk) {
+      const jwt = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+      if (!jwt) return json({ error: "unauthorized" }, 401);
+      const { data: u } = await admin.auth.getUser(jwt);
+      if (!u?.user) return json({ error: "unauthorized" }, 401);
+      uid = u.user.id;
+    }
+    const { token, form_id, contact, base_url, channel } = body;
     let formId = form_id as string | undefined;
     if (!formId && token) { const { data: m0 } = await admin.from("cf_members").select("form_id").eq("invite_token", token).maybeSingle(); formId = m0?.form_id; }
     if (!formId) return json({ error: "no_form" }, 400);
     const { data: form } = await admin.from("cf_forms").select("name, admin_id").eq("id", formId).maybeSingle();
     if (!form) return json({ error: "form_not_found" }, 404);
-    if (form.admin_id !== u.user.id) return json({ error: "not_admin" }, 403);
+    if (!secretOk && form.admin_id !== uid) return json({ error: "not_admin" }, 403);
     const formName = form.name ?? "a Quorly form";
     const base = (base_url || "https://quorly.ca").replace(/\/$/, "");
     let q = admin.from("cf_members").select("email, phone, invite_token, invite_code").eq("form_id", formId).eq("status", "invited").not("invite_token", "is", null);
@@ -59,7 +72,9 @@ Deno.serve(async (req) => {
       const code = (m.invite_code as string) || "";
       const label = m.email || m.phone || "?";
       let res: { ok: boolean; error?: string };
-      if (m.email) res = await sendEmail(m.email as string, formName, link, code);
+      if (channel === "sms") res = m.phone ? await sendSms(m.phone as string, formName, link, code) : { ok: false, error: "no_phone" };
+      else if (channel === "email") res = m.email ? await sendEmail(m.email as string, formName, link, code) : { ok: false, error: "no_email" };
+      else if (m.email) res = await sendEmail(m.email as string, formName, link, code);
       else if (m.phone) res = await sendSms(m.phone as string, formName, link, code);
       else res = { ok: false, error: "no_contact" };
       if (!res.ok) console.error(`cf-invite-send failed for ${label}: ${res.error}`);

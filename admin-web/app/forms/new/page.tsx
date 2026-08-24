@@ -1,7 +1,7 @@
 "use client";
 // Quorly — Create a form (UI shell, mock). Feature toggles + field builder +
 // approval count + admin colour pick + invite by email/phone. Bilingual.
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cf } from "@/lib/cf";
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
@@ -121,8 +121,10 @@ function NewFormInner() {
   const addInvite = () => { const v = invite.trim(); if (v && !invited.includes(v)) { setInvited((a) => [...a, v]); setInvite(""); } };
 
   const [busy, setBusy] = useState(false);
+  const creatingRef = useRef(false); // synchronous guard — a double-tap fires two clicks before `busy` re-renders
   async function create() {
-    if (!name.trim() || !adminName.trim() || busy) return;
+    if (!name.trim() || !adminName.trim() || creatingRef.current) return;
+    creatingRef.current = true;
     setBusy(true);
     try {
       const res = await cf.createForm({
@@ -137,6 +139,7 @@ function NewFormInner() {
         router.push("/forms");
       } else alert(res?.error || "Failed");
     } catch (e: any) { alert(e.message); }
+    creatingRef.current = false;
     setBusy(false);
   }
 

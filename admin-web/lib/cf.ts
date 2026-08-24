@@ -32,11 +32,12 @@ export const cf = {
     return res;
   },
   // Send pending invites for a form (email/SMS). Pass `contact` to resend just one. Returns { ok, sent, failed, results }.
-  sendInvites: async (form: string, contact?: string) => {
+  sendInvites: async (form: string, contact?: string, channel?: "email" | "sms") => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
-    try { const { data, error } = await supabase.functions.invoke("cf-invite-send", { body: { form_id: form, base_url: base, ...(contact ? { contact } : {}) } }); if (error) throw error; return data; }
+    try { const { data, error } = await supabase.functions.invoke("cf-invite-send", { body: { form_id: form, base_url: base, ...(contact ? { contact } : {}), ...(channel ? { channel } : {}) } }); if (error) throw error; return data; }
     catch (e: any) { return { ok: false, error: e?.message ?? "send_failed" }; }
   },
+  deleteForm: (form: string) => rpc("cf_delete_form", { p_form: form }),
   invite: async (form: string, contact: string) => {
     const res = await rpc("cf_invite", { p_form: form, p_contact: contact });
     if (res?.ok && res.token) {

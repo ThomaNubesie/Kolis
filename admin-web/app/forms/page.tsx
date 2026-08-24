@@ -110,7 +110,7 @@ function FormsInner() {
                 {form.description && <div style={{ fontSize: 12, color: C.ink2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: mobile ? 220 : 380 }}>{form.description}</div>}
               </div>
               <div style={{ marginLeft: "auto", flex: "0 0 auto", display: "flex", alignItems: "center", gap: 8 }}>
-                {form.is_admin && <FormEdit form={form} tr={tr} onSaved={() => sel && loadForm(sel)} />}
+                {form.is_admin && <FormEdit form={form} tr={tr} onSaved={() => sel && loadForm(sel)} onDeleted={() => { setSel(null); setForm(null); setEntries([]); cf.myForms().then(setList).catch(() => {}); }} />}
                 {!mobile && langToggle}
               </div>
             </div>
@@ -310,7 +310,7 @@ function FilesPanel({ form, tr, lang, entries, memberOf }: any) {
   );
 }
 
-function FormEdit({ form, tr, onSaved }: any) {
+function FormEdit({ form, tr, onSaved, onDeleted }: any) {
   const [open, setOpen] = useState(false);
   const [n, setN] = useState(form.name || "");
   const [d, setD] = useState(form.description || "");
@@ -321,6 +321,13 @@ function FormEdit({ form, tr, onSaved }: any) {
     try { const r = await cf.updateForm(form.id, n.trim(), d); if (r?.ok) { setOpen(false); onSaved(); } else alert(r?.error || "Failed"); }
     catch (e: any) { alert(e.message); }
     setBusy(false);
+  };
+  const del = async () => {
+    if (busy) return;
+    if (!confirm(tr(L(`Delete "${form.name}"? This permanently removes the form, its entries, files and members for everyone. This can't be undone.`, `Supprimer « ${form.name} » ? Cela supprime définitivement le formulaire, ses entrées, fichiers et membres pour tout le monde. Irréversible.`)))) return;
+    setBusy(true);
+    try { await cf.deleteForm(form.id); setOpen(false); onDeleted?.(); }
+    catch (e: any) { alert(e.message); setBusy(false); }
   };
   return (
     <>
@@ -345,6 +352,7 @@ function FormEdit({ form, tr, onSaved }: any) {
                 <div onClick={() => setOpen(false)} style={{ flex: 1, border: `1px solid ${C.line}`, borderRadius: 9, padding: 11, textAlign: "center", fontWeight: 800, fontSize: 13.5, color: C.ink2, cursor: "pointer" }}>{tr(L("Cancel", "Annuler"))}</div>
                 <div onClick={save} style={{ flex: 2, background: C.accent, color: "#fff", borderRadius: 9, padding: 11, textAlign: "center", fontWeight: 800, fontSize: 13.5, cursor: "pointer", opacity: busy || !n.trim() ? .6 : 1 }}>{busy ? "…" : tr(L("Save", "Enregistrer"))}</div>
               </div>
+              <div onClick={del} style={{ textAlign: "center", fontSize: 12.5, fontWeight: 800, color: "#B4531F", cursor: "pointer", marginTop: 2, borderTop: `1px solid ${C.line}`, paddingTop: 12, opacity: busy ? .6 : 1 }}>🗑 {tr(L("Delete this form", "Supprimer ce formulaire"))}</div>
             </div>
           </div>
         </div>
@@ -389,13 +397,22 @@ function JoinCode({ tr, router }: any) {
 
 function ResendLink({ form, contact, tr }: any) {
   const [busy, setBusy] = useState(false);
-  const go = async () => {
-    if (busy) return; setBusy(true);
-    const r = await cf.sendInvites(form, contact); setBusy(false);
+  const [pick, setPick] = useState(false);
+  const go = async (channel: "email" | "sms") => {
+    setPick(false); if (busy) return; setBusy(true);
+    const r = await cf.sendInvites(form, contact, channel); setBusy(false);
     if (r?.ok) alert(tr(L("Invite resent.", "Invitation renvoyée.")));
     else alert(tr(L("Couldn't resend: ", "Échec du renvoi : ")) + (r?.failed?.[0]?.error || r?.error || "unknown"));
   };
-  return <span onClick={go} style={{ marginLeft: "auto", fontSize: 10.5, fontWeight: 800, color: C.accent, cursor: "pointer", opacity: busy ? .5 : 1 }}>{busy ? "…" : tr(L("Resend", "Renvoyer"))}</span>;
+  if (busy) return <span style={{ marginLeft: "auto", fontSize: 10.5, fontWeight: 800, color: C.faint }}>…</span>;
+  if (pick) return (
+    <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 8 }}>
+      <span onClick={() => go("email")} style={{ fontSize: 10.5, fontWeight: 800, color: C.accent, cursor: "pointer" }}>{tr(L("Email", "Courriel"))}</span>
+      <span onClick={() => go("sms")} style={{ fontSize: 10.5, fontWeight: 800, color: C.accent, cursor: "pointer" }}>SMS</span>
+      <span onClick={() => setPick(false)} style={{ fontSize: 11, color: C.faint, cursor: "pointer" }}>✕</span>
+    </span>
+  );
+  return <span onClick={() => setPick(true)} style={{ marginLeft: "auto", fontSize: 10.5, fontWeight: 800, color: C.accent, cursor: "pointer" }}>{tr(L("Resend", "Renvoyer"))}</span>;
 }
 
 function Invite({ form, tr, onDone }: any) {

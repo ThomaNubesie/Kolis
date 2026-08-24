@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, TextInput, Pressable, Alert, ActivityIndicator, ScrollView } from "react-native";
+import { View, Text, TextInput, Pressable, Alert, ActivityIndicator, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MapPin } from "lucide-react-native";
@@ -63,7 +63,8 @@ export default function AddHub() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["top"]}>
-      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40, flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => router.back()}><Text style={{ color: Colors.t2, fontSize: 15, marginBottom: 6 }}>← {t("adminHubs")}</Text></Pressable>
         <Text style={{ fontSize: 22, fontWeight: "800", color: Colors.ink, marginBottom: 14 }}>{t("addHub")}</Text>
 
@@ -88,6 +89,7 @@ export default function AddHub() {
           {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{t("saveHub")}</Text>}
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

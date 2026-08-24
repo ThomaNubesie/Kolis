@@ -1,6 +1,6 @@
 // Team & access (owner only): staff roles, email invites, hashed API keys.
 import { useCallback, useState } from "react";
-import { View, Text, Pressable, ScrollView, Modal, TextInput, RefreshControl, Alert } from "react-native";
+import { View, Text, Pressable, ScrollView, Modal, TextInput, RefreshControl, Alert, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
@@ -85,7 +85,7 @@ export default function AdminTeam() {
 
       {/* Invite */}
       <Modal visible={invite} transparent animationType="fade" onRequestClose={() => setInvite(false)}>
-        <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
           <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
             <Pressable onPress={() => setInvite(false)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
               <X size={22} color={Colors.t3} strokeWidth={2} />
@@ -103,12 +103,12 @@ export default function AdminTeam() {
               <Pressable onPress={sendInvite} style={{ flex: 1, padding: 12, alignItems: "center", backgroundColor: Colors.accent, borderRadius: 11 }}><Text style={{ color: "#fff", fontWeight: "800" }}>Send invite</Text></Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Create key */}
       <Modal visible={keyModal} transparent animationType="fade" onRequestClose={() => setKeyModal(false)}>
-        <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
           <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
             <Pressable onPress={() => setKeyModal(false)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
               <X size={22} color={Colors.t3} strokeWidth={2} />
@@ -121,7 +121,7 @@ export default function AdminTeam() {
               <Pressable onPress={createKey} style={{ flex: 1, padding: 12, alignItems: "center", backgroundColor: Colors.accent, borderRadius: 11 }}><Text style={{ color: "#fff", fontWeight: "800" }}>Create</Text></Pressable>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Show key once */}

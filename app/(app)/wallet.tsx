@@ -1,7 +1,7 @@
 // Wallet & payments (mockup A2): pay-for-parcels (card entered at checkout),
 // courier Interac payout email, and membership status.
 import { useCallback, useState } from "react";
-import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, Pressable, ScrollView, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { CreditCard, Lock, Zap } from "lucide-react-native";
@@ -46,7 +46,8 @@ export default function Wallet() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["top"]}>
-      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40, flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => router.back()}><Text style={{ color: Colors.t2, fontSize: 15, marginBottom: 6 }}>← {t("back")}</Text></Pressable>
         <Text style={{ fontSize: 24, fontWeight: "800", color: Colors.ink }}>{t("wallet")}</Text>
 
@@ -97,6 +98,7 @@ export default function Wallet() {
           <Text style={{ fontSize: 10.5, color: Colors.t3, marginTop: 4 }}>{t("renewsNote")}</Text>
         </Card>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

@@ -1,6 +1,6 @@
 // Add/update the member's contact email & phone — applied only after admin approval.
 import { useCallback, useState } from "react";
-import { View, Text, TextInput, Pressable, Alert, ScrollView } from "react-native";
+import { View, Text, TextInput, Pressable, Alert, ScrollView, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useFocusEffect } from "expo-router";
 import { Colors } from "../../constants/colors";
@@ -35,7 +35,8 @@ export default function Contact() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }}>
-      <ScrollView contentContainerStyle={{ padding: 22, paddingBottom: 40 }}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={{ padding: 22, paddingBottom: 40, flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <Text style={{ fontSize: 24, fontWeight: "900", color: Colors.ink }}>{T("Contact info", "Coordonnées")}</Text>
         <Text style={{ fontSize: 13, color: Colors.t2, marginTop: 6, marginBottom: 18 }}>
           {T("Add or update your email and phone. Changes are applied after an admin approves them.", "Ajoutez ou modifiez votre courriel et votre téléphone. Les modifications sont appliquées après approbation par un administrateur.")}
@@ -57,6 +58,7 @@ export default function Contact() {
           <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{busy ? "…" : T("Submit for approval", "Soumettre pour approbation")}</Text>
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

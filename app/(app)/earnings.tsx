@@ -1,7 +1,7 @@
 // Courier earnings — pending vs paid Kolis payouts, Interac e-Transfer email,
 // and the contractor (T4A) note. Shows payouts only, never sender prices.
 import { useCallback, useState } from "react";
-import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, ActivityIndicator } from "react-native";
+import { View, Text, TextInput, Pressable, ScrollView, RefreshControl, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Colors } from "../../constants/colors";
@@ -36,8 +36,9 @@ export default function Earnings() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["top"]}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
       <ScrollView
-        contentContainerStyle={{ padding: 18, paddingBottom: 40 }}
+        contentContainerStyle={{ padding: 18, paddingBottom: 40, flexGrow: 1 }}
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={Colors.accent} />}
       >
@@ -81,6 +82,7 @@ export default function Earnings() {
           <Text style={{ fontSize: 16, color: Colors.t3 }}>›</Text>
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

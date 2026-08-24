@@ -2,7 +2,7 @@
 // only); recipient + structured address + contents + insurance + liability
 // agreement are required before payment. Carried forward as a JSON param.
 import { useEffect, useState } from "react";
-import { View, Text, TextInput, Pressable, ScrollView, Alert, KeyboardTypeOptions } from "react-native";
+import { View, Text, TextInput, Pressable, ScrollView, Alert, KeyboardTypeOptions, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
@@ -107,7 +107,8 @@ export default function Details() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.bg }} edges={["top"]}>
-      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 40, flexGrow: 1 }} keyboardShouldPersistTaps="handled">
         <Pressable onPress={() => router.back()}><Text style={{ color: Colors.t2, fontSize: 15, marginBottom: 6 }}>← {t("back")}</Text></Pressable>
         <Text style={{ fontSize: 24, fontWeight: "800", color: Colors.ink }}>{t("shipDetails")}</Text>
         <Text style={{ fontSize: 12.5, color: Colors.t2, marginBottom: 8 }}>{t("shipSub")}</Text>
@@ -206,6 +207,7 @@ export default function Details() {
           <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{t("continueToPay")}</Text>
         </Pressable>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

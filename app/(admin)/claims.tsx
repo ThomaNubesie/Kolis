@@ -1,6 +1,6 @@
 // Insurance claims — approve (Stripe refund, policy-capped) or deny.
 import { useCallback, useState } from "react";
-import { View, Text, Pressable, ScrollView, Modal, TextInput, RefreshControl, Alert, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ScrollView, Modal, TextInput, RefreshControl, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { X } from "lucide-react-native";
@@ -70,7 +70,7 @@ export default function AdminClaims() {
       </ScrollView>
 
       <Modal visible={!!active} transparent animationType="fade" onRequestClose={() => setActive(null)}>
-        <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
+        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
           {active && (
             <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
               <Pressable onPress={() => setActive(null)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
@@ -97,7 +97,7 @@ export default function AdminClaims() {
               )}
             </View>
           )}
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );

@@ -18,7 +18,10 @@ const ACC = [
 
 const RATE_FN = (process.env.NEXT_PUBLIC_SUPABASE_URL || "") + "/functions/v1/kolis-freight-rate";
 type Parts = { postal?: string; city?: string; region?: string; country?: string; line1?: string };
-type Tier = { name: string; price: number; transit_days: number };
+type Tier = { name: string; price: number; transit_days: number; service_id?: string; residential_surcharge?: number };
+type View = "shortlist" | "list" | "grouped";
+type Sort = "cheapest" | "fastest";
+type ResEnd = "pickup" | "delivery" | "both";
 // pull the heaviest lb figure + the three dimension numbers out of the picker text
 const lbOf = (s: string) => { const m = [...(s || "").matchAll(/(\d[\d,]*)\s*lb/gi)].map((x) => parseInt(x[1].replace(/,/g, ""))); return m.length ? Math.max(...m) : (parseInt((s || "").replace(/\D/g, "")) || 0); };
 const dimsOf = (s: string) => { const n = (s || "").match(/\d+/g)?.map(Number) || []; return { l: n[0] || 48, w: n[1] || 40, h: n[2] || 48 }; };
@@ -32,8 +35,26 @@ export default function Freight() {
   const [oParts, setOParts] = useState<Parts>({});
   const [dParts, setDParts] = useState<Parts>({});
   const [tiers, setTiers] = useState<Tier[]>([]);
+  // Results view preferences (remembered per device; surfaced as the default view).
+  const [view, setView] = useState<View>("shortlist");
+  const [sort, setSort] = useState<Sort>("cheapest");
+  const [maxTransit, setMaxTransit] = useState<number>(0); // 0 = any
+  const [resEnd, setResEnd] = useState<ResEnd>("delivery");
+  const [showAll, setShowAll] = useState(false);
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
   const toggle = (k: string) => setAcc(acc.includes(k) ? acc.filter((x) => x !== k) : [...acc, k]);
+
+  // Load saved view/sort/residential-end preferences.
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem("kolis_freight_view"); if (v === "shortlist" || v === "list" || v === "grouped") setView(v);
+      const s = localStorage.getItem("kolis_freight_sort"); if (s === "cheapest" || s === "fastest") setSort(s);
+      const re = localStorage.getItem("kolis_freight_res_end"); if (re === "pickup" || re === "delivery" || re === "both") setResEnd(re);
+    } catch { /* ignore */ }
+  }, []);
+  const chooseView = (v: View) => { setView(v); try { localStorage.setItem("kolis_freight_view", v); } catch { /* ignore */ } };
+  const chooseSort = (s: Sort) => { setSort(s); try { localStorage.setItem("kolis_freight_sort", s); } catch { /* ignore */ } };
+  const chooseResEnd = (re: ResEnd) => { setResEnd(re); try { localStorage.setItem("kolis_freight_res_end", re); } catch { /* ignore */ } };
 
   // Prefill merchant details when a signed-in business opens the form.
   useEffect(() => {
@@ -64,8 +85,9 @@ export default function Freight() {
     return !!(d && d.ok);
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault(); setErr("");
+  async function submit(e: React.FormEvent) { e.preventDefault(); runQuote(); }
+  async function runQuote() {
+    setErr("");
     if (!f.origin.trim() || !f.destination.trim()) { setErr(t("Origin and destination are required.", "L'origine et la destination sont requises.")); return; }
     if (!f.contact.trim() || !f.phone.trim()) { setErr(t("Name and phone are required.", "Le nom et le téléphone sont requis.")); return; }
     setState("sending");
@@ -74,10 +96,11 @@ export default function Freight() {
       const rate = await fetch(RATE_FN, { method: "POST", headers: anon, body: JSON.stringify({
         origin: { ...oParts, name: f.business }, destination: dParts,
         pallets: Number(f.pallets) || 1, weight_lb: lbOf(f.weight), ...dimsOf(f.dims),
+        accessorials: acc, residential_end: resEnd,
       }) }).then((r) => r.json()).catch(() => ({ concierge: true }));
 
       if (rate?.ok && Array.isArray(rate.tiers) && rate.tiers.length) {
-        setTiers(rate.tiers); setState("quote"); return;   // live price populated
+        setTiers(rate.tiers); setShowAll(false); setState("quote"); return;   // live price populated
       }
       // 2) fall back to concierge (no aggregator key, or missing postal, or API down)
       if (await sendConcierge()) { setState("done"); return; }
@@ -107,6 +130,45 @@ export default function Freight() {
     { value: "48 × 48 × 48 in", label: "48 × 48 × 48 in" },
     { value: "42 × 42 × 48 in", label: "42 × 42 × 48 in" },
   ];
+  // ── Derived views over the live carrier tiers ──────────────────────────────
+  const byPrice = [...tiers].sort((a, b) => a.price - b.price);
+  const byFast = [...tiers].sort((a, b) => a.transit_days - b.transit_days || a.price - b.price);
+  const cheapest = byPrice[0];
+  const fastest = byFast[0];
+  const transits = tiers.map((x) => x.transit_days).sort((a, b) => a - b);
+  const medianTransit = transits.length ? transits[Math.floor(transits.length / 2)] : 99;
+  const bestValue = byPrice.find((x) => x.transit_days <= medianTransit && x !== cheapest && x !== fastest)
+    || byPrice.find((x) => x !== cheapest && x !== fastest);
+  const heroes = [
+    cheapest && { key: "cheap", label: t("Cheapest", "Le moins cher"), tier: cheapest },
+    bestValue && { key: "value", label: t("Best value", "Meilleur rapport"), tier: bestValue },
+    fastest && fastest !== cheapest ? { key: "fast", label: t("Fastest", "Le plus rapide"), tier: fastest } : null,
+  ].filter(Boolean) as { key: string; label: string; tier: Tier }[];
+  const ranked = [...tiers].sort((a, b) => sort === "cheapest" ? a.price - b.price : (a.transit_days - b.transit_days || a.price - b.price));
+  const filtered = maxTransit ? ranked.filter((x) => x.transit_days <= maxTransit) : ranked;
+  const groups = [
+    { key: "exp", label: t("⚡ Express", "⚡ Express"), hint: t("1 day", "1 jour"), rows: filtered.filter((x) => x.transit_days <= 1) },
+    { key: "std", label: t("🚚 Standard", "🚚 Standard"), hint: t("2–3 days", "2–3 jours"), rows: filtered.filter((x) => x.transit_days >= 2 && x.transit_days <= 3) },
+    { key: "econ", label: t("🐢 Economy", "🐢 Économique"), hint: t("4+ days", "4+ jours"), rows: filtered.filter((x) => x.transit_days >= 4) },
+  ];
+  const surLine = (tr: Tier) => tr.residential_surcharge
+    ? <> · <span className="sur">{t("incl. residential", "incl. résidentiel")} +${tr.residential_surcharge}</span></> : null;
+  const rowJsx = (tr: Tier, i: number) => (
+    <div key={tr.name} className="tier">
+      <div className="rk2">{i + 1}</div>
+      <div style={{ flex: 1 }}>
+        <div className="tn">{tr.name}
+          {tr === cheapest && <span className="badge b-cheap">{t("Cheapest", "Moins cher")}</span>}
+          {tr === fastest && tr !== cheapest && <span className="badge b-fast">{t("Fastest", "Rapide")}</span>}
+        </div>
+        <div className="td">{tr.transit_days} {t("business day(s)", "jour(s) ouvrable(s)")}{surLine(tr)}</div>
+      </div>
+      <div className="tp">${tr.price} <small>CAD</small></div>
+      <button className="go tbtn" onClick={() => accept(tr)}>{t("Book", "Réserver")}</button>
+    </div>
+  );
+  const reLabel = (re: ResEnd) => re === "pickup" ? t("Pickup", "Ramassage") : re === "delivery" ? t("Delivery", "Livraison") : t("Both", "Les deux");
+
   return (
     <div className="fp">
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
@@ -124,13 +186,80 @@ export default function Freight() {
             <h1>{f.origin.split(",")[0]} → {f.destination.split(",")[0]}</h1>
             <p className="sub">{t("All-in Kolis price — billed to your monthly account.", "Prix Kolis tout compris — facturé sur votre compte mensuel.")}</p>
             <div className="card">
-              {tiers.map((tr) => (
-                <div key={tr.name} className="tier">
-                  <div><div className="tn">{tr.name}</div><div className="td">{tr.transit_days} {t("business day(s)", "jour(s) ouvrable(s)")}</div></div>
-                  <div className="tp">${tr.price} <small>CAD</small></div>
-                  <button className="go tbtn" onClick={() => accept(tr)}>{t("Book", "Réserver")}</button>
+              <div className="qhead">
+                <span className="sub2">{tiers.length} {t("carriers compared", "transporteurs comparés")}</span>
+                <div className="vswitch">
+                  <button className={view === "shortlist" ? "on" : ""} onClick={() => chooseView("shortlist")}>◱ {t("Shortlist", "Sélection")}</button>
+                  <button className={view === "list" ? "on" : ""} onClick={() => chooseView("list")}>☰ {t("List", "Liste")}</button>
+                  <button className={view === "grouped" ? "on" : ""} onClick={() => chooseView("grouped")}>▦ {t("Grouped", "Groupé")}</button>
                 </div>
-              ))}
+              </div>
+
+              {acc.includes("residential") && (
+                <div className="accbar2">
+                  <b>{t("Residential at", "Résidentiel à")}:</b>
+                  <div className="seg2">
+                    {(["pickup", "delivery", "both"] as ResEnd[]).map((re) => (
+                      <span key={re} className={resEnd === re ? "on" : ""} onClick={() => chooseResEnd(re)}>{reLabel(re)}</span>
+                    ))}
+                  </div>
+                  <button className="reapply" onClick={() => runQuote()}>↻ {t("Re-quote", "Re-devis")}</button>
+                </div>
+              )}
+
+              {view !== "shortlist" && (
+                <div className="custrow2">
+                  <label>{t("Sort", "Trier")}</label>
+                  <select value={sort} onChange={(e) => chooseSort(e.target.value as Sort)}>
+                    <option value="cheapest">{t("Cheapest first", "Moins cher d'abord")}</option>
+                    <option value="fastest">{t("Fastest first", "Plus rapide d'abord")}</option>
+                  </select>
+                  <label>{t("Max transit", "Transit max")}</label>
+                  <select value={String(maxTransit)} onChange={(e) => setMaxTransit(Number(e.target.value))}>
+                    <option value="0">{t("Any", "Tous")}</option>
+                    <option value="1">≤ 1</option><option value="2">≤ 2</option><option value="3">≤ 3</option>
+                  </select>
+                  <span className="cnt">{filtered.length}/{tiers.length}</span>
+                </div>
+              )}
+
+              {view === "shortlist" ? (
+                <>
+                  <div className="heroes">
+                    {heroes.map((h) => (
+                      <div key={h.key} className={"hero" + (h.key === "cheap" ? " pick" : "")}>
+                        <div className="cap">{h.label}</div>
+                        <div className="hn">{h.tier.name}</div>
+                        <div className="hp">${h.tier.price}</div>
+                        <div className="ht">{h.tier.transit_days} {t("business day(s)", "jour(s) ouvrable(s)")}{h.tier.residential_surcharge ? <><br /><span className="sur">{t("incl. residential", "incl. résidentiel")} +${h.tier.residential_surcharge}</span></> : null}</div>
+                        <button className="hbk" onClick={() => accept(h.tier)}>{t("Book", "Réserver")}</button>
+                      </div>
+                    ))}
+                  </div>
+                  {!showAll ? (
+                    tiers.length > heroes.length && <div className="expand" onClick={() => setShowAll(true)}>{t("Show all", "Voir les")} {tiers.length} {t("carriers", "transporteurs")} ▾</div>
+                  ) : (
+                    <div className="alllist">
+                      {ranked.map((tr, i) => rowJsx(tr, i))}
+                      <div className="expand" onClick={() => setShowAll(false)}>{t("Show less", "Réduire")} ▴</div>
+                    </div>
+                  )}
+                </>
+              ) : view === "list" ? (
+                <div className="alllist">
+                  {filtered.length ? filtered.map((tr, i) => rowJsx(tr, i)) : <div className="empty2">{t("No carriers match — widen the filter.", "Aucun transporteur — élargissez le filtre.")}</div>}
+                </div>
+              ) : (
+                <div className="alllist">
+                  {groups.some((g) => g.rows.length) ? groups.map((g) => g.rows.length ? (
+                    <div key={g.key}>
+                      <div className="ghead"><span>{g.label}</span><span className="gt">{g.hint}</span><span className="gline" /></div>
+                      {g.rows.map((tr, i) => rowJsx(tr, i))}
+                    </div>
+                  ) : null) : <div className="empty2">{t("No carriers match — widen the filter.", "Aucun transporteur — élargissez le filtre.")}</div>}
+                </div>
+              )}
+
               <div className="fine" style={{ textAlign: "left", marginTop: 10 }}>⚠ {t("Estimate — subject to carrier reweigh & inspection.", "Estimation — sujette à la repesée et à l'inspection du transporteur.")}</div>
               <button className="go" style={{ background: "#fff", color: "#6B6675", border: "1.5px solid #ECECF2", marginTop: 12 }} onClick={() => setState("form")}>← {t("Edit shipment", "Modifier l'envoi")}</button>
             </div>
@@ -213,5 +342,41 @@ const CSS = `
 .fp .tier .tn{font-weight:800;font-size:15px}.fp .tier .td{color:#6B6675;font-size:12px;margin-top:2px}
 .fp .tier .tp{font-size:22px;font-weight:900;margin-left:auto}.fp .tier .tp small{font-size:12px;color:#6B6675;font-weight:600}
 .fp .tbtn{width:auto;padding:10px 20px;margin:0}
-@media(max-width:640px){ .fp .rw{flex-direction:column;gap:0} .fp .tier{flex-wrap:wrap} .fp .tier .tp{margin-left:0} .fp .tbtn{width:100%} }
+.fp .tier .rk2{width:20px;color:#b6b2bf;font-weight:800;font-size:13px;text-align:center;margin-right:2px}
+.fp .qhead{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.fp .sub2{color:#6B6675;font-size:12.5px;font-weight:600}
+.fp .vswitch{margin-left:auto;display:inline-flex;border:1.5px solid #ECECF2;border-radius:10px;overflow:hidden}
+.fp .vswitch button{border:none;background:#fff;color:#6B6675;font-weight:700;font-size:12px;padding:7px 11px;cursor:pointer;border-left:1px solid #ECECF2}
+.fp .vswitch button:first-child{border-left:none}
+.fp .vswitch button.on{background:#E11D6B;color:#fff}
+.fp .accbar2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;background:#faf7fb;border:1px solid #f0e6ee;border-radius:12px;padding:9px 12px;margin-bottom:12px;font-size:12.5px}
+.fp .seg2{display:inline-flex;border:1.5px solid #ECECF2;border-radius:9px;overflow:hidden}
+.fp .seg2 span{padding:6px 11px;font-size:12px;font-weight:700;color:#6B6675;cursor:pointer;background:#fff;border-left:1px solid #ECECF2}
+.fp .seg2 span:first-child{border-left:none}
+.fp .seg2 span.on{background:#E11D6B;color:#fff}
+.fp .reapply{margin-left:auto;background:#fff;border:1.5px solid #E11D6B;color:#b3145e;font-weight:800;font-size:12px;border-radius:9px;padding:6px 12px;cursor:pointer}
+.fp .custrow2{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:12px;font-size:12px;color:#6B6675}
+.fp .custrow2 label{margin:0;font-size:11.5px}
+.fp .custrow2 select{border:1.5px solid #ECECF2;border-radius:8px;padding:6px 9px;font-size:12px;font-weight:700;color:#1a1722;background:#fff;font-family:inherit}
+.fp .custrow2 .cnt{margin-left:auto;font-weight:700}
+.fp .heroes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px}
+.fp .hero{border:2px solid #ECECF2;border-radius:14px;padding:12px;text-align:center}
+.fp .hero.pick{border-color:#E11D6B}
+.fp .hero .cap{font-size:10.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:#6B6675}
+.fp .hero.pick .cap{color:#b3145e}
+.fp .hero .hn{font-weight:800;font-size:13.5px;margin:6px 0 2px}
+.fp .hero .hp{font-size:20px;font-weight:900}
+.fp .hero .ht{font-size:11px;color:#6B6675;margin-top:2px;min-height:14px}
+.fp .hero .hbk{margin-top:8px;width:100%;background:#E11D6B;color:#fff;border:none;border-radius:9px;padding:8px;font-weight:800;font-size:12.5px;cursor:pointer}
+.fp .expand{margin-top:4px;text-align:center;color:#b3145e;font-weight:800;font-size:13px;cursor:pointer;padding:9px;border:1.5px dashed #e6d5e0;border-radius:10px}
+.fp .alllist{margin-top:2px}
+.fp .sur{color:#b3145e;font-weight:700}
+.fp .badge{display:inline-block;font-size:9.5px;font-weight:800;padding:2px 7px;border-radius:99px;margin-left:6px;vertical-align:middle}
+.fp .b-cheap{background:#eafaf3;color:#127a52}
+.fp .b-fast{background:#eef3fe;color:#2b5fd0}
+.fp .ghead{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:800;color:#1a1722;margin:12px 2px 6px}
+.fp .ghead .gt{color:#6B6675;font-weight:600;font-size:11.5px}
+.fp .ghead .gline{height:1px;background:#ECECF2;flex:1;margin-left:4px}
+.fp .empty2{color:#6B6675;font-size:13px;text-align:center;padding:18px}
+@media(max-width:640px){ .fp .rw{flex-direction:column;gap:0} .fp .tier{flex-wrap:wrap} .fp .tier .tp{margin-left:0} .fp .tbtn{width:100%} .fp .heroes{grid-template-columns:1fr} }
 `;

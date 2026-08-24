@@ -2,9 +2,9 @@
 // Quorly — forms app wired to the live cf_* backend. Three-pane: sidebar / entry
 // feed / members rail. Colour-coded, numbered structured entries + comments,
 // voting, translate + AI writing. Bilingual EN/FR. RLS-secured (Tier A).
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { cf, type CfFormBrief, type CfFormFull, type CfEntry } from "@/lib/cf";
+import { cf, type CfFormBrief, type CfFormFull, type CfEntry, type CfFile, type CfFileRequest } from "@/lib/cf";
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
 import { buildFormPdf, pdfFilename } from "@/lib/pdf";
 
@@ -32,6 +32,7 @@ function FormsInner() {
   const [err, setErr] = useState<string | null>(null);
   const [canCreate, setCanCreate] = useState(false);
   const [profileName, setProfileName] = useState("");
+  const [tab, setTab] = useState<"entries" | "files">("entries");
 
   const memberOf = useMemo(() => { const m: Record<string, any> = {}; (form?.members ?? []).forEach((x) => { if (x.id) m[x.id] = x; }); return m; }, [form]);
 
@@ -44,7 +45,7 @@ function FormsInner() {
   const loadForm = useCallback(async (id: string) => {
     try { const [f, e] = await Promise.all([cf.form(id), cf.entries(id)]); setForm(f); setEntries(e); } catch (e: any) { setErr(e.message); }
   }, []);
-  useEffect(() => { if (!sel) return; loadForm(sel); const ch = cf.subscribe(sel, () => cf.entries(sel).then(setEntries).catch(() => {})); return () => { ch.unsubscribe(); }; }, [sel, loadForm]);
+  useEffect(() => { if (!sel) return; setTab("entries"); loadForm(sel); const ch = cf.subscribe(sel, () => cf.entries(sel).then(setEntries).catch(() => {})); return () => { ch.unsubscribe(); }; }, [sel, loadForm]);
 
   if (loading) return <Shell><div style={{ padding: 40, color: C.faint }}>Loading…</div></Shell>;
   if (err) return <Shell><div style={{ padding: 40, color: "#B4531F" }}>{err}</div></Shell>;
@@ -113,11 +114,24 @@ function FormsInner() {
                 {!mobile && langToggle}
               </div>
             </div>
+            <div style={{ display: "flex", gap: 2, borderBottom: `1px solid ${C.line}`, padding: mobile ? "0 12px" : "0 22px" }}>
+              {(["entries", "files"] as const).map((k) => (
+                <div key={k} onClick={() => setTab(k)} style={{ padding: "10px 14px", fontSize: 13.5, fontWeight: 800, cursor: "pointer", color: tab === k ? C.accent : C.ink2, borderBottom: `2px solid ${tab === k ? C.accent : "transparent"}`, marginBottom: -1 }}>
+                  {k === "entries" ? tr(L("Entries", "Entrées")) : tr(L("Files", "Fichiers"))}
+                </div>
+              ))}
+            </div>
             <div style={{ padding: mobile ? "14px 16px" : "18px 22px", display: "flex", flexDirection: "column", gap: 16, overflow: "auto" }}>
-              {form.is_admin && <PdfPanel form={form} entries={entries} memberOf={memberOf} tr={tr} />}
-              <NewEntry form={form} tr={tr} mobile={mobile} onDone={() => sel && loadForm(sel)} />
-              {entries.map((e) => <EntryCard key={e.id} e={e} form={form!} lang={lang} tr={tr} mobile={mobile} memberOf={memberOf} reload={() => sel && cf.entries(sel).then(setEntries)} />)}
-              {entries.length === 0 && <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("No entries yet.", "Aucune entrée."))}</div>}
+              {tab === "entries" ? (
+                <>
+                  {form.is_admin && <PdfPanel form={form} entries={entries} memberOf={memberOf} tr={tr} />}
+                  <NewEntry form={form} tr={tr} mobile={mobile} onDone={() => sel && loadForm(sel)} />
+                  {entries.map((e) => <EntryCard key={e.id} e={e} form={form!} lang={lang} tr={tr} mobile={mobile} memberOf={memberOf} reload={() => sel && cf.entries(sel).then(setEntries)} />)}
+                  {entries.length === 0 && <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("No entries yet.", "Aucune entrée."))}</div>}
+                </>
+              ) : (
+                <FilesPanel form={form} tr={tr} lang={lang} mobile={mobile} entries={entries} memberOf={memberOf} />
+              )}
               {mobile && (
                 <aside style={{ background: "#F7F4EE", border: `1px solid ${C.line}`, borderRadius: 12, padding: "14px 14px", marginTop: 4 }}>
                   <MembersRail form={form} tr={tr} lang={lang} sel={sel} loadForm={loadForm} />
@@ -191,6 +205,107 @@ function PdfPanel({ form, entries, memberOf, tr }: any) {
       <div style={{ ...railLbl, margin: "2px 0 0" }}>{tr(L("Other recipients", "Autres destinataires"))}</div>
       <input value={extra} onChange={(e) => setExtra(e.target.value)} placeholder={tr(L("email, email…", "courriel, courriel…"))} style={inp} />
       <div onClick={email} style={{ background: C.accent, color: "#fff", borderRadius: 9, padding: "10px 12px", textAlign: "center", fontSize: 13, fontWeight: 800, cursor: "pointer", opacity: busy ? .6 : 1 }}>{busy ? "…" : tr(L("Send PDF", "Envoyer le PDF"))}</div>
+    </div>
+  );
+}
+
+function fileKind(name: string, mime?: string | null): { tag: string; bg: string } {
+  const n = (name || "").toLowerCase(); const m = (mime || "").toLowerCase();
+  if (m.includes("pdf") || n.endsWith(".pdf")) return { tag: "PDF", bg: "#D64545" };
+  if (m.startsWith("image/") || /\.(png|jpe?g|gif|webp|heic)$/.test(n)) return { tag: "IMG", bg: "#2F8F6B" };
+  if (/\.(xlsx?|csv|numbers)$/.test(n) || m.includes("sheet")) return { tag: "XLS", bg: "#1F7A4D" };
+  if (/\.(docx?|pages|rtf)$/.test(n) || m.includes("word")) return { tag: "DOC", bg: "#2F5BA3" };
+  return { tag: (n.split(".").pop() || "FILE").slice(0, 3).toUpperCase(), bg: "#8A8378" };
+}
+const kb = (n: number | null) => n == null ? "" : n < 1024 ? n + " B" : n < 1048576 ? Math.round(n / 1024) + " KB" : (n / 1048576).toFixed(1) + " MB";
+
+// Quorly Dropbox — per-form shared files + admin file requests + the final PDF.
+function FilesPanel({ form, tr, lang, entries, memberOf }: any) {
+  const [files, setFiles] = useState<CfFile[]>([]);
+  const [reqs, setReqs] = useState<CfFileRequest[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [drag, setDrag] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const load = useCallback(async () => {
+    try { const [fs, rs] = await Promise.all([cf.files(form.id), cf.fileRequests(form.id)]); setFiles(fs); setReqs(rs); } catch { /* ignore */ }
+  }, [form.id]);
+  useEffect(() => { load(); }, [load]);
+
+  const upload = async (fl: FileList | null, requestId?: string | null) => {
+    if (!fl || !fl.length) return;
+    setBusy(true);
+    try {
+      for (const f of Array.from(fl)) {
+        if (f.size > 26214400) { alert(tr(L("File too large (max 25 MB): ", "Fichier trop volumineux (max 25 Mo) : ")) + f.name); continue; }
+        await cf.fileUpload(form.id, f, { requestId: requestId ?? null });
+      }
+      await load();
+    } catch (e: any) { alert(e.message); }
+    setBusy(false);
+  };
+  const download = async (f: CfFile) => { try { window.open(await cf.fileUrl(f.path), "_blank"); } catch (e: any) { alert(e.message); } };
+  const remove = async (f: CfFile) => { if (!confirm(tr(L("Remove this file?", "Supprimer ce fichier ?")))) return; try { await cf.fileDelete(f.id); await load(); } catch (e: any) { alert(e.message); } };
+  const addReq = async () => { const l = window.prompt(tr(L("Request a file — what do you need? (e.g. Signed NDA)", "Demander un fichier — de quoi avez-vous besoin ? (ex. NDA signé)")) || ""); if (l && l.trim()) { try { await cf.fileRequestAdd(form.id, l.trim()); await load(); } catch (e: any) { alert(e.message); } } };
+  const delReq = async (id: string) => { if (!confirm(tr(L("Delete this request?", "Supprimer cette demande ?")))) return; try { await cf.fileRequestDelete(id); await load(); } catch (e: any) { alert(e.message); } };
+  const saveFinal = async () => { setBusy(true); try { const doc = await buildFormPdf(form, entries, memberOf); const blob = doc.output("blob"); await cf.fileSavePdf(form.id, pdfFilename(form), blob); await load(); } catch (e: any) { alert(e.message); } setBusy(false); };
+
+  const sec: any = { fontSize: 11.5, fontWeight: 800, letterSpacing: .4, textTransform: "uppercase", color: C.faint, margin: "6px 2px 2px", display: "flex", alignItems: "center", gap: 8 };
+  const btn: any = { border: `1px solid ${C.line}`, background: "#fff", borderRadius: 8, padding: "6px 11px", fontSize: 12, fontWeight: 700, color: C.ink, cursor: "pointer" };
+  const addLink: any = { marginLeft: "auto", color: C.accent, fontWeight: 800, fontSize: 11.5, cursor: "pointer", textTransform: "none", letterSpacing: 0 };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div
+        onClick={() => inputRef.current?.click()}
+        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
+        onDragLeave={() => setDrag(false)}
+        onDrop={(e) => { e.preventDefault(); setDrag(false); upload(e.dataTransfer.files); }}
+        style={{ border: `1.6px dashed ${drag ? C.accent : "#d9d2c6"}`, background: drag ? C.accentSoft : "#FCFBF8", borderRadius: 13, padding: 22, textAlign: "center", cursor: "pointer" }}
+      >
+        <div style={{ fontSize: 22 }}>⬆︎</div>
+        <div style={{ fontWeight: 800, fontSize: 14, marginTop: 4 }}>{busy ? tr(L("Uploading…", "Téléversement…")) : tr(L("Drag files here, or click to browse", "Glissez des fichiers ici, ou cliquez"))}</div>
+        <div style={{ color: C.ink2, fontSize: 12, marginTop: 3 }}>{tr(L("Up to 25 MB each · visible to everyone on this form", "Jusqu'à 25 Mo chacun · visible par tous"))}</div>
+        <input ref={inputRef} type="file" multiple hidden onChange={(e) => { upload(e.target.files); e.currentTarget.value = ""; }} />
+      </div>
+
+      {(reqs.length > 0 || form.is_admin) && (
+        <>
+          <div style={sec}>{tr(L("Requested from members", "Demandé aux membres"))}{form.is_admin && <span style={addLink} onClick={addReq}>+ {tr(L("Request a file", "Demander un fichier"))}</span>}</div>
+          {reqs.length === 0 && <div style={{ color: C.faint, fontSize: 12.5 }}>{tr(L("No file requests yet.", "Aucune demande."))}</div>}
+          {reqs.map((r) => (
+            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "#FFFDF8", border: "1px solid #F0E6D2", borderRadius: 12, padding: "10px 13px" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 13.5 }}>{r.label}</div>
+                <div style={{ color: C.ink2, fontSize: 11.5, marginTop: 2 }}>{r.fulfilled}/{r.total_members} {tr(L("in", "reçus"))}</div>
+              </div>
+              {r.mine
+                ? <span style={{ fontSize: 10.5, fontWeight: 800, padding: "3px 9px", borderRadius: 20, background: "#EAF6F0", color: "#1F7A4D" }}>{tr(L("You're in", "Envoyé"))}</span>
+                : <label style={{ ...btn, background: C.accent, color: "#fff", borderColor: C.accent }}>{tr(L("Upload mine", "Envoyer le mien"))}<input type="file" hidden onChange={(e) => { upload(e.target.files, r.id); e.currentTarget.value = ""; }} /></label>}
+              {form.is_admin && <span onClick={() => delReq(r.id)} style={{ color: C.faint, cursor: "pointer", fontSize: 16, fontWeight: 700 }}>×</span>}
+            </div>
+          ))}
+        </>
+      )}
+
+      <div style={sec}>{tr(L("Documents", "Documents"))}{form.is_admin && <span style={addLink} onClick={busy ? undefined : saveFinal}>⤓ {tr(L("Save form PDF here", "Enregistrer le PDF ici"))}</span>}</div>
+      {files.length === 0 && <div style={{ color: C.faint, fontSize: 12.5 }}>{tr(L("No files yet.", "Aucun fichier."))}</div>}
+      {files.map((f) => {
+        const k = fileKind(f.name, f.mime);
+        return (
+          <div key={f.id} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "10px 13px" }}>
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: k.bg, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, flex: "0 0 auto" }}>{k.tag}</div>
+            <div style={{ minWidth: 0, flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{f.name}{f.is_final && <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 20, background: "#EAF6F0", color: "#1F7A4D", marginLeft: 8 }}>{tr(L("Final form", "Formulaire final"))}</span>}</div>
+              <div style={{ color: C.ink2, fontSize: 11.5, marginTop: 2, display: "flex", alignItems: "center", gap: 6, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                {f.uploader_color && <span style={{ width: 9, height: 9, borderRadius: "50%", background: f.uploader_color, display: "inline-block", flex: "0 0 auto" }} />}
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{f.uploader_name}{f.request_label ? " · " + f.request_label : ""}{f.size != null ? " · " + kb(f.size) : ""} · {fmtDate(f.created_at, lang)}</span>
+              </div>
+            </div>
+            <button onClick={() => download(f)} style={btn}>{tr(L("Download", "Télécharger"))}</button>
+            {(f.mine || form.is_admin) && <span onClick={() => remove(f)} style={{ color: C.faint, cursor: "pointer", fontSize: 16, fontWeight: 700 }}>×</span>}
+          </div>
+        );
+      })}
     </div>
   );
 }

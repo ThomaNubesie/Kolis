@@ -13,6 +13,8 @@ export type CfComment = { id: string; author: string; body: string; created_at: 
 export type CfEntry = { id: string; seq: number; author: string; values: Record<string, any>; status: string | null; created_at: string; approvals: number; my_vote: string | null; comments: CfComment[] };
 export type CfFormFull = { id: string; name: string; description: string; features: Record<string, boolean>; approval_count: number; is_admin: boolean; nda?: string | null; fields: CfField[]; members: CfMember[]; error?: string };
 export type CfFormBrief = { id: string; name: string; description: string; features: Record<string, boolean>; is_admin: boolean; admin?: string | null; joined_at?: string | null; members: number };
+export type CfFile = { id: string; name: string; path: string; size: number | null; mime: string | null; is_final: boolean; request_id: string | null; created_at: string; uploader_name: string; uploader_color: string | null; request_label: string | null; mine: boolean };
+export type CfFileRequest = { id: string; label: string; required: boolean; created_at: string; fulfilled: number; total_members: number; mine: boolean };
 
 export const cf = {
   canCreate: (): Promise<boolean> => rpc("cf_can_create"),
@@ -61,6 +63,33 @@ export const cf = {
   deleteEntry: (entry: string) => rpc("cf_delete_entry", { p_entry: entry }),
   addComment: (entry: string, body: string) => rpc("cf_add_comment", { p_entry: entry, p_body: body }),
   vote: (entry: string, value: "approve" | "reject") => rpc("cf_vote", { p_entry: entry, p_value: value }),
+  // Dropbox — per-form shared files (Supabase Storage bucket cf-files, per-form RLS).
+  files: (form: string): Promise<CfFile[]> => rpc("cf_files_list", { p_form: form }),
+  fileRequests: (form: string): Promise<CfFileRequest[]> => rpc("cf_file_requests_list", { p_form: form }),
+  fileRequestAdd: (form: string, label: string, required = true) => rpc("cf_file_request_add", { p_form: form, p_label: label, p_required: required }),
+  fileRequestDelete: (id: string) => rpc("cf_file_request_delete", { p_request: id }),
+  async fileUpload(form: string, file: File, opts?: { requestId?: string | null; isFinal?: boolean }) {
+    const safe = file.name.replace(/[^\w.\-]+/g, "_").slice(-80);
+    const path = `${form}/${crypto.randomUUID()}-${safe}`;
+    const up = await supabase.storage.from("cf-files").upload(path, file, { contentType: file.type || undefined });
+    if (up.error) throw new Error(up.error.message);
+    return rpc("cf_file_add", { p_form: form, p_name: file.name, p_path: path, p_size: file.size, p_mime: file.type || null, p_request: opts?.requestId ?? null, p_is_final: !!opts?.isFinal });
+  },
+  async fileSavePdf(form: string, filename: string, blob: Blob) {
+    const path = `${form}/${crypto.randomUUID()}-${filename.replace(/[^\w.\-]+/g, "_")}`;
+    const up = await supabase.storage.from("cf-files").upload(path, blob, { contentType: "application/pdf" });
+    if (up.error) throw new Error(up.error.message);
+    return rpc("cf_file_add", { p_form: form, p_name: filename, p_path: path, p_size: blob.size, p_mime: "application/pdf", p_request: null, p_is_final: true });
+  },
+  async fileUrl(path: string): Promise<string> {
+    const { data, error } = await supabase.storage.from("cf-files").createSignedUrl(path, 3600);
+    if (error) throw new Error(error.message);
+    return data.signedUrl;
+  },
+  async fileDelete(id: string) {
+    const path = await rpc("cf_file_delete", { p_file: id });
+    if (path) await supabase.storage.from("cf-files").remove([path]).catch(() => {});
+  },
   async ai(action: "polish" | "translate", text: string, opts?: { tone?: string; target_lang?: string }) {
     const { data, error } = await supabase.functions.invoke("cf-ai", { body: { action, text, ...opts } });
     if (error) throw new Error(error.message);

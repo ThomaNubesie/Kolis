@@ -4,6 +4,7 @@
 // voting, translate + AI writing. Bilingual EN/FR. RLS-secured (Tier A).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { cf, type CfFormBrief, type CfFormFull, type CfEntry, type CfFile, type CfFileRequest } from "@/lib/cf";
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
 import { buildFormPdf, pdfFilename } from "@/lib/pdf";
@@ -96,6 +97,7 @@ function FormsInner() {
                 </div>
               ))}
             </div>
+            <div onClick={async () => { await supabase.auth.signOut({ scope: "local" }); }} style={{ marginTop: "auto", textAlign: "center", fontSize: 12, fontWeight: 800, color: C.ink2, cursor: "pointer", padding: "10px 6px 4px", borderTop: `1px solid ${C.line}` }}>{tr(L("Sign out", "Se déconnecter"))}</div>
           </aside>
         )}
 

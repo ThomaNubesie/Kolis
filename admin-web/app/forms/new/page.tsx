@@ -99,6 +99,8 @@ function NewFormInner() {
   const [fields, setFields] = useState<FieldRow[]>([{ id: 1, label: "", type: "text", options: "" }]);
   const [invite, setInvite] = useState("");
   const [invited, setInvited] = useState<string[]>([]);
+  // A contact must be a valid email OR a 10–15 digit phone number.
+  const isContact = (s: string) => { const v = s.trim(); if (/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return true; const d = v.replace(/\D/g, ""); return d.length >= 10 && d.length <= 15; };
   const [ndaOn, setNdaOn] = useState(false);
   const NDA_DEFAULT = tr(L(
     "All information shared in this form — entries, comments, and attachments — is confidential. By joining, each member agrees not to disclose, copy, or share it with anyone outside this form without the admin's written consent.",
@@ -118,19 +120,32 @@ function NewFormInner() {
   const addField = () => setFields((f) => [...f, { id: Date.now(), label: "", type: "text", options: "" }]);
   const setField = (id: number, patch: Partial<FieldRow>) => setFields((f) => f.map((x) => x.id === id ? { ...x, ...patch } : x));
   const rmField = (id: number) => setFields((f) => f.filter((x) => x.id !== id));
-  const addInvite = () => { const v = invite.trim(); if (v && !invited.includes(v)) { setInvited((a) => [...a, v]); setInvite(""); } };
+  const addInvite = () => {
+    const v = invite.trim();
+    if (!v) return;
+    if (!isContact(v)) { alert(tr(L("Please enter a valid email or phone number.", "Veuillez entrer un courriel ou un numéro de téléphone valide."))); return; }
+    if (!invited.includes(v)) setInvited((a) => [...a, v]);
+    setInvite("");
+  };
 
   const [busy, setBusy] = useState(false);
   const creatingRef = useRef(false); // synchronous guard — a double-tap fires two clicks before `busy` re-renders
   async function create() {
     if (!name.trim() || !adminName.trim() || creatingRef.current) return;
+    // Fold any un-added invite text into the list, and require a valid email/phone.
+    let list = invited;
+    const pend = invite.trim();
+    if (pend) {
+      if (!isContact(pend)) { alert(tr(L("Please enter a valid email or phone number to invite — or clear the invite box.", "Entrez un courriel ou un numéro de téléphone valide à inviter — ou videz le champ."))); return; }
+      if (!list.includes(pend)) list = [...list, pend];
+    }
     creatingRef.current = true;
     setBusy(true);
     try {
       const res = await cf.createForm({
         name: name.trim(), description: desc.trim(), features: feats, approval: feats.voting ? approval : 1, color, adminName: adminName.trim(),
         fields: feats.fields ? fields.filter((f) => f.label.trim()).map((f) => ({ label: f.label.trim(), type: f.type, options: f.type === "select" ? f.options.split(",").map((s) => s.trim()).filter(Boolean) : [] })) : [],
-        invites: invited.map((c) => ({ contact: c })),
+        invites: list.map((c) => ({ contact: c })),
       });
       if (res?.ok) {
         if (ndaOn && (ndaText.trim() || NDA_DEFAULT)) { try { await cf.setNda(res.form_id, ndaText.trim() || NDA_DEFAULT); } catch { /* non-fatal */ } }

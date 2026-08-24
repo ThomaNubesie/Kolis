@@ -104,14 +104,17 @@ Deno.serve(async (req) => {
       if (!rateId) return { rates: [], err: "no_rate_id" };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let rates: any[] = [];
-      for (let i = 0; i < 16; i++) {
-        await sleep(i === 0 ? 1000 : 2000);
+      // Show results fast: stop as soon as all carriers are in (status.done) OR a solid
+      // batch has arrived after a couple of polls. We still KEEP up to MAX_TIERS, but we
+      // don't make the shipper wait for all 20 to trickle in.
+      for (let i = 0; i < 12; i++) {
+        await sleep(i === 0 ? 900 : 1500);
         const pr = await fetch(`${BASE}/rate/${rateId}`, { headers: authHeaders() });
         if (!pr.ok) continue;
         const pj = await pr.json().catch(() => ({}));
         if (Array.isArray(pj.rates)) rates = pj.rates;
-        if (pj.status?.done) break;
-        if (rates.length >= MAX_TIERS && i >= 7) break;
+        if (pj.status?.done) break;              // every carrier responded
+        if (rates.length >= 8 && i >= 3) break;   // enough good options — don't stall the UI
       }
       return { rates, rateId };
     }

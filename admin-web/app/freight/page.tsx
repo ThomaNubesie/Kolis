@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useLang, LangToggle } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
 import AddressInput from "@/components/AddressInput";
@@ -40,8 +41,13 @@ type ResEnd = "pickup" | "delivery" | "both";
 const lbOf = (s: string) => { const m = [...(s || "").matchAll(/(\d[\d,]*)\s*lb/gi)].map((x) => parseInt(x[1].replace(/,/g, ""))); return m.length ? Math.max(...m) : (parseInt((s || "").replace(/\D/g, "")) || 0); };
 const dimsOf = (s: string) => { const n = (s || "").match(/\d+/g)?.map(Number) || []; return { l: n[0] || 48, w: n[1] || 40, h: n[2] || 48 }; };
 
-export default function Freight() {
+function FreightInner() {
   const { t, lang } = useLang();
+  const sp = useSearchParams();
+  const bookedId = sp.get("booked");                       // returning from hosted Stripe Checkout
+  const cancelled = sp.get("checkout") === "cancelled";
+  // Known on the first paint (SSR-consistent) so we show a loader, never flash the form.
+  const [confirming, setConfirming] = useState<boolean>(() => !!bookedId);
   const [state, setState] = useState<"form" | "sending" | "quote" | "checkout" | "booked" | "done">("form");
   const [err, setErr] = useState("");
   const [acc, setAcc] = useState<string[]>(["liftgate"]);
@@ -73,15 +79,15 @@ export default function Freight() {
     } catch { /* ignore */ }
   }, []);
   // Returning from hosted Stripe Checkout (?booked=<id>) → verify the hold + confirm booking.
+  // `confirming` gates the loader from the very first paint, so the form never flashes.
   useEffect(() => {
-    let id: string | null = null;
-    try { id = new URLSearchParams(window.location.search).get("booked"); } catch { /* ignore */ }
-    if (!id) return;
-    setState("sending");
+    if (cancelled && !bookedId) { setErr(t("Payment cancelled — pick a carrier to try again.", "Paiement annulé — choisissez un transporteur pour réessayer.")); try { window.history.replaceState({}, "", "/freight"); } catch { /* ignore */ } }
+    if (!bookedId) return;
     (async () => {
-      const r = await fetch(BOOK_FN, { method: "POST", headers: { "Content-Type": "application/json", apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "" }, body: JSON.stringify({ action: "confirm", request_id: id }) }).then((x) => x.json()).catch(() => ({}));
+      const r = await fetch(BOOK_FN, { method: "POST", headers: { "Content-Type": "application/json", apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "" }, body: JSON.stringify({ action: "confirm", request_id: bookedId }) }).then((x) => x.json()).catch(() => ({}));
       if (r?.ok && r.booked) { setBooked({ tracking: r.tracking_number || "", method: "card" }); setState("booked"); }
       else { setErr(t("We couldn't confirm the payment. If you were charged, please contact us.", "Nous n'avons pas pu confirmer le paiement. Si vous avez été débité, contactez-nous.")); setState("form"); }
+      setConfirming(false);
       try { window.history.replaceState({}, "", "/freight"); } catch { /* ignore */ }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -235,7 +241,13 @@ export default function Freight() {
         </div>
       </div>
       <div className="fp-wrap">
-        {state === "quote" ? (
+        {confirming ? (
+          <div className="card ok">
+            <div className="spin" />
+            <h1>{t("Finalizing your booking…", "Finalisation de votre réservation…")}</h1>
+            <p>{t("Confirming your payment with the carrier — one moment.", "Confirmation de votre paiement — un instant.")}</p>
+          </div>
+        ) : state === "quote" ? (
           <>
             <span className="pill">● {t("Your Kolis price", "Votre prix Kolis")}</span>
             <h1>{f.origin.split(",")[0]} → {f.destination.split(",")[0]}</h1>
@@ -510,5 +522,17 @@ const CSS = `
 .fp .interac2 b{color:#1a1722}
 .fp .mono{font-family:ui-monospace,Menlo,monospace;background:#fff;border:1px dashed #d8cfa8;border-radius:7px;padding:2px 7px;font-weight:800;color:#1a1722}
 .fp .trk2{display:inline-block;margin-top:12px;background:#FBF3F7;color:#b3145e;font-weight:800;border-radius:99px;padding:8px 16px;font-size:14px}
+.fp .spin{width:44px;height:44px;border-radius:50%;border:3px solid #f0dfe8;border-top-color:#E11D6B;margin:6px auto 14px;animation:fpspin .8s linear infinite}
+@keyframes fpspin{to{transform:rotate(360deg)}}
 @media(max-width:640px){ .fp .rw{flex-direction:column;gap:0} .fp .tier{flex-wrap:wrap} .fp .tier .tp{margin-left:0} .fp .tbtn{width:100%} .fp .heroes{grid-template-columns:1fr} }
 `;
+
+// The freight page reads ?booked from the Stripe Checkout return, so useSearchParams
+// requires a Suspense boundary.
+export default function Freight() {
+  return (
+    <Suspense fallback={<div className="fp"><div className="fp-wrap" style={{ padding: 40, color: "#6B6675" }}>Loading…</div></div>}>
+      <FreightInner />
+    </Suspense>
+  );
+}

@@ -4,7 +4,7 @@
 // voting, translate + AI writing. Bilingual EN/FR. RLS-secured (Tier A).
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { quorly as supabase } from "@/lib/quorly";
 import { cf, type CfFormBrief, type CfFormFull, type CfEntry, type CfFile, type CfFileRequest } from "@/lib/cf";
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
 import { buildFormPdf, pdfFilename } from "@/lib/pdf";

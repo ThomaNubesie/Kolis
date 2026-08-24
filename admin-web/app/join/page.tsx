@@ -3,7 +3,7 @@
 // shared wizard), then lets them pick a colour, accept any NDA, and join. Reads ?token= or a code.
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { quorly as supabase } from "@/lib/quorly";
 import { cf } from "@/lib/cf";
 import QuorlyOnboard from "@/components/QuorlyOnboard";
 

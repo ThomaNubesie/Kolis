@@ -1,5 +1,5 @@
 // Quorly service layer — typed wrappers over the cf_* RPCs + cf-ai edge fn.
-import { supabase } from "@/lib/supabase";
+import { quorly as supabase } from "@/lib/quorly";
 
 const rpc = async (fn: string, args?: any) => {
   const { data, error } = await supabase.rpc(fn, args);

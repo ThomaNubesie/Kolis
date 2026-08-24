@@ -3,7 +3,7 @@
 // Used by both the /forms admin gate and the /join invite flow. Calls onDone(name)
 // once the user has a session with a confirmed email + phone and a profile name.
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { quorly as supabase } from "@/lib/quorly";
 import { cf } from "@/lib/cf";
 
 const C = { paper: "#FAF8F4", ink: "#1C1B19", ink2: "#6B6863", faint: "#A8A29A", line: "#EAE4DA", accent: "#2F3AA3", accentSoft: "#EEEFF9", green: "#1F9D6B" };

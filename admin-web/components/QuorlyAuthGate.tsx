@@ -2,7 +2,7 @@
 // Quorly gate for /forms: requires a fully-onboarded account (verified email + phone + profile name)
 // via the shared wizard before showing the app.
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import { quorly as supabase } from "@/lib/quorly";
 import { cf } from "@/lib/cf";
 import QuorlyOnboard from "@/components/QuorlyOnboard";
 

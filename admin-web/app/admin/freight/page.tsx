@@ -27,6 +27,12 @@ export default function FreightDesk() {
   useEffect(() => { load("all"); }, []); // eslint-disable-line
 
   const setStatus = async (id: string, status: string) => { try { await api.freightStatus(id, status); load(); if (open?.id === id) setOpen({ ...open, status }); } catch (e: any) { alert(e?.message); } };
+  const capturePay = async () => {
+    if (!open) return;
+    if (!confirm(t("Capture the authorized payment now (shipment picked up)?", "Encaisser le paiement autorisé maintenant (envoi ramassé) ?"))) return;
+    try { await api.freightCapture(open.id); alert(t("Payment captured.", "Paiement encaissé.")); load(); setOpen(null); }
+    catch (e: any) { alert(e?.message || "error"); }
+  };
   const book = async () => {
     if (!open) return;
     if (!trk.number.trim() && !confirm(t("Mark booked without a tracking number?", "Réserver sans numéro de suivi ?"))) return;
@@ -89,6 +95,22 @@ export default function FreightDesk() {
               {t("Accessorials", "Services")}: {(open.accessorials || []).join(", ") || "—"}
               {open.note ? <><br />{t("Note", "Note")}: {open.note}</> : null}
             </div>
+
+            {open.payment_method && (
+              <div style={{ background: "#f7f7fb", border: "1px solid #ececf2", borderRadius: 10, padding: "10px 13px", marginBottom: 14, fontSize: 13 }}>
+                <b>{t("Payment", "Paiement")}</b>: {open.payment_method === "card" ? t("Card", "Carte") : open.payment_method === "interac" ? "Interac" : t("Account", "Compte")} · <span style={{ textTransform: "uppercase", fontWeight: 700 }}>{open.payment_status}</span>
+                {open.total_cents ? <> · {t("total", "total")} ${(open.total_cents / 100).toFixed(2)}</> : null}
+                {open.pay_ref ? <> · réf {open.pay_ref}</> : null}
+                {open.payment_method === "card" && open.payment_status === "authorized" && (
+                  <div style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <button className="btn" onClick={capturePay}>{t("Capture payment — picked up", "Encaisser — ramassé")}</button>
+                    <span style={{ color: "var(--t3)", fontSize: 11 }}>{t("Authorized hold — capture when the carrier collects (holds expire ~7 days).", "Autorisation en attente — encaissez au ramassage (expire ~7 jours).")}</span>
+                  </div>
+                )}
+                {open.payment_status === "paid" && <div style={{ color: "#178a5e", marginTop: 6, fontSize: 12, fontWeight: 700 }}>{t("Captured / paid", "Encaissé / payé")}</div>}
+                {open.payment_method === "interac" && open.payment_status !== "paid" && <div style={{ color: "var(--t3)", marginTop: 6, fontSize: 12 }}>{t("Awaiting Interac e-Transfer", "En attente du virement Interac")}</div>}
+              </div>
+            )}
 
             <div style={{ fontWeight: 700, fontSize: 12, color: "var(--t2)", marginBottom: 6 }}>1 · {t("Compare carrier rates", "Comparez les tarifs transporteurs")}</div>
             <div className="row" style={{ gap: 8, flexWrap: "wrap", marginBottom: 16 }}>

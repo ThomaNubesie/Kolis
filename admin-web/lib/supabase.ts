@@ -56,6 +56,10 @@ export const api = {
   freightStatus: (id: string, status: string) => r("kolis_freight_set_status", { p_id: id, p_status: status }),
   freightQuote: (id: string, price: number, service: string) => r("kolis_freight_set_quote", { p_id: id, p_price: price, p_service: service }),
   freightBooked: (id: string, tracking: string, carrier: string, url: string) => r("kolis_freight_set_booked", { p_id: id, p_tracking: tracking, p_carrier: carrier, p_url: url }),
+  async freightCapture(id: string) {
+    const { data, error } = await supabase.functions.invoke("kolis-freight-book", { body: { action: "capture", request_id: id } });
+    if (error) throw error; if (data?.error) throw new Error(data.error); return data;
+  },
   async nudgeUnverified(user?: string) {
     const { data, error } = await supabase.functions.invoke("kolis-nudge-unverified", { body: user ? { user_id: user } : {} });
     if (error) throw error;

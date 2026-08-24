@@ -4,6 +4,9 @@ import { useLang, LangToggle } from "@/lib/i18n";
 import { supabase } from "@/lib/supabase";
 import AddressInput from "@/components/AddressInput";
 import SelectOrCustom from "@/components/SelectOrCustom";
+import { LayoutGrid, List, Rows3, CreditCard, Wallet, Landmark, CalendarDays, Lock } from "lucide-react";
+
+const IC: React.CSSProperties = { verticalAlign: "-3px", marginRight: 6 };
 
 // Public "request a pallet quote" page — concierge MVP for Kolis Freight (LTL).
 // Posts to the kolis-freight-request edge function (saves + emails the Kolis team,
@@ -241,9 +244,9 @@ export default function Freight() {
               <div className="qhead">
                 <span className="sub2">{tiers.length} {t("carriers compared", "transporteurs comparés")}</span>
                 <div className="vswitch">
-                  <button className={view === "shortlist" ? "on" : ""} onClick={() => chooseView("shortlist")}>◱ {t("Shortlist", "Sélection")}</button>
-                  <button className={view === "list" ? "on" : ""} onClick={() => chooseView("list")}>☰ {t("List", "Liste")}</button>
-                  <button className={view === "grouped" ? "on" : ""} onClick={() => chooseView("grouped")}>▦ {t("Grouped", "Groupé")}</button>
+                  <button className={view === "shortlist" ? "on" : ""} onClick={() => chooseView("shortlist")}><LayoutGrid size={14} style={IC} />{t("Shortlist", "Sélection")}</button>
+                  <button className={view === "list" ? "on" : ""} onClick={() => chooseView("list")}><List size={14} style={IC} />{t("List", "Liste")}</button>
+                  <button className={view === "grouped" ? "on" : ""} onClick={() => chooseView("grouped")}><Rows3 size={14} style={IC} />{t("Grouped", "Groupé")}</button>
                 </div>
               </div>
 
@@ -340,10 +343,10 @@ export default function Freight() {
                 );
               })()}
               <div className="methods2">
-                <div className={"m2" + (payMethod === "card" ? " on" : "")} onClick={() => { setPayMethod("card"); setInteracInfo(null); }}>💳 {t("Card", "Carte")}</div>
-                {orgId && <div className={"m2" + (payMethod === "onfile" ? " on" : "")} onClick={() => { setPayMethod("onfile"); setInteracInfo(null); }}>🗂 {t("Saved card", "Carte enreg.")}</div>}
-                <div className={"m2" + (payMethod === "interac" ? " on" : "")} onClick={() => { setPayMethod("interac"); setInteracInfo(null); }}>🏦 Interac</div>
-                {orgId && <div className={"m2" + (payMethod === "account" ? " on" : "")} onClick={() => { setPayMethod("account"); setInteracInfo(null); }}>🗓 {t("Account", "Compte")}</div>}
+                <div className={"m2" + (payMethod === "card" ? " on" : "")} onClick={() => { setPayMethod("card"); setInteracInfo(null); }}><CreditCard size={15} style={IC} />{t("Card", "Carte")}</div>
+                {orgId && <div className={"m2" + (payMethod === "onfile" ? " on" : "")} onClick={() => { setPayMethod("onfile"); setInteracInfo(null); }}><Wallet size={15} style={IC} />{t("Saved card", "Carte enreg.")}</div>}
+                <div className={"m2" + (payMethod === "interac" ? " on" : "")} onClick={() => { setPayMethod("interac"); setInteracInfo(null); }}><Landmark size={15} style={IC} />Interac</div>
+                {orgId && <div className={"m2" + (payMethod === "account" ? " on" : "")} onClick={() => { setPayMethod("account"); setInteracInfo(null); }}><CalendarDays size={15} style={IC} />{t("Account", "Compte")}</div>}
               </div>
               {interacInfo ? (
                 <div className="interac2">{t("Send an Interac e-Transfer of", "Envoyez un virement Interac de")} <b>${m2(interacInfo.total_cents / 100)}</b> {t("to", "à")} <span className="mono">{interacInfo.interac_to}</span> {t("with reference", "avec la référence")} <span className="mono">{interacInfo.pay_ref}</span>. {t("Your shipment books automatically once it clears.", "Votre envoi est réservé automatiquement une fois le paiement reçu.")}</div>
@@ -364,7 +367,7 @@ export default function Freight() {
                   </button>
                 </>
               )}
-              <div className="fine" style={{ textAlign: "left", marginTop: 10 }}>🔒 {t("Secured by Stripe · receipt + BOL emailed after booking.", "Sécurisé par Stripe · reçu et connaissement envoyés après réservation.")}</div>
+              <div className="fine" style={{ textAlign: "left", marginTop: 10 }}><Lock size={12} style={{ verticalAlign: "-2px", marginRight: 5 }} />{t("Secured by Stripe · confirmation emailed now, receipt when picked up.", "Sécurisé par Stripe · confirmation maintenant, reçu au ramassage.")}</div>
               <button className="go" style={{ background: "#fff", color: "#6B6675", border: "1.5px solid #ECECF2", marginTop: 12 }} onClick={() => setState("quote")}>← {t("Back to quotes", "Retour aux prix")}</button>
             </div>
           </>
@@ -373,8 +376,8 @@ export default function Freight() {
             <div className="ic">✓</div>
             <h1>{t("Shipment booked!", "Envoi réservé !")}</h1>
             <p>{booked?.method === "account"
-              ? t("Billed to your monthly account. We've emailed your confirmation and Bill of Lading.", "Facturé sur votre compte mensuel. Confirmation et connaissement envoyés par courriel.")
-              : t("Payment authorized — you're charged when the carrier picks up. Receipt and Bill of Lading emailed.", "Paiement autorisé — débité au ramassage. Reçu et connaissement envoyés par courriel.")}</p>
+              ? t("Invoiced to your monthly account — we've emailed your invoice. Your Bill of Lading / label follows once dispatched.", "Facturé sur votre compte mensuel — facture envoyée. Le connaissement / l'étiquette suit après la répartition.")
+              : t("Booking confirmed — your card is authorized and charged only when the carrier picks up. Confirmation emailed; your receipt follows on pickup.", "Réservation confirmée — votre carte est autorisée et débitée seulement au ramassage. Confirmation envoyée ; le reçu suit au ramassage.")}</p>
             {booked?.tracking && <div className="trk2">{t("Tracking", "Suivi")} · {booked.tracking}</div>}
             <button className="go" style={{ marginTop: 18 }} onClick={() => { setState("form"); setSel(null); setBooked(null); }}>{t("Book another shipment", "Réserver un autre envoi")}</button>
           </div>

@@ -17,6 +17,17 @@ const ACC = [
 ];
 
 const RATE_FN = (process.env.NEXT_PUBLIC_SUPABASE_URL || "") + "/functions/v1/kolis-freight-rate";
+const BOOK_FN = (process.env.NEXT_PUBLIC_SUPABASE_URL || "") + "/functions/v1/kolis-freight-book";
+// HST/GST by origin province — display only; kolis-freight-book recomputes authoritatively.
+const taxRateOf = (region?: string) => {
+  const r = (region || "").toLowerCase().trim();
+  if (["on", "ontario"].includes(r)) return 0.13;
+  if (["nb", "new brunswick", "ns", "nova scotia", "pe", "prince edward island", "nl", "newfoundland and labrador", "newfoundland"].includes(r)) return 0.15;
+  if (["qc", "quebec", "québec"].includes(r)) return 0.14975;
+  return 0.05;
+};
+const m2 = (n: number) => n.toFixed(2);
+type PayMethod = "card" | "onfile" | "interac" | "account";
 type Parts = { postal?: string; city?: string; region?: string; country?: string; line1?: string };
 type Tier = { name: string; price: number; transit_days: number; service_id?: string; residential_surcharge?: number };
 type View = "shortlist" | "list" | "grouped";
@@ -28,7 +39,7 @@ const dimsOf = (s: string) => { const n = (s || "").match(/\d+/g)?.map(Number) |
 
 export default function Freight() {
   const { t, lang } = useLang();
-  const [state, setState] = useState<"form" | "sending" | "quote" | "done">("form");
+  const [state, setState] = useState<"form" | "sending" | "quote" | "checkout" | "booked" | "done">("form");
   const [err, setErr] = useState("");
   const [acc, setAcc] = useState<string[]>(["liftgate"]);
   const [f, setF] = useState({ business: "", contact: "", phone: "", email: "", origin: "", destination: "", pallets: "1", weight: "", dims: "", note: "", website: "" });
@@ -41,6 +52,12 @@ export default function Freight() {
   const [maxTransit, setMaxTransit] = useState<number>(0); // 0 = any
   const [resEnd, setResEnd] = useState<ResEnd>("delivery");
   const [showAll, setShowAll] = useState(false);
+  // Checkout / pay-per-shipment.
+  const [sel, setSel] = useState<Tier | null>(null);
+  const [payMethod, setPayMethod] = useState<PayMethod>("card");
+  const [orgId, setOrgId] = useState<string | null>(null);
+  const [interacInfo, setInteracInfo] = useState<{ pay_ref: string; interac_to: string; total_cents: number } | null>(null);
+  const [booked, setBooked] = useState<{ tracking: string; method: string } | null>(null);
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
   const toggle = (k: string) => setAcc(acc.includes(k) ? acc.filter((x) => x !== k) : [...acc, k]);
 
@@ -51,6 +68,20 @@ export default function Freight() {
       const s = localStorage.getItem("kolis_freight_sort"); if (s === "cheapest" || s === "fastest") setSort(s);
       const re = localStorage.getItem("kolis_freight_res_end"); if (re === "pickup" || re === "delivery" || re === "both") setResEnd(re);
     } catch { /* ignore */ }
+  }, []);
+  // Returning from hosted Stripe Checkout (?booked=<id>) → verify the hold + confirm booking.
+  useEffect(() => {
+    let id: string | null = null;
+    try { id = new URLSearchParams(window.location.search).get("booked"); } catch { /* ignore */ }
+    if (!id) return;
+    setState("sending");
+    (async () => {
+      const r = await fetch(BOOK_FN, { method: "POST", headers: { "Content-Type": "application/json", apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "" }, body: JSON.stringify({ action: "confirm", request_id: id }) }).then((x) => x.json()).catch(() => ({}));
+      if (r?.ok && r.booked) { setBooked({ tracking: r.tracking_number || "", method: "card" }); setState("booked"); }
+      else { setErr(t("We couldn't confirm the payment. If you were charged, please contact us.", "Nous n'avons pas pu confirmer le paiement. Si vous avez été débité, contactez-nous.")); setState("form"); }
+      try { window.history.replaceState({}, "", "/freight"); } catch { /* ignore */ }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   const chooseView = (v: View) => { setView(v); try { localStorage.setItem("kolis_freight_view", v); } catch { /* ignore */ } };
   const chooseSort = (s: Sort) => { setSort(s); try { localStorage.setItem("kolis_freight_sort", s); } catch { /* ignore */ } };
@@ -63,7 +94,7 @@ export default function Freight() {
       if (!session) return;
       const { data: { user } } = await supabase.auth.getUser();
       let biz = "";
-      try { const { data: orgs } = await supabase.rpc("kolis_my_orgs"); if (Array.isArray(orgs) && orgs[0]?.name) biz = orgs[0].name; } catch { /* ignore */ }
+      try { const { data: orgs } = await supabase.rpc("kolis_my_orgs"); if (Array.isArray(orgs) && orgs[0]) { biz = orgs[0].name || ""; if (orgs[0].id) setOrgId(orgs[0].id as string); } } catch { /* ignore */ }
       const meta = (user?.user_metadata || {}) as { full_name?: string };
       setF((prev) => ({
         ...prev,
@@ -108,10 +139,31 @@ export default function Freight() {
     } catch { setErr(t("Network error — please call (613) 862-2639.", "Erreur réseau — appelez le (613) 862-2639.")); setState("form"); }
   }
 
-  async function accept(tier: Tier) {
+  function accept(tier: Tier) {
+    setSel(tier); setErr(""); setInteracInfo(null); setPayMethod("card"); setState("checkout");
+  }
+  async function payNow() {
+    if (!sel) return;
+    setErr("");
+    const region = oParts.region || dParts.region || "";
+    const body = {
+      action: "book", method: payMethod === "onfile" ? "card" : payMethod, use_saved_card: payMethod === "onfile",
+      business: f.business, contact: f.contact, email: f.email, phone: f.phone,
+      origin: f.origin, destination: f.destination, pallets: Number(f.pallets) || 1, weight: f.weight, dims: f.dims,
+      accessorials: acc, note: f.note, lang, residential_end: resEnd,
+      carrier: sel.name, amount_cents: Math.round(sel.price * 100), transit_days: sel.transit_days,
+      service_id: sel.service_id, surcharge_cents: sel.residential_surcharge ? Math.round(sel.residential_surcharge * 100) : null,
+      region, org_id: orgId,
+    };
     setState("sending");
-    try { await sendConcierge(tier); setState("done"); }
-    catch { setState("done"); }
+    try {
+      const r = await fetch(BOOK_FN, { method: "POST", headers: anon, body: JSON.stringify(body) }).then((x) => x.json()).catch(() => ({}));
+      if (payMethod === "card" && r?.url) { window.location.href = r.url; return; }
+      if (payMethod === "interac" && r?.ok) { setInteracInfo({ pay_ref: r.pay_ref, interac_to: r.interac_to, total_cents: r.total_cents }); setState("checkout"); return; }
+      if ((payMethod === "onfile" || payMethod === "account") && r?.ok && r.tracking_number) { setBooked({ tracking: r.tracking_number, method: payMethod }); setState("booked"); return; }
+      setErr(r?.error === "no_card" ? t("No card on file — choose Card to pay.", "Aucune carte enregistrée — choisissez Carte.") : (r?.detail || t("Couldn't start payment — please try again.", "Impossible de démarrer le paiement — réessayez.")));
+      setState("checkout");
+    } catch { setErr(t("Network error — please try again.", "Erreur réseau — réessayez.")); setState("checkout"); }
   }
 
   const palletOpts = Array.from({ length: 12 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) }));
@@ -264,6 +316,68 @@ export default function Freight() {
               <button className="go" style={{ background: "#fff", color: "#6B6675", border: "1.5px solid #ECECF2", marginTop: 12 }} onClick={() => setState("form")}>← {t("Edit shipment", "Modifier l'envoi")}</button>
             </div>
           </>
+        ) : state === "checkout" && sel ? (
+          <>
+            <span className="pill">● {t("Confirm & pay", "Confirmer & payer")}</span>
+            <h1>{f.origin.split(",")[0]} → {f.destination.split(",")[0]}</h1>
+            <p className="sub">{f.pallets} {t("pallet(s)", "palette(s)")} · {sel.name} · {sel.transit_days} {t("business day(s)", "jour(s) ouvrable(s)")}</p>
+            <div className="card">
+              <div className="selrow">
+                <div style={{ flex: 1 }}><div className="tn">{sel.name}</div><div className="td">{sel.transit_days} {t("business day(s)", "jour(s) ouvrable(s)")}</div></div>
+                <div className="tp">${sel.price} <small>CAD</small></div>
+                <span className="chg" onClick={() => setState("quote")}>{t("Change", "Changer")}</span>
+              </div>
+              {(() => {
+                const rate = taxRateOf(oParts.region || dParts.region);
+                const taxD = sel.price * rate, totalD = sel.price + taxD;
+                return (
+                  <div className="brk">
+                    <div className="bl"><span>{t("Shipment (all-in carrier price)", "Envoi (prix transporteur tout compris)")}</span><b>${m2(sel.price)}</b></div>
+                    {sel.residential_surcharge ? <div className="bl"><span>{t("Residential surcharge (incl.)", "Supplément résidentiel (incl.)")}</span><b className="sur">+${sel.residential_surcharge}</b></div> : null}
+                    <div className="bl"><span>{t("Tax", "Taxe")} ({Math.round(rate * 10000) / 100}%)</span><b>${m2(taxD)}</b></div>
+                    <div className="bl tot"><span>{t("Total due now", "Total à payer")}</span><b>${m2(totalD)} CAD</b></div>
+                  </div>
+                );
+              })()}
+              <div className="methods2">
+                <div className={"m2" + (payMethod === "card" ? " on" : "")} onClick={() => { setPayMethod("card"); setInteracInfo(null); }}>💳 {t("Card", "Carte")}</div>
+                {orgId && <div className={"m2" + (payMethod === "onfile" ? " on" : "")} onClick={() => { setPayMethod("onfile"); setInteracInfo(null); }}>🗂 {t("Saved card", "Carte enreg.")}</div>}
+                <div className={"m2" + (payMethod === "interac" ? " on" : "")} onClick={() => { setPayMethod("interac"); setInteracInfo(null); }}>🏦 Interac</div>
+                {orgId && <div className={"m2" + (payMethod === "account" ? " on" : "")} onClick={() => { setPayMethod("account"); setInteracInfo(null); }}>🗓 {t("Account", "Compte")}</div>}
+              </div>
+              {interacInfo ? (
+                <div className="interac2">{t("Send an Interac e-Transfer of", "Envoyez un virement Interac de")} <b>${m2(interacInfo.total_cents / 100)}</b> {t("to", "à")} <span className="mono">{interacInfo.interac_to}</span> {t("with reference", "avec la référence")} <span className="mono">{interacInfo.pay_ref}</span>. {t("Your shipment books automatically once it clears.", "Votre envoi est réservé automatiquement une fois le paiement reçu.")}</div>
+              ) : (
+                <>
+                  <p className="mhint">
+                    {payMethod === "card" && t("You'll go to our secure Stripe checkout. Your card is authorized now and charged when the carrier picks up.", "Vous serez redirigé vers le paiement sécurisé Stripe. Votre carte est autorisée maintenant et débitée au ramassage.")}
+                    {payMethod === "onfile" && t("We'll authorize your saved card now and charge it on pickup.", "Nous autorisons votre carte enregistrée maintenant et la débitons au ramassage.")}
+                    {payMethod === "interac" && t("We'll show Interac e-Transfer instructions to complete the booking.", "Nous afficherons les instructions de virement Interac pour finaliser.")}
+                    {payMethod === "account" && t("Billed to your monthly Kolis account.", "Facturé sur votre compte mensuel Kolis.")}
+                  </p>
+                  {err && <div className="err">{err}</div>}
+                  <button className="go" onClick={payNow}>
+                    {payMethod === "card" && t("Pay & book →", "Payer & réserver →")}
+                    {payMethod === "onfile" && t("Authorize & book →", "Autoriser & réserver →")}
+                    {payMethod === "interac" && t("Get Interac instructions →", "Obtenir les instructions Interac →")}
+                    {payMethod === "account" && t("Book on account →", "Réserver sur compte →")}
+                  </button>
+                </>
+              )}
+              <div className="fine" style={{ textAlign: "left", marginTop: 10 }}>🔒 {t("Secured by Stripe · receipt + BOL emailed after booking.", "Sécurisé par Stripe · reçu et connaissement envoyés après réservation.")}</div>
+              <button className="go" style={{ background: "#fff", color: "#6B6675", border: "1.5px solid #ECECF2", marginTop: 12 }} onClick={() => setState("quote")}>← {t("Back to quotes", "Retour aux prix")}</button>
+            </div>
+          </>
+        ) : state === "booked" ? (
+          <div className="card ok">
+            <div className="ic">✓</div>
+            <h1>{t("Shipment booked!", "Envoi réservé !")}</h1>
+            <p>{booked?.method === "account"
+              ? t("Billed to your monthly account. We've emailed your confirmation and Bill of Lading.", "Facturé sur votre compte mensuel. Confirmation et connaissement envoyés par courriel.")
+              : t("Payment authorized — you're charged when the carrier picks up. Receipt and Bill of Lading emailed.", "Paiement autorisé — débité au ramassage. Reçu et connaissement envoyés par courriel.")}</p>
+            {booked?.tracking && <div className="trk2">{t("Tracking", "Suivi")} · {booked.tracking}</div>}
+            <button className="go" style={{ marginTop: 18 }} onClick={() => { setState("form"); setSel(null); setBooked(null); }}>{t("Book another shipment", "Réserver un autre envoi")}</button>
+          </div>
         ) : state === "done" ? (
           <div className="card ok">
             <div className="ic">✓</div>
@@ -378,5 +492,20 @@ const CSS = `
 .fp .ghead .gt{color:#6B6675;font-weight:600;font-size:11.5px}
 .fp .ghead .gline{height:1px;background:#ECECF2;flex:1;margin-left:4px}
 .fp .empty2{color:#6B6675;font-size:13px;text-align:center;padding:18px}
+.fp .selrow{display:flex;align-items:center;gap:12px;border:1.5px solid #E11D6B;background:#FBF3F7;border-radius:12px;padding:12px 14px;margin-bottom:14px}
+.fp .selrow .chg{font-size:11.5px;color:#b3145e;font-weight:800;cursor:pointer;margin-left:6px}
+.fp .brk{margin-bottom:14px}
+.fp .bl{display:flex;justify-content:space-between;font-size:13px;padding:5px 0;color:#6B6675}
+.fp .bl b{color:#1a1722;font-weight:700}
+.fp .bl.tot{border-top:1px solid #ECECF2;margin-top:6px;padding-top:10px;font-size:15px}
+.fp .bl.tot b{font-size:18px;font-weight:900}
+.fp .methods2{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.fp .m2{flex:1;min-width:90px;border:1.5px solid #ECECF2;border-radius:12px;padding:11px;text-align:center;font-weight:800;font-size:13px;color:#6B6675;cursor:pointer}
+.fp .m2.on{border-color:#E11D6B;background:#FBF3F7;color:#b3145e}
+.fp .mhint{font-size:12.5px;color:#6B6675;line-height:1.5;margin:0 0 6px}
+.fp .interac2{background:#fffdf5;border:1px solid #f2ead0;border-radius:10px;padding:12px;font-size:13px;color:#6b5d32;line-height:1.55}
+.fp .interac2 b{color:#1a1722}
+.fp .mono{font-family:ui-monospace,Menlo,monospace;background:#fff;border:1px dashed #d8cfa8;border-radius:7px;padding:2px 7px;font-weight:800;color:#1a1722}
+.fp .trk2{display:inline-block;margin-top:12px;background:#FBF3F7;color:#b3145e;font-weight:800;border-radius:99px;padding:8px 16px;font-size:14px}
 @media(max-width:640px){ .fp .rw{flex-direction:column;gap:0} .fp .tier{flex-wrap:wrap} .fp .tier .tp{margin-left:0} .fp .tbtn{width:100%} .fp .heroes{grid-template-columns:1fr} }
 `;

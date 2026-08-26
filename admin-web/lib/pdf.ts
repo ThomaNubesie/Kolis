@@ -1,6 +1,6 @@
 // Client-side PDF builder for a Quorly form (jsPDF loaded from CDN — no npm dep).
 // Produces a jsPDF doc with: header, NDA clause, members, and every entry (fields, status, comments).
-import type { CfFormFull, CfEntry, CfReceipt } from "@/lib/cf";
+import type { CfFormFull, CfEntry, CfReceipt, CfElection } from "@/lib/cf";
 
 declare global { interface Window { jspdf?: any } }
 
@@ -77,6 +77,58 @@ export async function buildFormPdf(form: CfFormFull, entries: CfEntry[], memberO
 
 export function pdfFilename(form: CfFormFull) {
   return `${(form.name || "quorly-form").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "")}.pdf`;
+}
+
+// Election results PDF — per position: winner, tallies (For/Against/net) and the members' vote reasons.
+export async function buildElectionPdf(formName: string, el: CfElection) {
+  const JsPDF = await ensureJsPDF();
+  const doc = new JsPDF({ unit: "pt", format: "a4" });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+  const M = 48; let y = M;
+  const ink = [28, 27, 25], faint = [140, 135, 128], accent = [47, 58, 163], green = [23, 138, 78], red = [192, 57, 43], line = [225, 220, 210];
+  const ensure = (h: number) => { if (y + h > H - M) { doc.addPage(); y = M; } };
+  const text = (s: string, x: number, size = 10, style = "normal", color = ink, maxW = W - M - x) => {
+    doc.setFont("helvetica", style); doc.setFontSize(size); doc.setTextColor(color[0], color[1], color[2]);
+    for (const ln of doc.splitTextToSize(String(s ?? ""), maxW)) { ensure(size + 4); doc.text(ln, x, y); y += size + 4; }
+  };
+  const rule = () => { ensure(10); doc.setDrawColor(line[0], line[1], line[2]); doc.line(M, y, W - M, y); y += 10; };
+
+  doc.setFillColor(accent[0], accent[1], accent[2]); doc.rect(0, 0, W, 8, "F");
+  text("Quorly", M, 11, "bold", accent); y -= 2;
+  text(`${formName} — Election Results`, M, 20, "bold", ink);
+  const when = el.closed_at ? fmt(el.closed_at) : fmt(new Date().toISOString());
+  text(`Closed ${when}${el.closed_by ? ` by ${el.closed_by}` : ""} · winner per position = highest net (For − Against)`, M, 9, "normal", faint);
+  y += 6; rule();
+
+  const positions = el.positions.length ? el.positions : Array.from(new Set(el.candidates.map((c) => c.position)));
+  for (const pos of positions) {
+    const cands = el.candidates.filter((c) => c.position === pos).sort((a, b) => b.net - a.net || b.for - a.for);
+    ensure(30);
+    text(pos, M, 13.5, "bold", accent); y += 2;
+    if (cands.length === 0) { text("No candidates declared.", M + 6, 9.5, "italic", faint); y += 6; continue; }
+    for (const c of cands) {
+      ensure(24);
+      const tag = c.winner ? "  [WINNER]" : "";
+      text(`${c.name}${tag}`, M + 6, 11, "bold", c.winner ? green : ink);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(faint[0], faint[1], faint[2]);
+      ensure(13); doc.text(`For ${c.for}   ·   Against ${c.against}   ·   net ${c.net >= 0 ? "+" : ""}${c.net}`, M + 6, y); y += 14;
+      if (c.running) { text("Running: " + c.running, M + 12, 9, "normal", ink); }
+      if (c.plan) { text("Plan: " + c.plan, M + 12, 9, "normal", ink); }
+      y += 4;
+    }
+    y += 4;
+  }
+
+  if (el.reasons.length) {
+    rule(); text("Why members voted", M, 13, "bold", ink); y += 2;
+    for (const r of el.reasons) {
+      ensure(16);
+      text(`[${r.value === "for" ? "For" : "Against"}] ${r.candidate} (${r.position}) — “${r.reason}” — ${r.voter}`, M + 6, 9, "normal", r.value === "for" ? green : red);
+    }
+  }
+  const pages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(faint[0], faint[1], faint[2]); doc.text(`Page ${i} / ${pages}`, W - M, H - 20, { align: "right" }); }
+  return doc;
 }
 
 // Receipts / expense report PDF — grouped by category with subtotals, tax total and grand total.

@@ -26,6 +26,10 @@ export type CfFolder = { id: string; name: string; parent_id: string | null; fil
 export type CfShare = { id: string; token: string; has_password: boolean; expires_at: string | null; allow_download: boolean; revoked: boolean; views: number } | null;
 export type CfFileRequest = { id: string; label: string; required: boolean; created_at: string; fulfilled: number; total_members: number; mine: boolean };
 
+export type CfCandidate = { entry_id: string; author_id: string; name: string; position: string; running: string; plan: string; declared_at: string; for: number; against: number; net: number; my_vote: "for" | "against" | null; my_reason: string | null; winner: boolean };
+export type CfVoteReason = { entry_id: string; candidate: string; position: string; value: "for" | "against"; reason: string; voter: string; created_at: string };
+export type CfElection = { ok: boolean; error?: string; status: "open" | "closed"; closed_at: string | null; closed_by?: string | null; is_admin: boolean; positions: string[]; election_folder: string | null; my_candidacies: string[]; candidates: CfCandidate[]; reasons: CfVoteReason[] };
+
 export const cf = {
   canCreate: (): Promise<boolean> => rpc("cf_can_create"),
   myProfile: (): Promise<{ name?: string }> => rpc("cf_my_profile"),
@@ -39,6 +43,37 @@ export const cf = {
     const res = await rpc("cf_create_subform", { p_parent: parent, p_group: group, p_name: name });
     if (res && res.ok === false) throw new Error(res.error || "Failed");
     return res as { ok: boolean; form_id: string };
+  },
+  // Vote-only sub-form: any active member of the parent may create one; it is voting-enabled.
+  // Used by co-admins (e.g. a "vote steward") who can create *only* this type.
+  createVoteSubform: async (parent: string, group: string, name: string) => {
+    const res = await rpc("cf_create_vote_subform", { p_parent: parent, p_group: group, p_name: name });
+    if (res && res.ok === false) throw new Error(res.error || "Failed");
+    return res as { ok: boolean; form_id: string };
+  },
+  myRole: (form: string): Promise<string | null> => rpc("cf_my_role", { p_form: form }),
+  // ===== Elections (multi-position vote sub-forms) =====
+  electionEnsureMember: (form: string): Promise<{ ok: boolean; joined?: boolean; already?: boolean; error?: string }> => rpc("cf_election_ensure_member", { p_form: form }),
+  electionResults: (form: string): Promise<CfElection> => rpc("cf_election_results", { p_form: form }),
+  setPositions: async (form: string, positions: string[]) => {
+    const res = await rpc("cf_set_positions", { p_form: form, p_positions: positions });
+    if (res && res.ok === false) throw new Error(res.error || "Failed");
+    return res as { ok: boolean; positions: string[] };
+  },
+  declareCandidacy: async (form: string, position: string, running: string, plan: string) => {
+    const res = await rpc("cf_declare_candidacy", { p_form: form, p_position: position, p_running: running, p_plan: plan });
+    if (res && res.ok === false) throw new Error(res.error || "Failed");
+    return res as { ok: boolean; entry_id: string };
+  },
+  electionVote: async (entry: string, value: "for" | "against", reason: string) => {
+    const res = await rpc("cf_election_vote", { p_entry: entry, p_value: value, p_reason: reason });
+    if (res && res.ok === false) throw new Error(res.error || "Failed");
+    return res as { ok: boolean };
+  },
+  closeElection: async (form: string) => {
+    const res = await rpc("cf_close_election", { p_form: form });
+    if (res && res.ok === false) throw new Error(res.error || "Failed");
+    return res as CfElection & { recipients: string[] };
   },
   createSpace: async (name: string, invites: { contact: string }[] = []) => {
     const res = await rpc("cf_create_space", { p_name: name, p_invites: invites });

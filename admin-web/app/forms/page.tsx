@@ -8,6 +8,7 @@ import { quorly as supabase } from "@/lib/quorly";
 import { cf, type CfFormBrief, type CfFormFull, type CfEntry, type CfFile, type CfFileRequest, type CfFolder, type CfShare, type CfFileActivity, type LostGuide, type CfDocComment, type CfDocDecision, type CfDownloadReq, type CfReceipt } from "@/lib/cf";
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
 import { buildFormPdf, pdfFilename } from "@/lib/pdf";
+import ElectionPanel from "./ElectionPanel";
 import { Folder, FolderPlus, Upload, Download, Eye, Link2, Clock, Pencil, FolderInput, Trash2, MoreVertical, ChevronRight, ChevronDown, X, Search, Home, Star, Share2, RotateCcw, List, LayoutGrid, Inbox, FileText, Lock, ShieldCheck, Send, CalendarClock, AlertTriangle, KeyRound, Users, LifeBuoy, ExternalLink, MapPin, MessageSquare, ThumbsUp, ThumbsDown, CheckCircle2, Receipt, Camera, Sparkles, Coins, Tag } from "lucide-react";
 
 const RCAT = ["Meals", "Fuel", "Office", "Travel", "Lodging", "Supplies", "Groceries", "Utilities", "Medical", "Other"];
@@ -207,12 +208,16 @@ function FormsInner() {
             </div>}
             <div style={{ padding: mobile ? "14px 16px" : "18px 22px", display: "flex", flexDirection: "column", gap: 16, overflow: "auto" }}>
               {(!isVault && !isSpace && tab === "entries") ? (
+                (form.features as any)?.election ? (
+                  <ElectionPanel form={form} tr={tr} lang={lang} mobile={mobile} />
+                ) : (
                 <>
                   {form.is_admin && <PdfPanel form={form} entries={entries} memberOf={memberOf} tr={tr} />}
                   <NewEntry form={form} tr={tr} mobile={mobile} onDone={() => sel && loadForm(sel)} />
                   {entries.map((e) => <EntryCard key={e.id} e={e} form={form!} lang={lang} tr={tr} mobile={mobile} memberOf={memberOf} reload={() => sel && cf.entries(sel).then(setEntries)} />)}
                   {entries.length === 0 && <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("No entries yet.", "Aucune entrée."))}</div>}
                 </>
+                )
               ) : tab === "subforms" ? (
                 <SubformsPanel form={form} tr={tr} lang={lang} onOpen={(id: string) => setSel(id)} />
               ) : tab === "receipts" ? (
@@ -1126,9 +1131,17 @@ function SubformsPanel({ form, tr, lang, onOpen }: any) {
   const router = useRouter();
   const [subs, setSubs] = useState<any[]>([]);
   const [adding, setAdding] = useState(false);
+  const [addingVote, setAddingVote] = useState(false);
+  const [voteName, setVoteName] = useState("");
   const [group, setGroup] = useState("");
+  const [myRole, setMyRole] = useState<string | null>(null);
   const reload = useCallback(() => { cf.subforms(form.id).then(setSubs).catch(() => setSubs([])); }, [form.id]);
-  useEffect(() => { reload(); }, [reload]);
+  useEffect(() => { reload(); cf.myRole(form.id).then(setMyRole).catch(() => setMyRole(null)); }, [reload, form.id]);
+  const createVote = async () => {
+    const nm = voteName.trim(); if (!nm) return;
+    try { const r = await cf.createVoteSubform(form.id, group, nm); setAddingVote(false); setVoteName(""); reload(); onOpen(r.form_id); }
+    catch (e: any) { alert(e?.message || "Failed"); }
+  };
   const groups: Record<string, any[]> = {};
   subs.forEach((s) => { const g = s.group_name || tr(L("General", "Général")); (groups[g] = groups[g] || []).push(s); });
   const existing = Array.from(new Set(subs.map((s) => s.group_name).filter(Boolean)));
@@ -1139,7 +1152,20 @@ function SubformsPanel({ form, tr, lang, onOpen }: any) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <div style={{ fontSize: 12.5, color: C.ink2, flex: 1, minWidth: 160 }}>{tr(L("Group sub-forms by type — e.g. Leaders, Financial, Board. Each has its own members.", "Regroupez les sous-formulaires par type — ex. Direction, Finances, Conseil. Chacun a ses propres membres."))}</div>
         {form.is_admin && <span style={{ ...abtn, background: C.accent, color: "#fff", borderColor: C.accent }} onClick={() => setAdding((a) => !a)}><FileText size={14} /> {tr(L("New sub-form", "Nouveau sous-formulaire"))}</span>}
+        {!form.is_admin && myRole === "admin" && <span style={{ ...abtn, background: "#fff", color: C.accent, borderColor: C.accent }} onClick={() => setAddingVote((a) => !a)}><FileText size={14} /> {tr(L("New vote sub-form", "Nouveau sous-formulaire de vote"))}</span>}
       </div>
+      {addingVote && <div style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 8, background: "#fff" }}>
+        <div style={railLbl}>{tr(L("Vote name", "Nom du vote"))}</div>
+        <input value={voteName} onChange={(e) => setVoteName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && createVote()} placeholder={tr(L("e.g. Board election", "ex. Élection du conseil"))} style={inp} autoFocus />
+        <div style={railLbl}>{tr(L("Group (optional)", "Groupe (optionnel)"))}</div>
+        <input list="subform-groups" value={group} onChange={(e) => setGroup(e.target.value)} placeholder={tr(L("e.g. Votes", "ex. Votes"))} style={inp} />
+        <datalist id="subform-groups">{existing.map((g) => <option key={g as string} value={g as string} />)}</datalist>
+        <div style={{ fontSize: 11.5, color: C.faint }}>{tr(L("Creates a voting sub-form — members vote on entries.", "Crée un sous-formulaire de vote — les membres votent sur les entrées."))}</div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <div onClick={() => setAddingVote(false)} style={{ flex: 1, textAlign: "center", border: `1px solid ${C.line}`, borderRadius: 9, padding: 10, fontWeight: 800, fontSize: 13, color: C.ink2, cursor: "pointer" }}>{tr(L("Cancel", "Annuler"))}</div>
+          <div onClick={createVote} style={{ flex: 2, textAlign: "center", background: C.accent, color: "#fff", borderRadius: 9, padding: 10, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{tr(L("Create vote sub-form", "Créer le sous-formulaire de vote"))}</div>
+        </div>
+      </div>}
       {adding && <div style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 8, background: "#fff" }}>
         <div style={railLbl}>{tr(L("Group (optional)", "Groupe (optionnel)"))}</div>
         <input list="subform-groups" value={group} onChange={(e) => setGroup(e.target.value)} onKeyDown={(e) => e.key === "Enter" && startNew()} placeholder={tr(L("e.g. Financial", "ex. Finances"))} style={inp} autoFocus />
@@ -1155,9 +1181,9 @@ function SubformsPanel({ form, tr, lang, onOpen }: any) {
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: .4, textTransform: "uppercase", color: C.faint, margin: "0 2px 6px" }}>{g}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {groups[g].map((s) => (
-              <div key={s.id} onClick={() => s.im_member ? onOpen(s.id) : alert(tr(L("You're not a member of this sub-form. Ask its admin to invite you.", "Vous n'êtes pas membre de ce sous-formulaire. Demandez à son admin de vous inviter.")))} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "11px 13px", cursor: "pointer", opacity: s.im_member ? 1 : .6 }}>
-                <span style={{ width: 32, height: 32, borderRadius: 8, background: s.im_member ? C.accentSoft : "#F0EEE9", color: s.im_member ? C.accent : C.faint, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>{s.im_member ? <FileText size={16} /> : <Lock size={15} />}</span>
-                <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}</div><div style={{ fontSize: 11.5, color: C.faint }}>{s.members} {tr(L("members", "membres"))}{s.is_admin ? " · " + tr(L("admin", "admin")) : s.im_member ? "" : " · " + tr(L("not a member", "non membre"))}</div></div>
+              <div key={s.id} onClick={async () => { if (s.im_member) return onOpen(s.id); if (s.kind === "election") { try { const r = await cf.electionEnsureMember(s.id); if (r?.ok) return onOpen(s.id); } catch { /* fall through */ } } alert(tr(L("You're not a member of this sub-form. Ask its admin to invite you.", "Vous n'êtes pas membre de ce sous-formulaire. Demandez à son admin de vous inviter."))); }} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "11px 13px", cursor: "pointer", opacity: s.im_member || s.kind === "election" ? 1 : .6 }}>
+                <span style={{ width: 32, height: 32, borderRadius: 8, background: s.im_member || s.kind === "election" ? C.accentSoft : "#F0EEE9", color: s.im_member || s.kind === "election" ? C.accent : C.faint, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>{s.kind === "election" ? <ThumbsUp size={15} /> : s.im_member ? <FileText size={16} /> : <Lock size={15} />}</span>
+                <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}{s.kind === "election" ? <span style={{ fontSize: 10.5, fontWeight: 800, color: C.accent, background: C.accentSoft, borderRadius: 6, padding: "1px 6px", marginLeft: 6 }}>{tr(L("Election", "Élection"))}</span> : ""}</div><div style={{ fontSize: 11.5, color: C.faint }}>{s.members} {tr(L("members", "membres"))}{s.is_admin ? " · " + tr(L("admin", "admin")) : s.kind === "election" ? " · " + tr(L("open to all members", "ouvert à tous les membres")) : s.im_member ? "" : " · " + tr(L("not a member", "non membre"))}</div></div>
                 <ChevronRight size={16} style={{ color: C.faint }} />
               </div>
             ))}

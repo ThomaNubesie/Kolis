@@ -1,8 +1,8 @@
 "use client";
 // Quorly — Create a form (UI shell, mock). Feature toggles + field builder +
 // approval count + admin colour pick + invite by email/phone. Bilingual.
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { cf } from "@/lib/cf";
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
 import { FilePlus, Wallet, Receipt, FileSpreadsheet, Gavel, NotebookPen, HardHat, UserCheck, Vote, CalendarDays, X } from "lucide-react";
@@ -80,11 +80,14 @@ const TEMPLATES: Tmpl[] = [
 ];
 
 export default function NewFormPage() {
-  return <QuorlyAuthGate><NewFormInner /></QuorlyAuthGate>;
+  return <Suspense fallback={null}><QuorlyAuthGate><NewFormInner /></QuorlyAuthGate></Suspense>;
 }
 
 function NewFormInner() {
   const router = useRouter();
+  const sp = useSearchParams();
+  const parentId = sp.get("parent");
+  const [group, setGroup] = useState(sp.get("group") || "");
   const [allowed, setAllowed] = useState<boolean | null>(null);
   useEffect(() => { cf.canCreate().then(setAllowed).catch(() => setAllowed(false)); }, []);
   useEffect(() => { cf.myProfile().then((p) => { if (p?.name) setAdminName((n) => n || p.name!); }).catch(() => {}); }, []);
@@ -120,24 +123,29 @@ function NewFormInner() {
   const addField = () => setFields((f) => [...f, { id: Date.now(), label: "", type: "text", options: "" }]);
   const setField = (id: number, patch: Partial<FieldRow>) => setFields((f) => f.map((x) => x.id === id ? { ...x, ...patch } : x));
   const rmField = (id: number) => setFields((f) => f.filter((x) => x.id !== id));
+  // Add one OR many contacts at once — split on newline, comma, or semicolon so a
+  // whole pasted list becomes chips in one click. Invalid entries stay in the box.
   const addInvite = () => {
-    const v = invite.trim();
-    if (!v) return;
-    if (!isContact(v)) { alert(tr(L("Please enter a valid email or phone number.", "Veuillez entrer un courriel ou un numéro de téléphone valide."))); return; }
-    if (!invited.includes(v)) setInvited((a) => [...a, v]);
-    setInvite("");
+    const parts = invite.split(/[,\n;]+/).map((s) => s.trim()).filter(Boolean);
+    if (!parts.length) return;
+    const good = parts.filter(isContact);
+    const bad = parts.filter((p) => !isContact(p));
+    if (good.length) setInvited((a) => Array.from(new Set([...a, ...good])));
+    setInvite(bad.join(", "));
+    if (bad.length) alert(tr(L(`Skipped ${bad.length} invalid entr${bad.length > 1 ? "ies" : "y"}: `, `${bad.length} entrée(s) invalide(s) ignorée(s) : `)) + bad.join(", "));
   };
 
   const [busy, setBusy] = useState(false);
   const creatingRef = useRef(false); // synchronous guard — a double-tap fires two clicks before `busy` re-renders
   async function create() {
     if (!name.trim() || !adminName.trim() || creatingRef.current) return;
-    // Fold any un-added invite text into the list, and require a valid email/phone.
+    // Fold any un-added invite text (possibly several) into the list; require valid contacts.
     let list = invited;
-    const pend = invite.trim();
-    if (pend) {
-      if (!isContact(pend)) { alert(tr(L("Please enter a valid email or phone number to invite — or clear the invite box.", "Entrez un courriel ou un numéro de téléphone valide à inviter — ou videz le champ."))); return; }
-      if (!list.includes(pend)) list = [...list, pend];
+    const pend = invite.split(/[,\n;]+/).map((s) => s.trim()).filter(Boolean);
+    if (pend.length) {
+      const bad = pend.filter((p) => !isContact(p));
+      if (bad.length) { alert(tr(L("Please fix or clear the invalid invite(s): ", "Corrigez ou videz les invitations invalides : ")) + bad.join(", ")); return; }
+      list = Array.from(new Set([...list, ...pend]));
     }
     creatingRef.current = true;
     setBusy(true);
@@ -146,12 +154,13 @@ function NewFormInner() {
         name: name.trim(), description: desc.trim(), features: feats, approval: feats.voting ? approval : 1, color, adminName: adminName.trim(),
         fields: feats.fields ? fields.filter((f) => f.label.trim()).map((f) => ({ label: f.label.trim(), type: f.type, options: f.type === "select" ? f.options.split(",").map((s) => s.trim()).filter(Boolean) : [] })) : [],
         invites: list.map((c) => ({ contact: c })),
+        parent: parentId, group: parentId ? group.trim() : null,
       });
       if (res?.ok) {
         if (ndaOn && (ndaText.trim() || NDA_DEFAULT)) { try { await cf.setNda(res.form_id, ndaText.trim() || NDA_DEFAULT); } catch { /* non-fatal */ } }
         const d = res.delivery;
         if (d && d.ok === false && (d.failed?.length || d.error)) alert(tr(L("Form created, but some invites couldn't be delivered: ", "Formulaire créé, mais certaines invitations n'ont pu être envoyées : ")) + (d.failed?.map((f: any) => `${f.contact} (${f.error})`).join("; ") || d.error));
-        router.push("/forms");
+        router.push(`/forms?open=${res.form_id}`);
       } else alert(res?.error || "Failed");
     } catch (e: any) { alert(e.message); }
     creatingRef.current = false;
@@ -201,6 +210,13 @@ function NewFormInner() {
             <div style={lbl}>{tr(L("Your name", "Votre nom"))}</div>
             <input value={adminName} onChange={(e) => setAdminName(e.target.value)} placeholder={tr(L("How members will see you", "Comment les membres vous verront"))} style={inp} />
           </div>
+          {parentId && <div style={{ background: "#EFEAF7", border: "1px solid #ddd0f0", borderRadius: 10, padding: "10px 12px", fontSize: 12.5, color: "#4a3a6b" }}>
+            {tr(L("Creating a sub-form. It has its OWN members — only people you invite here get access.", "Création d'un sous-formulaire. Il a ses PROPRES membres — seules les personnes invitées ici y ont accès."))}
+          </div>}
+          {parentId && <div>
+            <div style={lbl}>{tr(L("Group", "Groupe"))}</div>
+            <input value={group} onChange={(e) => setGroup(e.target.value)} placeholder={tr(L("e.g. Leaders, Financial, Board", "ex. Direction, Finances, Conseil"))} style={inp} />
+          </div>}
           <div>
             <div style={lbl}>{tr(L("Form name", "Nom du formulaire"))}</div>
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr(L("e.g. Site Inspection — Bldg A", "ex. Inspection — Bât. A"))} style={inp} />
@@ -277,9 +293,9 @@ function NewFormInner() {
           </div>
 
           <div>
-            <div style={lbl}>{tr(L("Invite members (email or phone)", "Inviter des membres (courriel ou téléphone)"))}</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <input value={invite} onChange={(e) => setInvite(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addInvite()} placeholder={tr(L("email or phone number", "courriel ou téléphone"))} style={{ ...inp, flex: 1 }} />
+            <div style={lbl}>{tr(L("Invite members — add several at once", "Inviter des membres — plusieurs à la fois"))}</div>
+            <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+              <textarea value={invite} onChange={(e) => setInvite(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); addInvite(); } }} placeholder={tr(L("emails or phones — one per line, or comma-separated", "courriels ou téléphones — un par ligne, ou séparés par des virgules"))} style={{ ...inp, flex: 1, minHeight: 60, resize: "vertical" }} />
               <span onClick={addInvite} style={{ background: C.accentSoft, color: C.accent, borderRadius: 9, padding: "10px 14px", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{tr(L("Add", "Ajouter"))}</span>
             </div>
             {invited.length > 0 && <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 9 }}>

@@ -111,9 +111,14 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang: langPr
       <div style={{ width: "100%", maxWidth: narrow ? 420 : 760, margin: "40px auto 0", background: C.paper, borderRadius: 16, boxShadow: "0 24px 60px rgba(0,0,0,.4)", overflow: "hidden", display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr" }}>
         {/* Brand panel */}
         <div style={{ background: "linear-gradient(160deg,#2F3AA3,#20245e)", color: "#fff", padding: narrow ? "20px 20px 18px" : "26px 24px", display: "flex", flexDirection: "column" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <div style={{ width: 26, height: 26, borderRadius: 7, background: "rgba(255,255,255,.16)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13 }}>Q</div>
-            <div style={{ fontWeight: 900, fontSize: 16 }}>Quorly</div>
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
+            <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 9, background: "rgba(255,255,255,.18)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 }}>Q</div>
+                <div style={{ fontWeight: 900, fontSize: 18 }}>Quorly</div>
+              </div>
+              <div style={{ display: "flex", gap: 6, marginTop: 3, paddingLeft: 43 }}>{["#E0574A", "#2F8F6B", "#6B4FA3", "#E0A83B"].map((c) => <span key={c} style={{ width: 9, height: 9, borderRadius: "50%", background: c }} />)}</div>
+            </div>
             <div style={{ marginLeft: "auto", display: "inline-flex", background: "rgba(255,255,255,.14)", borderRadius: 8, padding: 2 }}>
               {(["en", "fr"] as const).map((lg) => <span key={lg} onClick={() => setLang(lg)} style={{ padding: "3px 9px", fontSize: 11, fontWeight: 800, borderRadius: 6, cursor: "pointer", background: lang === lg ? "#fff" : "transparent", color: lang === lg ? C.accent : "#fff" }}>{lg.toUpperCase()}</span>)}
             </div>

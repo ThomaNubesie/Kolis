@@ -1152,18 +1152,18 @@ function SubformsPanel({ form, tr, lang, onOpen }: any) {
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <div style={{ fontSize: 12.5, color: C.ink2, flex: 1, minWidth: 160 }}>{tr(L("Group sub-forms by type — e.g. Leaders, Financial, Board. Each has its own members.", "Regroupez les sous-formulaires par type — ex. Direction, Finances, Conseil. Chacun a ses propres membres."))}</div>
         {form.is_admin && <span style={{ ...abtn, background: C.accent, color: "#fff", borderColor: C.accent }} onClick={() => setAdding((a) => !a)}><FileText size={14} /> {tr(L("New sub-form", "Nouveau sous-formulaire"))}</span>}
-        {!form.is_admin && myRole === "admin" && <span style={{ ...abtn, background: "#fff", color: C.accent, borderColor: C.accent }} onClick={() => setAddingVote((a) => !a)}><FileText size={14} /> {tr(L("New vote sub-form", "Nouveau sous-formulaire de vote"))}</span>}
+        {(form.is_admin || myRole === "admin") && <span style={{ ...abtn, background: "#fff", color: C.accent, borderColor: C.accent }} onClick={() => setAddingVote((a) => !a)}><ThumbsUp size={14} /> {tr(L("New election", "Nouvelle élection"))}</span>}
       </div>
       {addingVote && <div style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 8, background: "#fff" }}>
-        <div style={railLbl}>{tr(L("Vote name", "Nom du vote"))}</div>
-        <input value={voteName} onChange={(e) => setVoteName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && createVote()} placeholder={tr(L("e.g. Board election", "ex. Élection du conseil"))} style={inp} autoFocus />
+        <div style={railLbl}>{tr(L("Election name", "Nom de l'élection"))}</div>
+        <input value={voteName} onChange={(e) => setVoteName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && createVote()} placeholder={tr(L("e.g. Board election 2026", "ex. Élection du conseil 2026"))} style={inp} autoFocus />
         <div style={railLbl}>{tr(L("Group (optional)", "Groupe (optionnel)"))}</div>
         <input list="subform-groups" value={group} onChange={(e) => setGroup(e.target.value)} placeholder={tr(L("e.g. Votes", "ex. Votes"))} style={inp} />
         <datalist id="subform-groups">{existing.map((g) => <option key={g as string} value={g as string} />)}</datalist>
-        <div style={{ fontSize: 11.5, color: C.faint }}>{tr(L("Creates a voting sub-form — members vote on entries.", "Crée un sous-formulaire de vote — les membres votent sur les entrées."))}</div>
+        <div style={{ fontSize: 11.5, color: C.faint }}>{tr(L("Creates an election — members declare candidacy for positions, then vote For/Against with reasons. You close it to declare winners.", "Crée une élection — les membres se portent candidats à des postes, puis votent Pour/Contre avec raisons. Vous la clôturez pour déclarer les gagnants."))}</div>
         <div style={{ display: "flex", gap: 8 }}>
           <div onClick={() => setAddingVote(false)} style={{ flex: 1, textAlign: "center", border: `1px solid ${C.line}`, borderRadius: 9, padding: 10, fontWeight: 800, fontSize: 13, color: C.ink2, cursor: "pointer" }}>{tr(L("Cancel", "Annuler"))}</div>
-          <div onClick={createVote} style={{ flex: 2, textAlign: "center", background: C.accent, color: "#fff", borderRadius: 9, padding: 10, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{tr(L("Create vote sub-form", "Créer le sous-formulaire de vote"))}</div>
+          <div onClick={createVote} style={{ flex: 2, textAlign: "center", background: C.accent, color: "#fff", borderRadius: 9, padding: 10, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{tr(L("Create election", "Créer l'élection"))}</div>
         </div>
       </div>}
       {adding && <div style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 8, background: "#fff" }}>

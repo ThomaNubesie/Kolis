@@ -171,7 +171,9 @@ function PositionsEditor({ form, el, tr, onSaved }: { form: CfFormFull; el: CfEl
 }
 
 function CandidacyForm({ form, el, positions, tr, onDone, setBusy, busy }: { form: CfFormFull; el: CfElection; positions: string[]; tr: (o: any) => string; onDone: () => void; setBusy: (b: boolean) => void; busy: boolean }) {
-  const open = positions.filter((p) => !el.my_candidacies.includes(p));
+  // A member may run for only ONE position per election.
+  const alreadyCandidate = el.my_candidacies.length > 0;
+  const open = alreadyCandidate ? [] : positions;
   const [show, setShow] = useState(false);
   const [position, setPosition] = useState("");
   const [running, setRunning] = useState("");
@@ -188,10 +190,11 @@ function CandidacyForm({ form, el, positions, tr, onDone, setBusy, busy }: { for
   if (!show) return (
     <div style={{ ...card, padding: "13px 15px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
       <div style={{ fontSize: 13, color: C.ink2 }}>
-        {el.my_candidacies.length > 0 && <span style={{ color: C.green, fontWeight: 700 }}>{tr(L("You're a candidate for", "Vous êtes candidat pour"))}: {el.my_candidacies.join(", ")}. </span>}
-        {open.length > 0 ? tr(L("Want to run? Declare your candidacy.", "Vous voulez vous présenter ? Déclarez votre candidature.")) : tr(L("You've declared for every open position.", "Vous vous êtes présenté à tous les postes ouverts."))}
+        {alreadyCandidate
+          ? <span style={{ color: C.green, fontWeight: 700 }}>{tr(L("You're a candidate for", "Vous êtes candidat pour"))} {el.my_candidacies.join(", ")}. {tr(L("You can run for one position per election.", "Vous ne pouvez vous présenter qu'à un seul poste par élection."))}</span>
+          : tr(L("Want to run? Declare your candidacy — one position per member.", "Vous voulez vous présenter ? Déclarez votre candidature — un seul poste par membre."))}
       </div>
-      {open.length > 0 && <button onClick={() => setShow(true)} style={{ background: C.accent, color: "#fff", border: 0, borderRadius: 10, padding: "10px 16px", fontSize: 13.5, fontWeight: 800, cursor: "pointer" }}>{tr(L("Declare candidacy", "Déclarer ma candidature"))}</button>}
+      {!alreadyCandidate && open.length > 0 && <button onClick={() => setShow(true)} style={{ background: C.accent, color: "#fff", border: 0, borderRadius: 10, padding: "10px 16px", fontSize: 13.5, fontWeight: 800, cursor: "pointer" }}>{tr(L("Declare candidacy", "Déclarer ma candidature"))}</button>}
     </div>
   );
   return (

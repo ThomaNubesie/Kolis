@@ -99,8 +99,8 @@ begin
   if array_length(v_positions,1) is not null and not (trim(p_position) = any(v_positions))
     then return jsonb_build_object('ok',false,'error','unknown_position'); end if;
   if nullif(trim(coalesce(p_running,'')),'') is null then return jsonb_build_object('ok',false,'error','reason_required'); end if;
-  if exists(select 1 from cf_entries where form_id=p_form and author_id=auth.uid() and status='candidate'
-              and values->>'position'=trim(p_position))
+  -- one candidacy per member per election (cannot run for two positions)
+  if exists(select 1 from cf_entries where form_id=p_form and author_id=auth.uid() and status='candidate')
     then return jsonb_build_object('ok',false,'error','already_candidate'); end if;
   insert into cf_entries(form_id, author_id, values, status)
     values(p_form, auth.uid(),

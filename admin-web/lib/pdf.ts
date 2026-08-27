@@ -79,55 +79,155 @@ export function pdfFilename(form: CfFormFull) {
   return `${(form.name || "quorly-form").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "")}.pdf`;
 }
 
-// Election results PDF — per position: winner, tallies (For/Against/net) and the members' vote reasons.
-export async function buildElectionPdf(formName: string, el: CfElection) {
+// Election results PDF — "Certificate + Ledger" (Design C): certified header, a winner-featured block
+// per position (crown + For/Against/net chips + runners-up), a full tabulation of every candidate,
+// then the members' vote reasons. `eligible` = number of members entitled to vote (roster size).
+export async function buildElectionPdf(formName: string, el: CfElection, eligible?: number) {
   const JsPDF = await ensureJsPDF();
   const doc = new JsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
-  const M = 48; let y = M;
-  const ink = [28, 27, 25], faint = [140, 135, 128], accent = [47, 58, 163], green = [23, 138, 78], red = [192, 57, 43], line = [225, 220, 210];
+  const M = 44; let y = M;
+  const ink = [20, 19, 26], faint = [138, 135, 132], accent = [47, 58, 163], gold = [176, 141, 58],
+    green = [23, 138, 78], red = [192, 57, 43], line = [236, 231, 220],
+    greenSoft = [231, 246, 238], redSoft = [251, 233, 231], indigoSoft = [238, 239, 249], cardBg = [255, 255, 255];
+  const setFill = (c: number[]) => doc.setFillColor(c[0], c[1], c[2]);
+  const setDraw = (c: number[]) => doc.setDrawColor(c[0], c[1], c[2]);
+  const setCol = (c: number[]) => doc.setTextColor(c[0], c[1], c[2]);
   const ensure = (h: number) => { if (y + h > H - M) { doc.addPage(); y = M; } };
-  const text = (s: string, x: number, size = 10, style = "normal", color = ink, maxW = W - M - x) => {
-    doc.setFont("helvetica", style); doc.setFontSize(size); doc.setTextColor(color[0], color[1], color[2]);
-    for (const ln of doc.splitTextToSize(String(s ?? ""), maxW)) { ensure(size + 4); doc.text(ln, x, y); y += size + 4; }
+  const T = (s: string, x: number, size: number, style: string, color: number[], opts: any = {}) => {
+    doc.setFont(opts.font || "helvetica", style); doc.setFontSize(size); setCol(color);
+    doc.text(String(s ?? ""), x, y, opts);
   };
-  const rule = () => { ensure(10); doc.setDrawColor(line[0], line[1], line[2]); doc.line(M, y, W - M, y); y += 10; };
-
-  doc.setFillColor(accent[0], accent[1], accent[2]); doc.rect(0, 0, W, 8, "F");
-  text("Quorly", M, 11, "bold", accent); y -= 2;
-  text(`${formName} — Election Results`, M, 20, "bold", ink);
-  const when = el.closed_at ? fmt(el.closed_at) : fmt(new Date().toISOString());
-  text(`Closed ${when}${el.closed_by ? ` by ${el.closed_by}` : ""} · winner per position = highest net (For − Against)`, M, 9, "normal", faint);
-  y += 6; rule();
+  const net = (n: number) => `${n >= 0 ? "+" : ""}${n}`;
 
   const positions = el.positions.length ? el.positions : Array.from(new Set(el.candidates.map((c) => c.position)));
+  const votesCast = el.candidates.reduce((s, c) => s + c.for + c.against, 0);
+  const when = el.closed_at ? fmt(el.closed_at) : fmt(new Date().toISOString());
+
+  // chip: soft-filled rounded pill with coloured text; returns its width. Anchored at right edge rx.
+  const chipRight = (label: string, rx: number, cy: number, bg: number[], fg: number[]) => {
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9);
+    const tw = doc.getTextWidth(label), w = tw + 16;
+    setFill(bg); doc.roundedRect(rx - w, cy - 11, w, 16, 8, 8, "F");
+    setCol(fg); doc.text(label, rx - w / 2, cy, { align: "center" });
+    return w;
+  };
+  const drawCrown = (x: number, cy: number) => {
+    setFill(gold);
+    doc.triangle(x, cy, x + 3, cy - 8, x + 6, cy, "F");
+    doc.triangle(x + 5, cy, x + 8.5, cy - 11, x + 12, cy, "F");
+    doc.triangle(x + 11, cy, x + 14, cy - 8, x + 17, cy, "F");
+    doc.rect(x, cy - 1, 17, 4, "F");
+  };
+
+  // ===== Certified header (centred) =====
+  const cx = W / 2;
+  doc.setFont("helvetica", "bold"); doc.setFontSize(15);
+  const qw = doc.getTextWidth("Quorly"), grp = 22 + 8 + qw, gx = cx - grp / 2;
+  setFill(accent); doc.roundedRect(gx, y, 22, 22, 6, 6, "F");
+  setCol([255, 255, 255]); doc.text("Q", gx + 11, y + 16, { align: "center" });
+  setCol(ink); doc.text("Quorly", gx + 30, y + 16);
+  y += 40;
+  T("CERTIFIED ELECTION RESULTS", cx, 9, "bold", gold, { align: "center", charSpace: 2.4 }); y += 22;
+  T(formName, cx, 26, "bold", ink, { align: "center", font: "times" }); y += 22;
+  const metaBits = [`Overseen by ${el.closed_by || "the admin"}`, `closed ${when}`, `${positions.length} position${positions.length === 1 ? "" : "s"}`,
+    `${el.candidates.length} candidate${el.candidates.length === 1 ? "" : "s"}`];
+  if (eligible != null) metaBits.push(`${eligible} member${eligible === 1 ? "" : "s"}`);
+  metaBits.push(`${votesCast} vote${votesCast === 1 ? "" : "s"}`);
+  doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); setCol(faint);
+  for (const ln of doc.splitTextToSize(metaBits.join("  ·  "), W - 2 * M)) { doc.text(ln, cx, y, { align: "center" }); y += 13; }
+  y += 6;
+  setDraw(line); doc.setLineWidth(1); doc.line(M, y, W - M, y); doc.line(M, y + 2.5, W - M, y + 2.5); doc.setLineWidth(0.2); y += 20;
+
+  // ===== Per-position winner-featured cards =====
   for (const pos of positions) {
-    const cands = el.candidates.filter((c) => c.position === pos).sort((a, b) => b.net - a.net || b.for - a.for);
-    ensure(30);
-    text(pos, M, 13.5, "bold", accent); y += 2;
-    if (cands.length === 0) { text("No candidates declared.", M + 6, 9.5, "italic", faint); y += 6; continue; }
-    for (const c of cands) {
-      ensure(24);
-      const tag = c.winner ? "  [WINNER]" : "";
-      text(`${c.name}${tag}`, M + 6, 11, "bold", c.winner ? green : ink);
-      doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); doc.setTextColor(faint[0], faint[1], faint[2]);
-      ensure(13); doc.text(`For ${c.for}   ·   Against ${c.against}   ·   net ${c.net >= 0 ? "+" : ""}${c.net}`, M + 6, y); y += 14;
-      if (c.running) { text("Running: " + c.running, M + 12, 9, "normal", ink); }
-      if (c.plan) { text("Plan: " + c.plan, M + 12, 9, "normal", ink); }
-      y += 4;
+    const cands = el.candidates.filter((c) => c.position === pos).sort((a, b) => b.net - a.net || b.for - a.for || +new Date(a.declared_at) - +new Date(b.declared_at));
+    const posVotes = cands.reduce((s, c) => s + c.for + c.against, 0);
+    const cardH = 14 + 16 + 8 + 40 + Math.max(0, cands.length - 1) * 22 + 12;
+    ensure(cardH + 8);
+    const top = y;
+    setFill(cardBg); setDraw(line); doc.roundedRect(M, top, W - 2 * M, cardH, 12, 12, "FD");
+    y = top + 24;
+    T(pos.toUpperCase(), M + 18, 11, "bold", accent, { charSpace: 1 });
+    T(`${cands.length} candidate${cands.length === 1 ? "" : "s"} · ${posVotes} votes`, W - M - 18, 9, "normal", faint, { align: "right" });
+    y += 12;
+    if (cands.length === 0) { T("No candidates declared.", M + 18, 10, "italic", faint, {}); y = top + cardH + 12; continue; }
+    // winner box
+    const w0 = cands[0], wy = y, wh = 40;
+    setFill(greenSoft); setDraw([216, 238, 223]); doc.roundedRect(M + 14, wy, W - 2 * M - 28, wh, 8, 8, "FD");
+    const midY = wy + wh / 2 + 4;
+    drawCrown(M + 28, midY - 1);
+    doc.setFont("helvetica", "bold"); doc.setFontSize(15); setCol(ink); doc.text(w0.name, M + 54, midY);
+    let rx = W - M - 26;
+    rx -= chipRight(`net ${net(w0.net)}`, rx, midY, indigoSoft, accent) + 6;
+    rx -= chipRight(`${w0.against} Against`, rx, midY, redSoft, red) + 6;
+    chipRight(`${w0.for} For`, rx, midY, greenSoft, green);
+    y = wy + wh;
+    // runners-up
+    for (const c of cands.slice(1)) {
+      y += 22;
+      setDraw([243, 240, 232]); doc.line(M + 16, y - 15, W - M - 16, y - 15);
+      T(c.name, M + 20, 12, "bold", [58, 55, 66], {});
+      T(`net ${net(c.net)}`, W - M - 20, 11, "normal", faint, { align: "right" });
+      T(`${c.for} / ${c.against}`, W - M - 76, 11.5, "bold", [110, 107, 120], { align: "right" });
     }
-    y += 4;
+    y = top + cardH + 12;
   }
 
+  // ===== Full tabulation ledger =====
+  ensure(60);
+  T("FULL TABULATION — EVERY CANDIDATE", M, 11, "bold", accent, { charSpace: .6 }); y += 10;
+  const colCand = 150, colFor = 372, colAg = 432, colTot = 492, colNet = W - M;
+  const thead = () => {
+    doc.setFont("helvetica", "bold"); doc.setFontSize(9); setCol(faint);
+    doc.text("POSITION", M, y); doc.text("CANDIDATE", colCand, y);
+    doc.text("FOR", colFor, y, { align: "right" }); doc.text("AGAINST", colAg, y, { align: "right" });
+    doc.text("TOTAL", colTot, y, { align: "right" }); doc.text("NET", colNet, y, { align: "right" });
+    y += 6; setDraw(line); doc.setLineWidth(1); doc.line(M, y, W - M, y); doc.setLineWidth(0.2); y += 14;
+  };
+  thead();
+  for (const pos of positions) {
+    const cands = el.candidates.filter((c) => c.position === pos).sort((a, b) => b.net - a.net || b.for - a.for || +new Date(a.declared_at) - +new Date(b.declared_at));
+    cands.forEach((c, j) => {
+      ensure(22); if (y === M) thead();
+      const rowY = y;
+      if (c.winner) { setFill(greenSoft); doc.rect(M - 4, rowY - 12, W - 2 * M + 8, 20, "F"); }
+      if (j === 0) T(pos.toUpperCase(), M, 9, "bold", accent, { charSpace: .4 });
+      if (c.winner) { setFill(green); doc.circle(colCand - 8, rowY - 3, 2.2, "F"); }
+      T(c.name, colCand, 11.5, c.winner ? "bold" : "normal", ink, {});
+      doc.setFont("helvetica", "normal"); doc.setFontSize(11); setCol(ink);
+      doc.text(String(c.for), colFor, rowY, { align: "right" });
+      doc.text(String(c.against), colAg, rowY, { align: "right" });
+      doc.text(String(c.for + c.against), colTot, rowY, { align: "right" });
+      doc.setFont("helvetica", "bold"); setCol(c.net >= 0 ? green : red);
+      doc.text(net(c.net), colNet, rowY, { align: "right" });
+      y += 20; setDraw([245, 242, 235]); doc.line(M, y - 8, W - M, y - 8);
+    });
+  }
+
+  // ===== Vote reasons appendix =====
   if (el.reasons.length) {
-    rule(); text("Why members voted", M, 13, "bold", ink); y += 2;
+    y += 12; ensure(30);
+    T("MEMBERS' REASONS", M, 11, "bold", accent, { charSpace: .6 }); y += 14;
     for (const r of el.reasons) {
       ensure(16);
-      text(`[${r.value === "for" ? "For" : "Against"}] ${r.candidate} (${r.position}) — “${r.reason}” — ${r.voter}`, M + 6, 9, "normal", r.value === "for" ? green : red);
+      doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); setCol(r.value === "for" ? green : red);
+      const tag = r.value === "for" ? "FOR " : "AGAINST ";
+      doc.text(tag, M, y);
+      const tw = doc.getTextWidth(tag);
+      doc.setFont("helvetica", "normal"); setCol([58, 55, 66]);
+      const body = `“${r.reason}” — ${r.voter} · ${r.candidate} (${r.position})`;
+      for (const ln of doc.splitTextToSize(body, W - M - (M + tw))) { doc.text(ln, M + tw, y); y += 13; }
+      y += 3;
     }
   }
+
   const pages = doc.internal.getNumberOfPages();
-  for (let i = 1; i <= pages; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(faint[0], faint[1], faint[2]); doc.text(`Page ${i} / ${pages}`, W - M, H - 20, { align: "right" }); }
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i); doc.setFont("helvetica", "normal"); doc.setFontSize(8); setCol(faint);
+    doc.text("Certified · Quorly", M, H - 20);
+    doc.text(`Page ${i} / ${pages}`, W - M, H - 20, { align: "right" });
+  }
   return doc;
 }
 

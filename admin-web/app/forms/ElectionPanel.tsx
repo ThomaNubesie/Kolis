@@ -47,7 +47,8 @@ export default function ElectionPanel({ form, tr, mobile }: { form: CfFormFull; 
       setEl(res);
       let saved = false, mailed = 0;
       try {
-        const doc = await buildElectionPdf(form.name, res);
+        const recipientsArr = Array.isArray((res as any).recipients) ? (res as any).recipients as string[] : [];
+        const doc = await buildElectionPdf(form.name, res, recipientsArr.length || undefined);
         const blob = doc.output("blob") as Blob;
         const b64 = String(doc.output("datauristring")).split("base64,")[1] || "";
         try { const fileId = await cf.fileSavePdf(form.id, "election-results.pdf", blob); if (res.election_folder) await cf.fileMove(fileId, res.election_folder).catch(() => {}); saved = true; } catch { /* keep going */ }

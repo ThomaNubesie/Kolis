@@ -9,7 +9,7 @@ import { cf, type CfFormBrief, type CfFormFull, type CfEntry, type CfFile, type 
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
 import { buildFormPdf, pdfFilename } from "@/lib/pdf";
 import ElectionPanel from "./ElectionPanel";
-import { Folder, FolderPlus, Upload, Download, Eye, Link2, Clock, Pencil, FolderInput, Trash2, MoreVertical, ChevronRight, ChevronDown, X, Search, Home, Star, Share2, RotateCcw, List, LayoutGrid, Inbox, FileText, Lock, ShieldCheck, Send, CalendarClock, AlertTriangle, KeyRound, Users, LifeBuoy, ExternalLink, MapPin, MessageSquare, ThumbsUp, ThumbsDown, CheckCircle2, Receipt, Camera, Sparkles, Coins, Tag } from "lucide-react";
+import { Folder, FolderPlus, Upload, Download, Eye, Link2, Clock, Pencil, FolderInput, Trash2, MoreVertical, ChevronRight, ChevronDown, X, Search, Home, Star, Share2, RotateCcw, List, LayoutGrid, Inbox, FileText, Lock, ShieldCheck, Send, CalendarClock, AlertTriangle, KeyRound, Users, LifeBuoy, ExternalLink, MapPin, MessageSquare, ThumbsUp, ThumbsDown, CheckCircle2, Receipt, Camera, Sparkles, Coins, Tag, Settings, PlusSquare } from "lucide-react";
 
 const RCAT = ["Meals", "Fuel", "Office", "Travel", "Lodging", "Supplies", "Groceries", "Utilities", "Medical", "Other"];
 const RCAT_COLOR: Record<string, string> = { Meals: "#C0392B", Fuel: "#1F7A4D", Office: "#2F3AA3", Travel: "#B4801F", Lodging: "#8A5A1F", Supplies: "#6B4FA3", Groceries: "#2F8F6B", Utilities: "#0EA5A5", Medical: "#D64545", Other: "#8A8378" };
@@ -1807,14 +1807,26 @@ function MoveModal({ file, form, tr, onClose, onMoved }: any) {
   </>, onClose, 380);
 }
 
-function FormEdit({ form, tr, onSaved, onDeleted }: any) {
+function FormEdit({ form, tr, isSpace, onSaved, onDeleted }: any) {
   const [open, setOpen] = useState(false);
   const [n, setN] = useState(form.name || "");
   const [d, setD] = useState(form.description || "");
   const [r2fa, setR2fa] = useState(!!form.require_2fa);
   const [rdl, setRdl] = useState(!!form.require_download_approval);
+  const [feats, setFeats] = useState<Record<string, boolean>>(form.features || {});
   const [busy, setBusy] = useState(false);
-  useEffect(() => { setN(form.name || ""); setD(form.description || ""); setR2fa(!!form.require_2fa); setRdl(!!form.require_download_approval); }, [form.id, form.name, form.description, form.require_2fa, form.require_download_approval]);
+  useEffect(() => { setN(form.name || ""); setD(form.description || ""); setR2fa(!!form.require_2fa); setRdl(!!form.require_download_approval); setFeats(form.features || {}); }, [form.id, form.name, form.description, form.require_2fa, form.require_download_approval, form.features]);
+  const toggleFeat = async (key: string) => {
+    const next = { ...feats, [key]: !feats[key] };
+    setFeats(next);
+    try { await cf.setFeatures(form.id, next, form.approval_count || 1); onSaved(); }
+    catch (e: any) { alert(e.message); setFeats(feats); }
+  };
+  const FEATURES: { key: string; icon: any; en: string; fr: string; sub: [string, string] }[] = [
+    { key: "member_entries", icon: PlusSquare, en: "Members can add entries", fr: "Les membres peuvent ajouter des entrées", sub: ["Anyone in the form can create a new entry — not just you.", "Tout membre peut créer une entrée — pas seulement vous."] },
+    { key: "voting", icon: ThumbsUp, en: "Voting on entries", fr: "Vote sur les entrées", sub: ["Members approve/reject entries to reach a decision.", "Les membres approuvent/rejettent les entrées."] },
+    { key: "comments", icon: MessageSquare, en: "Comments", fr: "Commentaires", sub: ["Members can discuss each entry.", "Les membres peuvent discuter chaque entrée."] },
+  ];
   const save = async () => {
     if (!n.trim()) return; setBusy(true);
     try { const r = await cf.updateForm(form.id, n.trim(), d); if (r?.ok) { setOpen(false); onSaved(); } else alert(r?.error || "Failed"); }
@@ -1830,7 +1842,7 @@ function FormEdit({ form, tr, onSaved, onDeleted }: any) {
   };
   return (
     <>
-      <span onClick={() => setOpen(true)} style={{ fontSize: 12, fontWeight: 800, color: C.accent, background: C.accentSoft, borderRadius: 8, padding: "5px 11px", cursor: "pointer", whiteSpace: "nowrap" }}>✎ {tr(L("Edit", "Modifier"))}</span>
+      <span onClick={() => setOpen(true)} style={{ fontSize: 12, fontWeight: 800, color: C.accent, background: C.accentSoft, borderRadius: 8, padding: "5px 11px", cursor: "pointer", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 5 }}><Settings size={13} /> {tr(L("Settings", "Réglages"))}</span>
       {open && (
         <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(20,18,16,.55)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20, zIndex: 100 }}>
           <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 420, width: "100%", background: C.paper, borderRadius: 16, overflow: "hidden", boxShadow: "0 30px 70px rgba(0,0,0,.5)" }}>
@@ -1847,6 +1859,23 @@ function FormEdit({ form, tr, onSaved, onDeleted }: any) {
                 <div style={railLbl}>{tr(L("Description", "Description"))}</div>
                 <textarea value={d} onChange={(e) => setD(e.target.value)} placeholder={tr(L("What this form is for…", "À quoi sert ce formulaire…"))} style={{ ...inp, minHeight: 80, marginTop: 6 }} />
               </div>
+              {!isSpace && !feats.election && (
+                <div>
+                  <div style={{ ...railLbl, marginBottom: 8 }}>{tr(L("Features", "Fonctionnalités"))}</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {FEATURES.map((ft) => {
+                      const on = !!feats[ft.key]; const Icon = ft.icon;
+                      return (
+                        <div key={ft.key} style={{ display: "flex", alignItems: "center", gap: 10, background: "#F7F4EE", borderRadius: 10, padding: "11px 12px" }}>
+                          <Icon size={17} style={{ color: on ? C.accent : C.faint, flex: "0 0 auto" }} />
+                          <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 800 }}>{tr(L(ft.en, ft.fr))}</div><div style={{ fontSize: 10.5, color: C.faint }}>{tr(L(ft.sub[0], ft.sub[1]))}</div></div>
+                          <span onClick={() => toggleFeat(ft.key)} style={{ width: 38, height: 22, borderRadius: 99, background: on ? C.accent : "#D9D3C8", position: "relative", cursor: "pointer", flex: "0 0 auto" }}><span style={{ position: "absolute", top: 2, [on ? "right" : "left"]: 2, width: 18, height: 18, borderRadius: "50%", background: "#fff" } as any} /></span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#F7F4EE", borderRadius: 10, padding: "11px 12px" }}>
                 <ShieldCheck size={17} style={{ color: r2fa ? C.green : C.faint, flex: "0 0 auto" }} />
                 <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 800 }}>{tr(L("Require two-factor (2FA)", "Exiger la 2FA"))}</div><div style={{ fontSize: 10.5, color: C.faint }}>{tr(L("Members must pass 2FA to open this form.", "Les membres doivent passer la 2FA pour ouvrir ce formulaire."))}</div></div>

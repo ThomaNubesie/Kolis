@@ -52,6 +52,19 @@ export const cf = {
     return res as { ok: boolean; form_id: string };
   },
   myRole: (form: string): Promise<string | null> => rpc("cf_my_role", { p_form: form }),
+  // ===== Outreach console (admin-gated: qo_is_admin) =====
+  outreachAdmin: (): Promise<boolean> => rpc("qo_is_admin"),
+  outreachStats: (): Promise<Record<string, number>> => rpc("qo_stats"),
+  outreachList: (filter?: string | null): Promise<any[]> => rpc("qo_list", { p_filter: filter ?? null }),
+  outreachAdd: async (p: { name: string; email?: string; category?: string; contact?: string; region?: string; fit?: string }) => {
+    const res = await rpc("qo_add", { p_name: p.name, p_email: p.email ?? null, p_category: p.category ?? null, p_contact: p.contact ?? null, p_region: p.region ?? null, p_fit: p.fit ?? null });
+    if (res && res.ok === false) throw new Error(res.error || "Failed");
+    return res as { ok: boolean; id: string };
+  },
+  outreachApprove: (id: string) => rpc("qo_approve", { p_id: id }),
+  outreachStage: (id: string, stage: string) => rpc("qo_set_stage", { p_id: id, p_stage: stage }),
+  outreachStop: (id: string) => rpc("qo_stop", { p_id: id }),
+  outreachResume: (id: string) => rpc("qo_resume", { p_id: id }),
   // ===== Elections (multi-position vote sub-forms) =====
   electionEnsureMember: (form: string): Promise<{ ok: boolean; joined?: boolean; already?: boolean; error?: string }> => rpc("cf_election_ensure_member", { p_form: form }),
   electionResults: (form: string): Promise<CfElection> => rpc("cf_election_results", { p_form: form }),

@@ -11,7 +11,7 @@ import QuorlyAuthGate from "@/components/QuorlyAuthGate";
 import { buildFormPdf, pdfFilename } from "@/lib/pdf";
 import ElectionPanel from "./ElectionPanel";
 import OrgHome from "./OrgHome";
-import { Folder, FolderPlus, Upload, Download, Eye, Link2, Clock, Pencil, FolderInput, Trash2, MoreVertical, ChevronRight, ChevronDown, X, Search, Home, Star, Share2, RotateCcw, List, LayoutGrid, Inbox, FileText, Lock, ShieldCheck, Send, CalendarClock, AlertTriangle, KeyRound, Users, LifeBuoy, ExternalLink, MapPin, MessageSquare, ThumbsUp, ThumbsDown, CheckCircle2, Receipt, Camera, Sparkles, Coins, Tag, Settings, PlusSquare } from "lucide-react";
+import { Folder, FolderPlus, Upload, Download, Eye, Link2, Clock, Pencil, FolderInput, Trash2, MoreVertical, ChevronRight, ChevronDown, X, Search, Home, Star, Share2, RotateCcw, List, LayoutGrid, Inbox, FileText, Lock, ShieldCheck, Send, CalendarClock, AlertTriangle, KeyRound, Users, LifeBuoy, ExternalLink, MapPin, MessageSquare, ThumbsUp, ThumbsDown, CheckCircle2, Receipt, Camera, Sparkles, Coins, Tag, Settings, PlusSquare, TrendingUp } from "lucide-react";
 
 // Receipt categories. The English word is the STORED key (it lands in cf_receipts.category
 // and in the AI reader's output) — only the display label is translated.
@@ -118,6 +118,7 @@ function FormsInner() {
   const [tree, setTree] = useState<CfOrgTree | null>(null);
   const [orgSwitch, setOrgSwitch] = useState(false);
   const [orgTab, setOrgTab] = useState<"home" | "members" | "documents" | "settings">("home");
+  const [qoAdmin, setQoAdmin] = useState(false); // outreach/prospecting operator → sees the GROWTH rail group
   const [newSpace, setNewSpace] = useState(false);
   const isVault = !!sel && sel === vaultId;
   const isOrg = !!sel && orgs.some((o) => o.id === sel);
@@ -143,6 +144,7 @@ function FormsInner() {
   // Desktop (three-pane) opens the first form for convenience; mobile lands on Home (list) so
   // "back" from a form / new-form returns to the profile page, not into a form.
   useEffect(() => { if (!loading && !mobile && !sel && list.length) setSel(list[0].id); }, [loading, mobile, list, sel]);
+  useEffect(() => { cf.outreachAdmin().then(setQoAdmin).catch(() => setQoAdmin(false)); }, []);
   useEffect(() => { cf.canCreate().then(setCanCreate).catch(() => {}); }, []);
   useEffect(() => { cf.myProfile().then((p) => setProfileName(p?.name || "")).catch(() => {}); }, []);
   const loadForm = useCallback(async (id: string) => {
@@ -309,6 +311,19 @@ function FormsInner() {
               </div>
             )}
             <JoinCode tr={tr} router={router} />
+
+            {/* ===== GROWTH (operator-only: prospecting / outreach) ===== */}
+            {qoAdmin && (
+              <>
+                <div style={railHead}>{tr(L("Growth", "Croissance"))}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  <div onClick={() => router.push("/prospecting")} style={sItem(false)}>
+                    <span style={{ color: C.faint, display: "inline-flex" }}><TrendingUp size={14} /></span>
+                    {tr(L("Prospecting", "Prospection"))}
+                  </div>
+                </div>
+              </>
+            )}
 
             <div onClick={() => setShow2fa(true)} style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, fontSize: 12, fontWeight: 800, color: C.accent, cursor: "pointer", padding: "10px 6px 6px", borderTop: `1px solid ${C.line}` }}><ShieldCheck size={14} /> {tr(L("Security & 2FA", "Sécurité & 2FA"))}</div>
             <div onClick={async () => { await supabase.auth.signOut({ scope: "local" }); }} style={{ textAlign: "center", fontSize: 12, fontWeight: 800, color: C.ink2, cursor: "pointer", padding: "4px 6px 4px" }}>{tr(L("Sign out", "Se déconnecter"))}</div>

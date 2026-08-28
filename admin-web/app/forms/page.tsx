@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import { quorly as supabase } from "@/lib/quorly";
 import { useLang } from "@/lib/i18n";
-import { cf, type CfFormBrief, type CfFormFull, type CfEntry, type CfFile, type CfFileRequest, type CfFolder, type CfShare, type CfFileActivity, type LostGuide, type CfDocComment, type CfDocDecision, type CfDownloadReq, type CfReceipt, type CfOrg, type CfOrgTree } from "@/lib/cf";
+import { cf, planLimitMsg, type CfFormBrief, type CfFormFull, type CfEntry, type CfFile, type CfFileRequest, type CfFolder, type CfShare, type CfFileActivity, type LostGuide, type CfDocComment, type CfDocDecision, type CfDownloadReq, type CfReceipt, type CfOrg, type CfOrgTree } from "@/lib/cf";
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
 import { buildFormPdf, pdfFilename } from "@/lib/pdf";
 import ElectionPanel from "./ElectionPanel";
@@ -1100,7 +1100,7 @@ function ReceiptsPanel({ form, tr, lang, mobile }: any) {
         await cf.receiptAdd(form.id, { merchant: fields.merchant ?? null, date: fields.date ?? null, category: fields.category ?? null, subtotal: fields.subtotal ?? null, tax: fields.tax ?? null, total: fields.total ?? null, currency: fields.currency ?? "CAD", image_path: path, status: "review" });
       }
       await load();
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) { const pm = planLimitMsg(e, lang); if (pm) { if (confirm(pm)) window.open("/pricing", "_blank"); } else alert(e.message); }
     setBusy(false);
   };
   const save = async (r: CfReceipt, patch: any) => { await cf.receiptUpdate(r.id, patch); await load(); };

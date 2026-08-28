@@ -8,7 +8,7 @@
 // "Office" here means the POST a person holds — President, Trésorier — not a
 // container. The containers are departments.
 import { useCallback, useEffect, useState } from "react";
-import { cf, type CfOrgTree, type CfOrgMember, type CfDept } from "@/lib/cf";
+import { cf, planLimitMsg, type CfOrgTree, type CfOrgMember, type CfDept } from "@/lib/cf";
 import { QUICK_ADD, deptPayload } from "@/lib/presets";
 import {
   NotebookPen, Gavel, Vote, Wallet, Receipt, FolderOpen, Users, CalendarDays,
@@ -52,7 +52,8 @@ function HomeTab({ tree, tr, mobile, onOpen, onChanged, lang }: { tree: CfOrgTre
     setBusy(id); setErr("");
     try {
       const payload = deptPayload(d, d.name[lang]);
-      const r = await cf.createDepartment(tree.id, payload as any);
+      const r: any = await cf.createDepartment(tree.id, payload as any);
+      if (r?.ok === false) { const pm = planLimitMsg(r, lang); if (pm && confirm(pm)) window.open("/pricing", "_blank"); setErr(pm || r.error || "Failed"); setBusy(null); return; }
       onChanged();
       onOpen(r.department_id);
     } catch (e: any) { setErr(e.message || "Failed"); }
@@ -163,7 +164,11 @@ function MembersTab({ tree, tr, lang, mobile, onChanged }: { tree: CfOrgTree; tr
     setBusy(true); setMsg("");
     try {
       const r = await cf.orgInvite(tree.id, c, title.trim() || null, lang);
-      if (r?.ok === false) setMsg(r.error === "already_invited" ? tr(L("Already invited.", "Déjà invité.")) : r.error || "Failed");
+      if (r?.ok === false) {
+        const pm = planLimitMsg(r, lang);
+        if (pm) { if (confirm(pm)) window.open("/pricing", "_blank"); setMsg(pm); }
+        else setMsg(r.error === "already_invited" ? tr(L("Already invited.", "Déjà invité.")) : r.error || "Failed");
+      }
       else { setContact(""); setTitle(""); setMsg(tr(L("Invitation sent.", "Invitation envoyée."))); load(); onChanged(); }
     } catch (e: any) { setMsg(e.message); }
     setBusy(false);

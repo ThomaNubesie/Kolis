@@ -33,7 +33,27 @@ export type CfFileRequest = { id: string; label: string; required: boolean; crea
 // is a board inside it (minutes, motions, an election, the treasury). "Office"
 // is not a container — it is the post a person holds (CfOrgMember.title),
 // picked from the organization's officer_titles.
-export type CfOrg = { id: string; name: string; slug: string | null; org_type: string | null; color: string; legal_name: string | null; officer_titles: string[]; is_admin: boolean; my_title: string | null; members: number; invited: number; departments: number };
+export type CfOrg = { id: string; name: string; slug: string | null; org_type: string | null; color: string; legal_name: string | null; officer_titles: string[]; is_admin: boolean; my_title: string | null; members: number; invited: number; departments: number; plan?: string; plan_until?: string | null; member_limit?: number | null };
+
+// Friendly bilingual message when an org RPC refuses because of the plan (member
+// cap or a paid feature). Accepts a structured {error:'plan_limit',feature} result
+// OR a thrown Error whose message contains 'plan_limit[:feature]'. null if not a
+// plan limit. See the /pricing page + the gates in cf_plan_limits.
+export function planLimitMsg(x: any, lang: "en" | "fr"): string | null {
+  let feature: string | null = null;
+  if (x && typeof x === "object" && x.error === "plan_limit") feature = x.feature || "feature";
+  const m: string = (x && typeof x.message === "string") ? x.message : (typeof x === "string" ? x : "");
+  if (!feature && m.includes("plan_limit")) feature = (m.split("plan_limit")[1] || "").replace(/^[:\s]+/, "").split(/[\s"']/)[0] || "feature";
+  if (!feature) return null;
+  const names: Record<string, [string, string]> = {
+    members: ["You've reached your plan's member limit.", "Vous avez atteint la limite de membres de votre forfait."],
+    elections: ["Elections are available on paid plans.", "Les élections sont offertes sur les forfaits payants."],
+    receipts: ["Receipts & expense reports are available on paid plans.", "Les reçus et rapports de dépenses sont offerts sur les forfaits payants."],
+    feature: ["This is a paid feature.", "Ceci est une fonction payante."],
+  };
+  const [en, fr] = names[feature] || names.feature;
+  return (lang === "fr" ? fr : en) + (lang === "fr" ? " Voir les forfaits sur /pricing." : " See plans at /pricing.");
+}
 export type CfDept = { id: string; name: string; description: string; group_name: string; kind: string; features: Record<string, boolean>; election_status: string | null; is_admin: boolean; members: number; entries: number; im_member: boolean };
 export type CfOrgTree = CfOrg & { description: string; departments: CfDept[]; error?: string };
 export type CfOrgMember = { member_id: string; id: string | null; name: string; contact: string | null; color: string | null; role: string; title: string | null; status: string; joined_at: string | null; departments: number };

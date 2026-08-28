@@ -5,8 +5,8 @@ day and could not — every function it built crashed on invocation — so this 
 written as a handoff to **the machine that produced the last working deploys**.
 
 **That deploy has since succeeded and quorly.ca is live** (all routes verified
-200, including `/forms/new-org` and `/o/<slug>`). Same commits, same scripts,
-different builder — which confirms the Node-version diagnosis in §3. Keep this
+200, including `/forms/new-org` and `/o/<slug>`). The cause turned out to be a
+one-line misconfiguration in `netlify.toml`, now fixed — see §3. Keep this
 document: the traps in §3, §5, §6 and §7 are all still live, and the next person
 to deploy will hit them.
 
@@ -52,23 +52,33 @@ git log --oneline -3      # expect 3809a76, 2456396, 9c73139
 
 ---
 
-## 3. Check Node BEFORE building — this was the culprit
+## 3. The publish path — the bug that cost a day
 
-```bash
-node -v
+`publish` in `netlify.toml` is resolved **relative to `base`**. With
+`base = "admin-web"`, writing `publish = "admin-web/.next"` makes Netlify look
+for `admin-web/admin-web/.next`, which does not exist. The
+`@netlify/plugin-nextjs` onBuild step then fails to assemble the serverless
+function — **while the build itself reports success.**
+
+```toml
+[build]
+  base = "admin-web"
+  publish = ".next"        # NOT "admin-web/.next"
 ```
 
-`netlify deploy --build` builds **on this machine**. `NODE_VERSION = "20"` in
-`netlify.toml` only sets the *runtime* Netlify gives the deployed function — it
-does not change the local builder. The machine that failed on 28 Aug was on
-**Node 24**, and every function it built crashed on invocation. A machine on
-Node 20 then deployed the identical commits successfully — same code, same
-scripts, different builder — which is what confirmed the diagnosis.
+Fixed in `24345bc`. The symptom was every server-rendered route returning 502
+with `error decoding lambda response: invalid status code returned from lambda: 0`,
+on both sites, while `npx next start` on the identical build served everything
+locally at 200.
 
-- **Node 20.x** → proceed. This matches the runtime and matches the builds that
-  are currently live and working.
-- **Node 22+** → install and switch to 20 first (`nvm install 20 && nvm use 20`),
-  or expect the failure in §5.
+It stayed hidden for a while because deploys reused a **cached** function built
+before the misconfiguration mattered: existing pages kept working, so nothing
+looked wrong until `--skip-functions-cache` forced a real rebuild.
+
+**Things wrongly blamed first, so nobody re-tests them:** the `netlify-cli`
+version (@17 vs @latest — both fail with a bad publish path, both work with a
+good one), and the local Node version vs `NODE_VERSION`. Node was a red herring.
+`netlify deploy --build` does build locally, but that was never the problem.
 
 ---
 
@@ -121,7 +131,8 @@ Two failure signatures, with different causes:
   Fix: make sure `--skip-functions-cache` is in the command.
 - **502 on everything** → the function crashes on invocation. The body reads
   `error decoding lambda response: invalid status code returned from lambda: 0`.
-  This is the 28 Aug failure. Roll back (§8) and see §3.
+  This is the 28 Aug failure: a bad `publish` path in `netlify.toml`. Roll back
+  (§8) and see §3.
 
 Also confirm Quorly is talking to the right database:
 
@@ -163,15 +174,16 @@ codebase) is outstanding work, not done here.
 
 ## 7. Why the scripts look the way they do
 
-- **`netlify-cli@latest`, never `@17`.** The old pin bundles the current
-  `@netlify/plugin-nextjs` into a function that returns nothing at runtime.
+- **`netlify-cli@latest` rather than the old `@17` pin.** Kept current on
+  purpose, though note this was *not* the cause of the 502s — see §3.
 - **`--skip-functions-cache`.** Every page in this app — static ones included —
   is served by the Next runtime *function*, not by uploaded HTML. Netlify reuses
   that function from cache by default, which silently ships a build with no new
   routes in it. Costs ~30s per deploy.
 - **Neither site is connected to GitHub.** Merges never auto-deploy; publishing
   is always manual via these scripts. Connecting the repo so Netlify builds in
-  CI would also remove the local-Node problem in §3 — probably the right fix.
+  CI is still worth doing — it would have surfaced the §3 publish-path error on
+  the first CI build instead of hiding behind a cached function.
 
 ---
 

@@ -4,7 +4,9 @@
 [build]
   base = "admin-web"
   command = "npm run build"
-  publish = "admin-web/.next"
+  # publish is resolved RELATIVE TO base, so this must NOT repeat "admin-web"
+  # (Netlify CI would look for admin-web/admin-web/.next and fail the deploy).
+  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "20"

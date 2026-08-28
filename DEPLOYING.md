@@ -1,10 +1,14 @@
 # Deploying Kolis / Quorly
 
-Written 2026-08-28 for **the machine that produced the last working deploys**
-(kolis-business, 25 Aug · quorly-app, 27 Aug). A second machine tried to publish
-the organizations work on 28 Aug and could not: every deploy it built returned a
-function that crashes, so the work is committed and the database is migrated but
-the front end is still unpublished. Everything that machine learned is below.
+Written 2026-08-28. A second machine tried to publish the organizations work that
+day and could not — every function it built crashed on invocation — so this was
+written as a handoff to **the machine that produced the last working deploys**.
+
+**That deploy has since succeeded and quorly.ca is live** (all routes verified
+200, including `/forms/new-org` and `/o/<slug>`). Same commits, same scripts,
+different builder — which confirms the Node-version diagnosis in §3. Keep this
+document: the traps in §3, §5, §6 and §7 are all still live, and the next person
+to deploy will hit them.
 
 ---
 
@@ -22,8 +26,9 @@ the front end is still unpublished. Everything that machine learned is below.
   `2456396` (deploy scripts).
 - **Netlify env vars are set** on `quorly-app` (all four Supabase vars). They had
   never been set anywhere — see §6.
-
-**Only step left: publish the front end to both sites.**
+- **quorly.ca is published and verified** — the organizations work is live.
+  `business.kolis.ca` still runs its previous build; publish it only if the
+  Kolis host needs the same code.
 
 ---
 
@@ -42,12 +47,12 @@ cd ~/repos/Kolis          # wherever this repo lives on this machine
 git fetch origin
 git checkout ship-kolis-1.1.0
 git pull
-git log --oneline -2      # expect 2456396, 9c73139
+git log --oneline -3      # expect 3809a76, 2456396, 9c73139
 ```
 
 ---
 
-## 3. Check Node BEFORE building — this is the suspected culprit
+## 3. Check Node BEFORE building — this was the culprit
 
 ```bash
 node -v
@@ -56,7 +61,9 @@ node -v
 `netlify deploy --build` builds **on this machine**. `NODE_VERSION = "20"` in
 `netlify.toml` only sets the *runtime* Netlify gives the deployed function — it
 does not change the local builder. The machine that failed on 28 Aug was on
-**Node 24**, and every function it built crashed on invocation.
+**Node 24**, and every function it built crashed on invocation. A machine on
+Node 20 then deployed the identical commits successfully — same code, same
+scripts, different builder — which is what confirmed the diagnosis.
 
 - **Node 20.x** → proceed. This matches the runtime and matches the builds that
   are currently live and working.
@@ -202,7 +209,45 @@ end works against the new schema, because `cf_my_spaces`, `cf_create_space` and
 
 ---
 
-## 9. What should be visible once this ships
+## 9. The organization screen
+
+`/forms/new-org` — the create-organization screen, chosen from three options on
+27 Aug. This is the design it was built to:
+
+![The organization screen](docs/quorly-organization-screen.png)
+
+**The idea: pick the shape and Quorly stands the whole thing up.** Choosing
+*Non-profit board* creates the organization and six departments in one call, so
+a group is working the minute it signs up instead of assembling a workspace from
+empty parts. Nothing is locked in — the caption "everything below is editable"
+is literal: departments can be unticked, renamed inline, and offices added or
+removed before anything is created.
+
+| On screen | What it is |
+|---|---|
+| Left column | The presets — non-profit board, condo syndicate, school PAC, sports club, church council, start empty |
+| Departments grid | What gets created. The tick toggles it; the name is an input, so it can be renamed in place |
+| **Offices** | The *posts* a member holds — President, Trésorier. Elections are run for these. An office is a seat, **not** a container; departments are the containers |
+| Organization name / Members | Name is required; members optional, comma-separated. One invite covers every department |
+| **Customize** | Reveals short name (the `/o/<slug>` handle), legal name, and organization colour |
+| Create button | Counts what it will build — "Create organization & 6 departments" |
+
+Two things that differ from the mockup, both deliberate:
+
+- The mockup said "boards"; the shipped wording is **departments**, per Thomas
+  on 28 Aug. "Office" was freed up to mean the post a person holds, which is
+  what removed the ambiguity in the first place.
+- The mockup showed a bare `quorly.ca/concord` handle. Shipped as
+  **`quorly.ca/o/<slug>`** — a bare slug would collide with `/forms`, `/join`,
+  `/login`, `/prospecting`, `/d` and `/s`.
+
+The presets live in `admin-web/lib/presets.ts`, **not in SQL**, precisely so this
+screen can edit every line of one before `cf_create_org` runs. Adding a preset or
+changing which departments one creates is a change to that file alone.
+
+---
+
+## 10. What should be visible once this ships
 
 On quorly.ca, signed in:
 

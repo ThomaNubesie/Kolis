@@ -32,4 +32,18 @@ fi
 export NETLIFY_AUTH_TOKEN
 
 echo "Building + deploying admin-web to production (business.kolis.ca)…"
-npx --yes netlify-cli@17 deploy --prod --build --site "$SITE_ID"
+# netlify-cli@latest, NOT @17: the pinned v17 bundles the current
+# @netlify/plugin-nextjs into a function that returns nothing at runtime
+# ("error decoding lambda response: invalid status code returned from lambda: 0",
+# every SSR route 502). Verified on 2026-08-28 — v17 broke, latest worked.
+#
+# This deploys business.kolis.ca ONLY. quorly.ca is a separate Netlify site
+# (quorly-app) — use ./deploy-quorly.sh for it.
+#
+# --skip-functions-cache: this is a Next.js app, so every page — including the
+# static ones — is served by the Next runtime FUNCTION, not by uploaded HTML.
+# Netlify reuses that function from cache by default, which silently ships a
+# build with no new routes in it: existing pages keep working while anything
+# added since the cached build 404s. Cost is ~30s of extra build; the
+# alternative is a green deploy that is quietly missing pages.
+npx --yes netlify-cli@latest deploy --prod --build --skip-functions-cache --site "$SITE_ID"

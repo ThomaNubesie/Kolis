@@ -1,5 +1,6 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
+import { useLang } from "@/lib/i18n";
 
 // Quorly-for-boards marketing homepage. Rendered at "/" ONLY on the Quorly
 // domain (app/page.tsx branches on the Host header, SSR). Dropbox-style: clean
@@ -31,7 +32,11 @@ function Dots() {
 }
 
 export default function BoardsHome() {
-  const [fr, setFr] = useState(false);
+  // Share the app's language rather than keeping a second one: picking FR on the marketing
+  // page carries into /forms (and is remembered) instead of resetting at the door.
+  const { lang, setLang } = useLang();
+  const fr = lang === "fr";
+  const setFr = (v: boolean) => setLang(v ? "fr" : "en");
   useEffect(() => {
     document.title = "Quorly — for boards & associations";
   }, []);

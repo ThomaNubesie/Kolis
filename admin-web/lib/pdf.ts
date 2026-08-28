@@ -17,9 +17,21 @@ async function ensureJsPDF() {
   return window.jspdf.jsPDF;
 }
 
-const fmt = (iso: string) => { try { return new Date(iso).toLocaleString("en-CA", { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch { return iso; } };
+export type PdfLang = "en" | "fr";
+// Same co-located pattern as the screens (lib/i18n.tsx): the pair travels with the call site.
+const L = (en: string, fr: string) => ({ en, fr });
+const T9N = (lang: PdfLang) => (o: { en: string; fr: string }) => o[lang];
+const loc = (lang: PdfLang) => (lang === "fr" ? "fr-CA" : "en-CA");
+const fmt = (iso: string, lang: PdfLang = "en") => { try { return new Date(iso).toLocaleString(loc(lang), { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch { return iso; } };
+// A field's label is the storage key; a template may have shipped a translation for display.
+const flabel = (f: any, lang: PdfLang) => f?.label_i18n?.[lang] ?? f?.label ?? "";
+const foption = (f: any, o: string, lang: PdfLang) => f?.options_i18n?.[o]?.[lang] ?? o;
+// Receipt categories are stored in English (they are the key the app groups by) — display only.
+const RCAT_FR: Record<string, string> = { Meals: "Repas", Fuel: "Carburant", Office: "Bureau", Travel: "Déplacements", Lodging: "Hébergement", Supplies: "Fournitures", Groceries: "Épicerie", Utilities: "Services publics", Medical: "Santé", Other: "Autre" };
+const rcat = (c: string | null | undefined, lang: PdfLang) => { const k = c || "Other"; return lang === "fr" ? (RCAT_FR[k] ?? k) : k; };
 
-export async function buildFormPdf(form: CfFormFull, entries: CfEntry[], memberOf: Record<string, any>) {
+export async function buildFormPdf(form: CfFormFull, entries: CfEntry[], memberOf: Record<string, any>, lang: PdfLang = "en") {
+  const tr = T9N(lang);
   const JsPDF = await ensureJsPDF();
   const doc = new JsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
@@ -38,40 +50,50 @@ export async function buildFormPdf(form: CfFormFull, entries: CfEntry[], memberO
   doc.setFillColor(accent[0], accent[1], accent[2]); doc.rect(0, 0, W, 8, "F");
   text("Quorly", M, 11, "bold", accent); y -= 2;
   text(form.name, M, 20, "bold", ink);
-  text(`Generated ${fmt(new Date().toISOString())} · ${entries.length} entries · ${form.members.filter((m) => m.status === "active").length} members`, M, 9, "normal", faint);
+  const nMembers = form.members.filter((m) => m.status === "active").length;
+  text(tr(L(`Generated ${fmt(new Date().toISOString(), lang)} · ${entries.length} entries · ${nMembers} members`,
+           `Généré le ${fmt(new Date().toISOString(), lang)} · ${entries.length} entrée(s) · ${nMembers} membre(s)`)), M, 9, "normal", faint);
   y += 6; rule();
 
   // NDA
   if (form.nda) {
-    text("Confidentiality / Non-Disclosure", M, 12, "bold", ink);
+    text(tr(L("Confidentiality / Non-Disclosure", "Confidentialité / Non-divulgation")), M, 12, "bold", ink);
     text(form.nda, M, 9.5, "normal", ink); y += 4;
-    text("All members accepted this clause when joining.", M, 8.5, "italic", faint);
+    text(tr(L("All members accepted this clause when joining.", "Tous les membres ont accepté cette clause en rejoignant.")), M, 8.5, "italic", faint);
     y += 6; rule();
   }
 
   // Members
-  text("Members", M, 12, "bold", ink);
-  for (const m of form.members) text(`• ${m.name ?? m.contact}${m.role === "admin" ? "  (admin)" : ""}${m.status === "invited" ? "  — invited" : ""}`, M + 6, 9.5);
+  text(tr(L("Members", "Membres")), M, 12, "bold", ink);
+  for (const m of form.members) text(`• ${m.name ?? m.contact}${m.role === "admin" ? "  (admin)" : ""}${m.status === "invited" ? tr(L("  — invited", "  — invité")) : ""}`, M + 6, 9.5);
   y += 6; rule();
 
   // Entries
-  text("Entries", M, 12, "bold", ink);
+  text(tr(L("Entries", "Entrées")), M, 12, "bold", ink);
   y += 2;
   const defined = (form.fields ?? []) as any[];
   const labels = defined.map((f) => f.label);
+  const byLabel: Record<string, any> = Object.fromEntries(defined.map((f) => [f.label, f]));
+  const ST: Record<string, { en: string; fr: string }> = { pending: L("pending", "en attente"), approved: L("approved", "approuvée"), rejected: L("rejected", "rejetée") };
   for (const e of entries) {
     const a = memberOf[e.author];
     ensure(40);
-    text(`No. ${String(e.seq).padStart(3, "0")}  —  ${a?.name ?? "—"}  ·  ${fmt(e.created_at)}${e.status ? "  [" + e.status + (e.status !== "approved" ? "" : ` ${e.approvals}/${form.approval_count}`) + "]" : ""}`, M, 10.5, "bold", accent);
+    const st = e.status ? "  [" + tr(ST[e.status] ?? L(e.status, e.status)) + (e.status !== "approved" ? "" : ` ${e.approvals}/${form.approval_count}`) + "]" : "";
+    text(`${tr(L("No.", "Nº"))} ${String(e.seq).padStart(3, "0")}  —  ${a?.name ?? "—"}  ·  ${fmt(e.created_at, lang)}${st}`, M, 10.5, "bold", accent);
     const keys = [...labels, ...Object.keys(e.values ?? {}).filter((k) => !labels.includes(k))];
-    for (const k of keys) { if (e.values?.[k] == null || e.values?.[k] === "") continue; text(`${k}:`, M + 6, 8.5, "bold", faint); text(String(e.values[k]), M + 12, 10); }
-    for (const c of e.comments ?? []) { const ca = memberOf[c.author]; text(`↳ ${ca?.name ?? "—"} (${fmt(c.created_at)}): ${c.body}`, M + 12, 9, "italic", ink); }
+    for (const k of keys) {
+      if (e.values?.[k] == null || e.values?.[k] === "") continue;
+      const fd = byLabel[k];
+      text(`${fd ? flabel(fd, lang) : k}:`, M + 6, 8.5, "bold", faint);
+      text(fd?.type === "select" ? foption(fd, String(e.values[k]), lang) : String(e.values[k]), M + 12, 10);
+    }
+    for (const c of e.comments ?? []) { const ca = memberOf[c.author]; text(`↳ ${ca?.name ?? "—"} (${fmt(c.created_at, lang)}): ${c.body}`, M + 12, 9, "italic", ink); }
     y += 8;
   }
 
   // Page numbers
   const pages = doc.internal.getNumberOfPages();
-  for (let i = 1; i <= pages; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(faint[0], faint[1], faint[2]); doc.text(`Page ${i} / ${pages}`, W - M, H - 20, { align: "right" }); }
+  for (let i = 1; i <= pages; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(faint[0], faint[1], faint[2]); doc.text(`${tr(L("Page", "Page"))} ${i} / ${pages}`, W - M, H - 20, { align: "right" }); }
   return doc;
 }
 
@@ -82,7 +104,8 @@ export function pdfFilename(form: CfFormFull) {
 // Election results PDF — "Certificate + Ledger" (Design C): certified header, a winner-featured block
 // per position (crown + For/Against/net chips + runners-up), a full tabulation of every candidate,
 // then the members' vote reasons. `eligible` = number of members entitled to vote (roster size).
-export async function buildElectionPdf(formName: string, el: CfElection, eligible?: number) {
+export async function buildElectionPdf(formName: string, el: CfElection, eligible?: number, lang: PdfLang = "en") {
+  const tr = T9N(lang);
   const JsPDF = await ensureJsPDF();
   const doc = new JsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
@@ -102,7 +125,7 @@ export async function buildElectionPdf(formName: string, el: CfElection, eligibl
 
   const positions = el.positions.length ? el.positions : Array.from(new Set(el.candidates.map((c) => c.position)));
   const votesCast = el.candidates.reduce((s, c) => s + c.for + c.against, 0);
-  const when = el.closed_at ? fmt(el.closed_at) : fmt(new Date().toISOString());
+  const when = el.closed_at ? fmt(el.closed_at, lang) : fmt(new Date().toISOString(), lang);
 
   // chip: soft-filled rounded pill with coloured text; returns its width. Anchored at right edge rx.
   const chipRight = (label: string, rx: number, cy: number, bg: number[], fg: number[]) => {
@@ -128,12 +151,17 @@ export async function buildElectionPdf(formName: string, el: CfElection, eligibl
   setCol([255, 255, 255]); doc.text("Q", gx + 11, y + 16, { align: "center" });
   setCol(ink); doc.text("Quorly", gx + 30, y + 16);
   y += 40;
-  T("CERTIFIED ELECTION RESULTS", cx, 9, "bold", gold, { align: "center", charSpace: 2.4 }); y += 22;
+  T(tr(L("CERTIFIED ELECTION RESULTS", "RÉSULTATS D'ÉLECTION CERTIFIÉS")), cx, 9, "bold", gold, { align: "center", charSpace: 2.4 }); y += 22;
   T(formName, cx, 26, "bold", ink, { align: "center", font: "times" }); y += 22;
-  const metaBits = [`Overseen by ${el.closed_by || "the admin"}`, `closed ${when}`, `${positions.length} position${positions.length === 1 ? "" : "s"}`,
-    `${el.candidates.length} candidate${el.candidates.length === 1 ? "" : "s"}`];
-  if (eligible != null) metaBits.push(`${eligible} member${eligible === 1 ? "" : "s"}`);
-  metaBits.push(`${votesCast} vote${votesCast === 1 ? "" : "s"}`);
+  const plural = (n: number, en: string, fr: string) => tr(L(`${n} ${en}${n === 1 ? "" : "s"}`, `${n} ${fr}${n === 1 ? "" : "s"}`));
+  const metaBits = [
+    tr(L(`Overseen by ${el.closed_by || "the admin"}`, `Supervisée par ${el.closed_by || "l'admin"}`)),
+    tr(L(`closed ${when}`, `clôturée le ${when}`)),
+    plural(positions.length, "position", "poste"),
+    plural(el.candidates.length, "candidate", "candidat"),
+  ];
+  if (eligible != null) metaBits.push(plural(eligible, "member", "membre"));
+  metaBits.push(plural(votesCast, "vote", "vote"));
   doc.setFont("helvetica", "normal"); doc.setFontSize(9.5); setCol(faint);
   for (const ln of doc.splitTextToSize(metaBits.join("  ·  "), W - 2 * M)) { doc.text(ln, cx, y, { align: "center" }); y += 13; }
   y += 6;
@@ -149,9 +177,9 @@ export async function buildElectionPdf(formName: string, el: CfElection, eligibl
     setFill(cardBg); setDraw(line); doc.roundedRect(M, top, W - 2 * M, cardH, 12, 12, "FD");
     y = top + 24;
     T(pos.toUpperCase(), M + 18, 11, "bold", accent, { charSpace: 1 });
-    T(`${cands.length} candidate${cands.length === 1 ? "" : "s"} · ${posVotes} votes`, W - M - 18, 9, "normal", faint, { align: "right" });
+    T(`${plural(cands.length, "candidate", "candidat")} · ${plural(posVotes, "vote", "vote")}`, W - M - 18, 9, "normal", faint, { align: "right" });
     y += 12;
-    if (cands.length === 0) { T("No candidates declared.", M + 18, 10, "italic", faint, {}); y = top + cardH + 12; continue; }
+    if (cands.length === 0) { T(tr(L("No candidates declared.", "Aucune candidature déclarée.")), M + 18, 10, "italic", faint, {}); y = top + cardH + 12; continue; }
     // winner box
     const w0 = cands[0], wy = y, wh = 40;
     setFill(greenSoft); setDraw([216, 238, 223]); doc.roundedRect(M + 14, wy, W - 2 * M - 28, wh, 8, 8, "FD");
@@ -159,16 +187,16 @@ export async function buildElectionPdf(formName: string, el: CfElection, eligibl
     drawCrown(M + 28, midY - 1);
     doc.setFont("helvetica", "bold"); doc.setFontSize(15); setCol(ink); doc.text(w0.name, M + 54, midY);
     let rx = W - M - 26;
-    rx -= chipRight(`net ${net(w0.net)}`, rx, midY, indigoSoft, accent) + 6;
-    rx -= chipRight(`${w0.against} Against`, rx, midY, redSoft, red) + 6;
-    chipRight(`${w0.for} For`, rx, midY, greenSoft, green);
+    rx -= chipRight(`${tr(L("net", "net"))} ${net(w0.net)}`, rx, midY, indigoSoft, accent) + 6;
+    rx -= chipRight(`${w0.against} ${tr(L("Against", "Contre"))}`, rx, midY, redSoft, red) + 6;
+    chipRight(`${w0.for} ${tr(L("For", "Pour"))}`, rx, midY, greenSoft, green);
     y = wy + wh;
     // runners-up
     for (const c of cands.slice(1)) {
       y += 22;
       setDraw([243, 240, 232]); doc.line(M + 16, y - 15, W - M - 16, y - 15);
       T(c.name, M + 20, 12, "bold", [58, 55, 66], {});
-      T(`net ${net(c.net)}`, W - M - 20, 11, "normal", faint, { align: "right" });
+      T(`${tr(L("net", "net"))} ${net(c.net)}`, W - M - 20, 11, "normal", faint, { align: "right" });
       T(`${c.for} / ${c.against}`, W - M - 76, 11.5, "bold", [110, 107, 120], { align: "right" });
     }
     y = top + cardH + 12;
@@ -176,13 +204,13 @@ export async function buildElectionPdf(formName: string, el: CfElection, eligibl
 
   // ===== Full tabulation ledger =====
   ensure(60);
-  T("FULL TABULATION — EVERY CANDIDATE", M, 11, "bold", accent, { charSpace: .6 }); y += 10;
+  T(tr(L("FULL TABULATION — EVERY CANDIDATE", "DÉPOUILLEMENT COMPLET — TOUS LES CANDIDATS")), M, 11, "bold", accent, { charSpace: .6 }); y += 10;
   const colCand = 150, colFor = 372, colAg = 432, colTot = 492, colNet = W - M;
   const thead = () => {
     doc.setFont("helvetica", "bold"); doc.setFontSize(9); setCol(faint);
-    doc.text("POSITION", M, y); doc.text("CANDIDATE", colCand, y);
-    doc.text("FOR", colFor, y, { align: "right" }); doc.text("AGAINST", colAg, y, { align: "right" });
-    doc.text("TOTAL", colTot, y, { align: "right" }); doc.text("NET", colNet, y, { align: "right" });
+    doc.text(tr(L("POSITION", "POSTE")), M, y); doc.text(tr(L("CANDIDATE", "CANDIDAT")), colCand, y);
+    doc.text(tr(L("FOR", "POUR")), colFor, y, { align: "right" }); doc.text(tr(L("AGAINST", "CONTRE")), colAg, y, { align: "right" });
+    doc.text(tr(L("TOTAL", "TOTAL")), colTot, y, { align: "right" }); doc.text(tr(L("NET", "NET")), colNet, y, { align: "right" });
     y += 6; setDraw(line); doc.setLineWidth(1); doc.line(M, y, W - M, y); doc.setLineWidth(0.2); y += 14;
   };
   thead();
@@ -208,11 +236,11 @@ export async function buildElectionPdf(formName: string, el: CfElection, eligibl
   // ===== Vote reasons appendix =====
   if (el.reasons.length) {
     y += 12; ensure(30);
-    T("MEMBERS' REASONS", M, 11, "bold", accent, { charSpace: .6 }); y += 14;
+    T(tr(L("MEMBERS' REASONS", "MOTIFS DES MEMBRES")), M, 11, "bold", accent, { charSpace: .6 }); y += 14;
     for (const r of el.reasons) {
       ensure(16);
       doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); setCol(r.value === "for" ? green : red);
-      const tag = r.value === "for" ? "FOR " : "AGAINST ";
+      const tag = r.value === "for" ? tr(L("FOR ", "POUR ")) : tr(L("AGAINST ", "CONTRE "));
       doc.text(tag, M, y);
       const tw = doc.getTextWidth(tag);
       doc.setFont("helvetica", "normal"); setCol([58, 55, 66]);
@@ -225,60 +253,62 @@ export async function buildElectionPdf(formName: string, el: CfElection, eligibl
   const pages = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pages; i++) {
     doc.setPage(i); doc.setFont("helvetica", "normal"); doc.setFontSize(8); setCol(faint);
-    doc.text("Certified · Quorly", M, H - 20);
-    doc.text(`Page ${i} / ${pages}`, W - M, H - 20, { align: "right" });
+    doc.text(tr(L("Certified · Quorly", "Certifié · Quorly")), M, H - 20);
+    doc.text(`${tr(L("Page", "Page"))} ${i} / ${pages}`, W - M, H - 20, { align: "right" });
   }
   return doc;
 }
 
 // Receipts / expense report PDF — grouped by category with subtotals, tax total and grand total.
-export async function buildReceiptsPdf(formName: string, recs: CfReceipt[]) {
+export async function buildReceiptsPdf(formName: string, recs: CfReceipt[], lang: PdfLang = "en") {
+  const tr = T9N(lang);
   const JsPDF = await ensureJsPDF();
   const doc = new JsPDF({ unit: "pt", format: "a4" });
   const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
   const M = 40; let y = M;
   const ink = [28, 27, 25], faint = [140, 135, 128], accent = [47, 58, 163], line = [225, 220, 210];
   const cur = recs[0]?.currency || "CAD";
-  const fm = (n: number | null | undefined) => n == null ? "" : new Intl.NumberFormat("en-CA", { style: "currency", currency: cur }).format(n);
+  const fm = (n: number | null | undefined) => n == null ? "" : new Intl.NumberFormat(loc(lang), { style: "currency", currency: cur }).format(n);
   const setC = (c: number[]) => doc.setTextColor(c[0], c[1], c[2]);
   const ensure = (h: number) => { if (y + h > H - M) { doc.addPage(); y = M; } };
   const col = { merchant: M, date: 205, cat: 280, sub: 365, tax: 435, total: W - M };
 
   doc.setFillColor(accent[0], accent[1], accent[2]); doc.rect(0, 0, W, 7, "F");
   doc.setFont("helvetica", "bold"); doc.setFontSize(11); setC(accent); doc.text("Quorly", M, y + 12); y += 28;
-  doc.setFontSize(16); setC(ink); doc.text(`${formName} — Receipts`, M, y); y += 16;
+  doc.setFontSize(16); setC(ink); doc.text(`${formName} — ${tr(L("Receipts", "Reçus"))}`, M, y); y += 16;
   doc.setFont("helvetica", "normal"); doc.setFontSize(9); setC(faint);
-  doc.text(`Generated ${new Date().toLocaleDateString("en-CA", { year: "numeric", month: "short", day: "numeric" })} · ${recs.length} receipts`, M, y); y += 14;
+  const gen = new Date().toLocaleDateString(loc(lang), { year: "numeric", month: "short", day: "numeric" });
+  doc.text(tr(L(`Generated ${gen} · ${recs.length} receipts`, `Généré le ${gen} · ${recs.length} reçu(s)`)), M, y); y += 14;
   doc.setDrawColor(line[0], line[1], line[2]); doc.line(M, y, W - M, y); y += 14;
   const thead = () => {
     doc.setFont("helvetica", "bold"); doc.setFontSize(8); setC(faint);
-    doc.text("MERCHANT", col.merchant, y); doc.text("DATE", col.date, y); doc.text("CATEGORY", col.cat, y);
-    doc.text("SUBTOTAL", col.sub, y, { align: "right" }); doc.text("TAX", col.tax, y, { align: "right" }); doc.text("TOTAL", col.total, y, { align: "right" });
+    doc.text(tr(L("MERCHANT", "MARCHAND")), col.merchant, y); doc.text(tr(L("DATE", "DATE")), col.date, y); doc.text(tr(L("CATEGORY", "CATÉGORIE")), col.cat, y);
+    doc.text(tr(L("SUBTOTAL", "SOUS-TOTAL")), col.sub, y, { align: "right" }); doc.text(tr(L("TAX", "TAXE")), col.tax, y, { align: "right" }); doc.text(tr(L("TOTAL", "TOTAL")), col.total, y, { align: "right" });
     y += 6; doc.setDrawColor(line[0], line[1], line[2]); doc.line(M, y, W - M, y); y += 12;
   };
   thead();
   const byCat: Record<string, CfReceipt[]> = {}; recs.forEach((r) => { const c = r.category || "Other"; (byCat[c] = byCat[c] || []).push(r); });
   let grand = 0, taxT = 0;
   for (const c of Object.keys(byCat).sort()) {
-    ensure(28); doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); setC(ink); doc.text(c, M, y); y += 13;
+    ensure(28); doc.setFont("helvetica", "bold"); doc.setFontSize(9.5); setC(ink); doc.text(rcat(c, lang), M, y); y += 13;
     let catSum = 0;
     for (const r of byCat[c]) {
       ensure(16); doc.setFont("helvetica", "normal"); doc.setFontSize(9); setC(ink);
-      doc.text((r.merchant || "(unread)").slice(0, 32), col.merchant, y);
+      doc.text((r.merchant || tr(L("(unread)", "(non lu)"))).slice(0, 32), col.merchant, y);
       setC(faint); doc.text(r.purchase_date || "—", col.date, y); setC(ink);
-      doc.text((r.category || "Other"), col.cat, y);
+      doc.text(rcat(r.category, lang), col.cat, y);
       doc.text(fm(r.subtotal), col.sub, y, { align: "right" });
       doc.text(fm(r.tax), col.tax, y, { align: "right" });
       doc.setFont("helvetica", "bold"); doc.text(fm(r.total), col.total, y, { align: "right" }); doc.setFont("helvetica", "normal");
       y += 14; catSum += (r.total || 0); grand += (r.total || 0); taxT += (r.tax || 0);
     }
     ensure(16); doc.setFont("helvetica", "bold"); doc.setFontSize(8.5); setC(faint);
-    doc.text(`${c} subtotal`, col.cat, y); doc.text(fm(catSum), col.total, y, { align: "right" }); y += 18;
+    doc.text(tr(L(`${rcat(c, lang)} subtotal`, `Sous-total ${rcat(c, lang)}`)), col.cat, y); doc.text(fm(catSum), col.total, y, { align: "right" }); y += 18;
   }
   ensure(40); doc.setDrawColor(line[0], line[1], line[2]); doc.line(M, y, W - M, y); y += 16;
   doc.setFont("helvetica", "bold"); doc.setFontSize(11); setC(ink);
-  doc.text("Tax total", col.cat, y); doc.text(fm(taxT), col.total, y, { align: "right" }); y += 18;
+  doc.text(tr(L("Tax total", "Total des taxes")), col.cat, y); doc.text(fm(taxT), col.total, y, { align: "right" }); y += 18;
   doc.setFontSize(13); setC(accent);
-  doc.text("GRAND TOTAL", col.cat, y); doc.text(fm(grand), col.total, y, { align: "right" });
+  doc.text(tr(L("GRAND TOTAL", "TOTAL GÉNÉRAL")), col.cat, y); doc.text(fm(grand), col.total, y, { align: "right" });
   return doc;
 }

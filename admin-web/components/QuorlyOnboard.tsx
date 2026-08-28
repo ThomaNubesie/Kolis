@@ -5,13 +5,14 @@
 import { useEffect, useState } from "react";
 import { quorly as supabase } from "@/lib/quorly";
 import { cf } from "@/lib/cf";
+import { useLang } from "@/lib/i18n";
 
 const C = { paper: "#FAF8F4", ink: "#1C1B19", ink2: "#6B6863", faint: "#A8A29A", line: "#EAE4DA", accent: "#2F3AA3", accentSoft: "#EEEFF9", green: "#1F9D6B" };
 const L = (en: string, fr: string) => ({ en, fr });
 type Step = "email" | "phone" | "name" | "done";
 
-export default function QuorlyOnboard({ invitedEmail, invitedPhone, lang: langProp = "en", onDone }: { invitedEmail?: string; invitedPhone?: string; lang?: "en" | "fr"; onDone: (name: string) => void }) {
-  const [lang, setLang] = useState<"en" | "fr">(langProp);
+export default function QuorlyOnboard({ invitedEmail, invitedPhone, onDone }: { invitedEmail?: string; invitedPhone?: string; lang?: "en" | "fr"; onDone: (name: string) => void }) {
+  const { lang, setLang } = useLang();
   const tr = (o: { en: string; fr: string }) => o[lang];
   const [ready, setReady] = useState(false);
   const [narrow, setNarrow] = useState(false);

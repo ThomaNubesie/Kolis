@@ -7,7 +7,9 @@ const rpc = async (fn: string, args?: any) => {
   return data as any;
 };
 
-export type CfField = { id?: string; label: string; type: string; options?: string[]; required?: boolean };
+// `label` is the canonical key answers are stored under; `label_i18n` / `options_i18n` are
+// display-only translations seeded by a built-in template (null on admin-typed fields).
+export type CfField = { id?: string; label: string; type: string; options?: string[]; required?: boolean; label_i18n?: { en: string; fr: string } | null; options_i18n?: Record<string, { en: string; fr: string }> | null };
 export type CfMember = { id: string | null; name: string | null; color: string | null; role: string; status: string; contact: string | null; joined_at?: string | null };
 export type CfComment = { id: string; author: string; body: string; created_at: string };
 export type CfEntry = { id: string; seq: number; author: string; values: Record<string, any>; status: string | null; created_at: string; approvals: number; my_vote: string | null; comments: CfComment[] };
@@ -15,7 +17,7 @@ export type CfFormFull = { id: string; name: string; description: string; featur
 export type CfDownloadReq = { id: string; file_id: string; file_name: string; created_at: string; requester_name: string; requester_color: string | null };
 export type CfReceipt = { id: string; merchant: string | null; purchase_date: string | null; category: string | null; subtotal: number | null; tax: number | null; total: number | null; currency: string | null; image_path: string | null; aligns_with: string | null; status: "review" | "confirmed"; created_at: string; uploader_name: string; mine: boolean };
 export type ReceiptFields = { merchant?: string; date?: string; category?: string; subtotal?: number | null; tax?: number | null; total?: number | null; currency?: string };
-export type CfFormBrief = { id: string; name: string; description: string; features: Record<string, boolean>; is_admin: boolean; admin?: string | null; joined_at?: string | null; members: number };
+export type CfFormBrief = { id: string; name: string; description: string; features: Record<string, boolean>; is_admin: boolean; admin?: string | null; joined_at?: string | null; members: number; kind?: string; parent_id?: string | null; org_id?: string | null; group_name?: string | null };
 export type CfFile = { id: string; name: string; path: string; size: number | null; mime: string | null; is_final: boolean; request_id: string | null; created_at: string; uploader_name: string; uploader_color: string | null; request_label: string | null; mine: boolean; folder_id: string | null; version?: number; starred?: boolean; has_link?: boolean; deleted_at?: string | null; expires_at?: string | null; reminder_days?: number[]; encrypted?: boolean; enc_iv?: string | null; priority?: "urgent" | "important" | "normal" | null; approvals?: number; decided?: boolean };
 export type CfFilesView = "folder" | "all" | "shared" | "starred" | "deleted" | "expiring";
 export type CfFileActivity = { action: string; meta: any; created_at: string; actor_name: string; actor_color: string | null };
@@ -25,6 +27,16 @@ export type LostGuide = { title?: string; authority?: string; report?: string[];
 export type CfFolder = { id: string; name: string; parent_id: string | null; files: number; subfolders: number; color?: string | null; approvals?: number; decided?: boolean };
 export type CfShare = { id: string; token: string; has_password: boolean; expires_at: string | null; allow_download: boolean; revoked: boolean; views: number } | null;
 export type CfFileRequest = { id: string; label: string; required: boolean; created_at: string; fulfilled: number; total_members: number; mine: boolean };
+
+// ===== Organizations & departments =====
+// An ORGANIZATION is the container a group's whole life lives in; a DEPARTMENT
+// is a board inside it (minutes, motions, an election, the treasury). "Office"
+// is not a container — it is the post a person holds (CfOrgMember.title),
+// picked from the organization's officer_titles.
+export type CfOrg = { id: string; name: string; slug: string | null; org_type: string | null; color: string; legal_name: string | null; officer_titles: string[]; is_admin: boolean; my_title: string | null; members: number; invited: number; departments: number };
+export type CfDept = { id: string; name: string; description: string; group_name: string; kind: string; features: Record<string, boolean>; election_status: string | null; is_admin: boolean; members: number; entries: number; im_member: boolean };
+export type CfOrgTree = CfOrg & { description: string; departments: CfDept[]; error?: string };
+export type CfOrgMember = { member_id: string; id: string | null; name: string; contact: string | null; color: string | null; role: string; title: string | null; status: string; joined_at: string | null; departments: number };
 
 export type CfCandidate = { entry_id: string; author_id: string; name: string; position: string; running: string; plan: string; declared_at: string; for: number; against: number; net: number; my_vote: "for" | "against" | null; my_reason: string | null; winner: boolean };
 export type CfVoteReason = { entry_id: string; candidate: string; position: string; value: "for" | "against"; reason: string; voter: string; created_at: string };
@@ -36,9 +48,62 @@ export const cf = {
   setProfile: (name: string) => rpc("cf_set_profile", { p_name: name }),
   myForms: (): Promise<CfFormBrief[]> => rpc("cf_my_forms"),
   myVault: (): Promise<string> => rpc("cf_my_vault"),   // personal private document vault (a kind='personal' form)
-  mySpaces: (): Promise<{ id: string; name: string; is_admin: boolean; members: number; invited: number }[]> => rpc("cf_my_spaces"),
-  formMeta: (form: string): Promise<{ parent_id: string | null; parent_name: string | null; group_name: string | null; subform_count: number }> => rpc("cf_form_meta", { p_form: form }),
+  mySpaces: (): Promise<CfOrg[]> => rpc("cf_my_spaces"),   // legacy alias for myOrgs
+  formMeta: (form: string): Promise<{ kind: string; parent_id: string | null; parent_name: string | null; org_id: string | null; org_name: string | null; org_color: string | null; group_name: string | null; department_count: number; subform_count: number }> => rpc("cf_form_meta", { p_form: form }),
   subforms: (parent: string): Promise<{ id: string; name: string; group_name: string; is_admin: boolean; members: number; im_member: boolean }[]> => rpc("cf_subforms", { p_parent: parent }),
+
+  // ===== Organizations =====
+  myOrgs: (): Promise<CfOrg[]> => rpc("cf_my_orgs"),
+  // Anon-callable: resolves quorly.ca/o/<slug> to identity only (id, name,
+  // colour), so a signed-out visitor lands on a sign-in that carries the group's
+  // own branding. Returns { error: "not_found" } for an unknown handle.
+  orgBySlug: (slug: string): Promise<{ id: string; name: string; slug: string; color: string; org_type: string | null } | { error: string }> => rpc("cf_org_by_slug", { p_slug: slug }),
+  orgTree: (org: string): Promise<CfOrgTree> => rpc("cf_org_tree", { p_org: org }),
+  orgMembers: (org: string): Promise<CfOrgMember[]> => rpc("cf_org_members", { p_org: org }),
+  departments: (org: string): Promise<{ id: string; name: string; group_name: string; kind: string; is_admin: boolean; members: number; im_member: boolean }[]> => rpc("cf_departments", { p_org: org }),
+  // Take your seat in a department your organization already vouches for. Called
+  // on open, so a member never sees "not a member" for a board of their own group.
+  ensureMember: (form: string): Promise<{ ok: boolean; joined?: boolean; already?: boolean; error?: string }> => rpc("cf_ensure_member", { p_form: form }),
+
+  createOrg: async (p: {
+    name: string; orgType?: string | null; color?: string; slug?: string | null; legalName?: string | null;
+    titles?: string[]; departments?: any[]; invites?: { contact: string; title?: string; lang?: string }[]; adminName?: string;
+  }) => {
+    const res = await rpc("cf_create_org", {
+      p_name: p.name, p_org_type: p.orgType ?? null, p_color: p.color ?? "#2F3AA3",
+      p_slug: p.slug ?? null, p_legal_name: p.legalName ?? null, p_titles: p.titles ?? [],
+      p_departments: p.departments ?? [], p_invites: p.invites ?? [], p_admin_name: p.adminName ?? "",
+    });
+    if (res && res.ok === false) throw new Error(res.error || "Failed");
+    // cf_create_org only records the invites; deliver them the same way forms do.
+    if (res?.ok && res.org_id && (p.invites?.length ?? 0) > 0) res.delivery = await cf.sendInvites(res.org_id);
+    return res as { ok: boolean; org_id: string; slug: string; departments: { id: string; name: string; kind: string }[]; delivery?: any };
+  },
+
+  createDepartment: async (org: string, d: { name: string; group?: string | null; description?: string; features?: any; approval?: number; fields?: any[]; kind?: "department" | "election" }) => {
+    const res = await rpc("cf_create_department", {
+      p_org: org, p_name: d.name, p_group: d.group ?? null, p_description: d.description ?? "",
+      p_features: d.features ?? {}, p_approval: d.approval ?? 1, p_fields: d.fields ?? [], p_kind: d.kind ?? "department",
+    });
+    if (res && res.ok === false) throw new Error(res.error || "Failed");
+    return res as { ok: boolean; form_id: string; department_id: string };
+  },
+
+  // One invite per person, on the organization — membership reaches every
+  // department by ancestry, so this is one email, not one per board.
+  orgInvite: async (org: string, contact: string, title?: string | null, lang?: "en" | "fr") => {
+    const res = await rpc("cf_org_invite", { p_org: org, p_contact: contact, p_title: title ?? null, p_lang: lang ?? null });
+    if (res?.ok && res.token) {
+      const base = typeof window !== "undefined" ? window.location.origin : "";
+      try { const { data } = await supabase.functions.invoke("cf-invite-send", { body: { token: res.token, base_url: base } }); res.delivery = data; }
+      catch (e: any) { res.delivery = { ok: false, error: e?.message }; }
+    }
+    return res as { ok: boolean; token?: string; code?: string; error?: string; delivery?: any };
+  },
+
+  setMemberTitle: (member: string, title: string | null) => rpc("cf_set_member_title", { p_member: member, p_title: title ?? null }),
+  orgUpdate: (org: string, p: { name?: string; description?: string; color?: string; orgType?: string; legalName?: string; titles?: string[] }) =>
+    rpc("cf_org_update", { p_org: org, p_name: p.name ?? null, p_description: p.description ?? null, p_color: p.color ?? null, p_org_type: p.orgType ?? null, p_legal_name: p.legalName ?? null, p_titles: p.titles ?? null }),
   createSubform: async (parent: string, group: string, name: string) => {
     const res = await rpc("cf_create_subform", { p_parent: parent, p_group: group, p_name: name });
     if (res && res.ok === false) throw new Error(res.error || "Failed");
@@ -139,8 +204,11 @@ export const cf = {
     catch (e: any) { return { ok: false, error: e?.message ?? "send_failed" }; }
   },
   deleteForm: (form: string) => rpc("cf_delete_form", { p_form: form }),
-  invite: async (form: string, contact: string) => {
-    const res = await rpc("cf_invite", { p_form: form, p_contact: contact });
+  // The member's own language wins later (cf_profiles.lang); `lang` here only records what
+  // the admin was working in, so the very first email lands in a plausible language.
+  setLang: (lang: "en" | "fr") => rpc("cf_set_lang", { p_lang: lang }),
+  invite: async (form: string, contact: string, lang?: "en" | "fr") => {
+    const res = await rpc("cf_invite", { p_form: form, p_contact: contact, p_lang: lang ?? null });
     if (res?.ok && res.token) {
       const base = typeof window !== "undefined" ? window.location.origin : "";
       try { const { data } = await supabase.functions.invoke("cf-invite-send", { body: { token: res.token, base_url: base } }); res.delivery = data; } catch (e: any) { res.delivery = { ok: false, error: e?.message }; }
@@ -149,11 +217,11 @@ export const cf = {
   },
   // Invite several people at once: register each contact (cf_invite), then send all
   // newly-pending invites in a single cf-invite-send pass. Dedupes and trims input.
-  inviteMany: async (form: string, contacts: string[]) => {
+  inviteMany: async (form: string, contacts: string[], lang?: "en" | "fr") => {
     const cleaned = Array.from(new Set(contacts.map((c) => c.trim()).filter(Boolean)));
     const results: { contact: string; ok: boolean; error?: string }[] = [];
     for (const contact of cleaned) {
-      try { const r = await rpc("cf_invite", { p_form: form, p_contact: contact }); results.push({ contact, ok: r?.ok !== false, error: r?.ok === false ? r.error : undefined }); }
+      try { const r = await rpc("cf_invite", { p_form: form, p_contact: contact, p_lang: lang ?? null }); results.push({ contact, ok: r?.ok !== false, error: r?.ok === false ? r.error : undefined }); }
       catch (e: any) { results.push({ contact, ok: false, error: e?.message ?? "failed" }); }
     }
     let delivery: any = null;

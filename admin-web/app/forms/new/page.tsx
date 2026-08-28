@@ -5,13 +5,17 @@ import { useEffect, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { cf } from "@/lib/cf";
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
+import { useLang } from "@/lib/i18n";
 import { FilePlus, Wallet, Receipt, FileSpreadsheet, Gavel, NotebookPen, HardHat, UserCheck, Vote, CalendarDays, X } from "lucide-react";
 
 const COLORS = ["#3B6FE0", "#E4632A", "#1F9D6B", "#8A4FD0", "#C99A1E", "#D14D8B", "#2AA6B8", "#7A8340", "#D93A3A", "#6D28D9", "#0891B2", "#BE5D1E", "#3F8F3F", "#C2417E", "#5B7C99", "#8A6D3B"];
 const C = { paper: "#FAF8F4", panel: "#FFFFFF", ink: "#1C1B19", ink2: "#6B6863", faint: "#A8A29A", line: "#EAE4DA", line2: "#F1ECE3", accent: "#2F3AA3", accentSoft: "#EEEFF9" };
 
 type FType = "text" | "longtext" | "select" | "number" | "date" | "photo";
-type FieldRow = { id: number; label: string; type: FType; options: string };
+// `label`/`options` hold the CANONICAL values (what answers are keyed by). `i18n`/`optI18n`
+// are the translation sidecars a template seeded — they survive only while the admin leaves
+// that text alone; typing over it makes the field their own wording, in one language.
+type FieldRow = { id: number; label: string; type: FType; options: string; i18n?: { en: string; fr: string }; optI18n?: Record<string, { en: string; fr: string }> };
 type Feat = "fields" | "member_entries" | "voting" | "ai" | "translation" | "comments" | "photos";
 
 const L = (en: string, fr: string) => ({ en, fr });
@@ -30,7 +34,9 @@ const FTYPES: { v: FType; t: { en: string; fr: string } }[] = [
   { v: "date", t: L("Date", "Date") }, { v: "photo", t: L("Photo", "Photo") },
 ];
 
-type TF = { label: string; type: FType; options?: string };
+// A template field ships BOTH languages. `label.en` is the canonical key the answers are
+// stored under (cf_entries.values), `label.fr` is only ever displayed; same for each option.
+type TF = { label: { en: string; fr: string }; type: FType; options?: { en: string; fr: string }[] };
 type Tmpl = { id: string; t: { en: string; fr: string }; d: { en: string; fr: string }; Icon: any; color: string; feats: Partial<Record<Feat, boolean>>; approval?: number; fields: TF[] };
 const FEAT_BASE: Record<Feat, boolean> = { fields: false, member_entries: false, voting: false, ai: true, translation: true, comments: true, photos: false };
 const TEMPLATES: Tmpl[] = [
@@ -40,43 +46,43 @@ const TEMPLATES: Tmpl[] = [
   { id: "ledger", t: L("Financial ledger", "Registre financier"), Icon: Wallet, color: "#1F9D6B",
     d: L("Track shared money. Each entry is a transaction — date, description, category, money in/out — so a group can keep a running record of income and expenses together.", "Suivez l'argent commun. Chaque entrée est une transaction — date, description, catégorie, entrées/sorties — pour tenir ensemble un registre des revenus et dépenses."),
     feats: { fields: true, member_entries: true, comments: true }, fields: [
-    { label: "Date", type: "date" }, { label: "Description", type: "text" },
-    { label: "Category", type: "select", options: "Income,Expense,Transfer" },
-    { label: "Money in", type: "number" }, { label: "Money out", type: "number" }, { label: "Note", type: "longtext" } ] },
+    { label: L("Date", "Date"), type: "date" }, { label: L("Description", "Description"), type: "text" },
+    { label: L("Category", "Catégorie"), type: "select", options: [L("Income", "Revenu"), L("Expense", "Dépense"), L("Transfer", "Virement")] },
+    { label: L("Money in", "Entrées"), type: "number" }, { label: L("Money out", "Sorties"), type: "number" }, { label: L("Note", "Note"), type: "longtext" } ] },
   { id: "expense", t: L("Expense approval", "Approbation de dépense"), Icon: Receipt, color: "#E4632A",
     d: L("Submit expenses for sign-off. Members post an expense with a receipt photo; approvers vote to approve before it's marked cleared.", "Soumettez des dépenses pour approbation. Les membres publient une dépense avec photo du reçu; les approbateurs votent avant qu'elle soit validée."),
     feats: { fields: true, member_entries: true, voting: true, photos: true }, approval: 1, fields: [
-    { label: "Date", type: "date" }, { label: "Vendor", type: "text" }, { label: "Amount", type: "number" },
-    { label: "Category", type: "select", options: "Travel,Supplies,Meals,Software,Other" }, { label: "Receipt", type: "photo" }, { label: "Note", type: "longtext" } ] },
+    { label: L("Date", "Date"), type: "date" }, { label: L("Vendor", "Fournisseur"), type: "text" }, { label: L("Amount", "Montant"), type: "number" },
+    { label: L("Category", "Catégorie"), type: "select", options: [L("Travel", "Déplacements"), L("Supplies", "Fournitures"), L("Meals", "Repas"), L("Software", "Logiciels"), L("Other", "Autre")] }, { label: L("Receipt", "Reçu"), type: "photo" }, { label: L("Note", "Note"), type: "longtext" } ] },
   { id: "invoice", t: L("Invoice / payment log", "Registre de paiements"), Icon: FileSpreadsheet, color: "#2F3AA3",
     d: L("Follow invoices and payments. Log each invoice with client, amount, due date and status (Draft/Sent/Paid/Overdue) to see what's outstanding.", "Suivez factures et paiements. Enregistrez chaque facture — client, montant, échéance et statut (Brouillon/Envoyée/Payée/En retard) — pour voir les impayés."),
     feats: { fields: true, member_entries: true, voting: true }, approval: 1, fields: [
-    { label: "Invoice #", type: "text" }, { label: "Client", type: "text" }, { label: "Amount", type: "number" },
-    { label: "Due date", type: "date" }, { label: "Status", type: "select", options: "Draft,Sent,Paid,Overdue" }, { label: "Note", type: "longtext" } ] },
+    { label: L("Invoice #", "Facture n°"), type: "text" }, { label: L("Client", "Client"), type: "text" }, { label: L("Amount", "Montant"), type: "number" },
+    { label: L("Due date", "Échéance"), type: "date" }, { label: L("Status", "Statut"), type: "select", options: [L("Draft", "Brouillon"), L("Sent", "Envoyée"), L("Paid", "Payée"), L("Overdue", "En retard")] }, { label: L("Note", "Note"), type: "longtext" } ] },
   { id: "motions", t: L("Board motions", "Motions du conseil"), Icon: Gavel, color: "#8A4FD0",
     d: L("Run votes on decisions. Each entry is a motion with a mover and seconder; members vote and it's marked approved once it hits the threshold.", "Votez des décisions. Chaque entrée est une motion avec proposeur et second; les membres votent et elle est approuvée dès le seuil atteint."),
     feats: { fields: true, member_entries: true, voting: true }, approval: 2, fields: [
-    { label: "Motion", type: "longtext" }, { label: "Mover", type: "text" }, { label: "Seconder", type: "text" } ] },
+    { label: L("Motion", "Motion"), type: "longtext" }, { label: L("Mover", "Proposeur"), type: "text" }, { label: L("Seconder", "Second"), type: "text" } ] },
   { id: "minutes", t: L("Meeting minutes", "Procès-verbal"), Icon: NotebookPen, color: "#2AA6B8",
     d: L("Record what a meeting decided. Log each decision with an owner and due date; members can comment for clarifications. Export the minutes as a PDF.", "Consignez les décisions d'une réunion. Notez chaque décision avec responsable et échéance; les membres commentent. Exportez le procès-verbal en PDF."),
     feats: { fields: true, member_entries: true, comments: true }, fields: [
-    { label: "Decision", type: "longtext" }, { label: "Owner", type: "text" }, { label: "Due", type: "date" } ] },
+    { label: L("Decision", "Décision"), type: "longtext" }, { label: L("Owner", "Responsable"), type: "text" }, { label: L("Due", "Échéance"), type: "date" } ] },
   { id: "inspection", t: L("Site inspection", "Inspection de site"), Icon: HardHat, color: "#C99A1E",
     d: L("Log findings on site. Each entry captures location, severity, a description and a photo; approve items to sign them off, then export a report.", "Consignez les constats sur site. Chaque entrée note le lieu, la gravité, une description et une photo; approuvez pour valider, puis exportez un rapport."),
     feats: { fields: true, member_entries: true, voting: true, photos: true }, approval: 1, fields: [
-    { label: "Location", type: "text" }, { label: "Severity", type: "select", options: "Low,Medium,High" }, { label: "Finding", type: "longtext" }, { label: "Photo", type: "photo" } ] },
+    { label: L("Location", "Lieu"), type: "text" }, { label: L("Severity", "Gravité"), type: "select", options: [L("Low", "Faible"), L("Medium", "Moyenne"), L("High", "Élevée")] }, { label: L("Finding", "Constat"), type: "longtext" }, { label: L("Photo", "Photo"), type: "photo" } ] },
   { id: "hiring", t: L("Hiring scorecard", "Évaluation d'embauche"), Icon: UserCheck, color: "#D14D8B",
     d: L("Evaluate candidates as a panel. Each interviewer posts a rating with strengths and concerns; the panel votes and you export a summary.", "Évaluez des candidats en comité. Chaque intervieweur publie une note avec forces et réserves; le comité vote et vous exportez un résumé."),
     feats: { fields: true, member_entries: true, voting: true }, approval: 2, fields: [
-    { label: "Candidate", type: "text" }, { label: "Role", type: "text" }, { label: "Rating", type: "select", options: "1,2,3,4,5" }, { label: "Strengths", type: "longtext" }, { label: "Concerns", type: "longtext" } ] },
+    { label: L("Candidate", "Candidat"), type: "text" }, { label: L("Role", "Poste"), type: "text" }, { label: L("Rating", "Note"), type: "select", options: [L("1", "1"), L("2", "2"), L("3", "3"), L("4", "4"), L("5", "5")] }, { label: L("Strengths", "Forces"), type: "longtext" }, { label: L("Concerns", "Réserves"), type: "longtext" } ] },
   { id: "picks", t: L("Group picks / vote", "Choix du groupe"), Icon: Vote, color: "#0891B2",
     d: L("Let the group choose. Members propose options (a book, a place, a date) with a reason; everyone votes and the winner rises to the top.", "Laissez le groupe choisir. Les membres proposent des options (un livre, un lieu, une date) avec une raison; tout le monde vote et le gagnant ressort."),
     feats: { fields: true, member_entries: true, voting: true }, approval: 3, fields: [
-    { label: "Title", type: "text" }, { label: "Why", type: "longtext" } ] },
+    { label: L("Title", "Titre"), type: "text" }, { label: L("Why", "Pourquoi"), type: "longtext" } ] },
   { id: "event", t: L("Event planning", "Organisation d'événement"), Icon: CalendarDays, color: "#BE5D1E",
     d: L("Coordinate an event. Track tasks with an owner, due date and status (To do/Doing/Done) so everyone sees who's doing what.", "Coordonnez un événement. Suivez les tâches avec responsable, échéance et statut (À faire/En cours/Terminé) pour voir qui fait quoi."),
     feats: { fields: true, member_entries: true, comments: true }, fields: [
-    { label: "Task", type: "text" }, { label: "Owner", type: "text" }, { label: "Due", type: "date" }, { label: "Status", type: "select", options: "To do,Doing,Done" } ] },
+    { label: L("Task", "Tâche"), type: "text" }, { label: L("Owner", "Responsable"), type: "text" }, { label: L("Due", "Échéance"), type: "date" }, { label: L("Status", "Statut"), type: "select", options: [L("To do", "À faire"), L("Doing", "En cours"), L("Done", "Terminé")] } ] },
 ];
 
 export default function NewFormPage() {
@@ -91,7 +97,7 @@ function NewFormInner() {
   const [allowed, setAllowed] = useState<boolean | null>(null);
   useEffect(() => { cf.canCreate().then(setAllowed).catch(() => setAllowed(false)); }, []);
   useEffect(() => { cf.myProfile().then((p) => { if (p?.name) setAdminName((n) => n || p.name!); }).catch(() => {}); }, []);
-  const [lang, setLang] = useState<"en" | "fr">("en");
+  const { lang, setLang } = useLang();
   const tr = (o: { en: string; fr: string }) => o[lang];
   const [name, setName] = useState("");
   const [adminName, setAdminName] = useState("");
@@ -115,7 +121,14 @@ function NewFormInner() {
     setTmplId(t.id);
     setFeats({ ...FEAT_BASE, ...t.feats });
     setApproval(t.approval ?? 2);
-    setFields(t.fields.length ? t.fields.map((f, i) => ({ id: i + 1, label: f.label, type: f.type, options: f.options ?? "" })) : [{ id: 1, label: "", type: "text", options: "" }]);
+    setFields(t.fields.length
+      ? t.fields.map((f, i) => ({
+          id: i + 1, label: f.label.en, type: f.type,
+          options: (f.options ?? []).map((o) => o.en).join(","),
+          i18n: f.label,
+          optI18n: f.options ? Object.fromEntries(f.options.map((o) => [o.en, o])) : undefined,
+        }))
+      : [{ id: 1, label: "", type: "text", options: "" }]);
     setName((n) => n || tr(t.t));
     setPreview(null);
   };
@@ -152,8 +165,8 @@ function NewFormInner() {
     try {
       const res = await cf.createForm({
         name: name.trim(), description: desc.trim(), features: feats, approval: feats.voting ? approval : 1, color, adminName: adminName.trim(),
-        fields: feats.fields ? fields.filter((f) => f.label.trim()).map((f) => ({ label: f.label.trim(), type: f.type, options: f.type === "select" ? f.options.split(",").map((s) => s.trim()).filter(Boolean) : [] })) : [],
-        invites: list.map((c) => ({ contact: c })),
+        fields: feats.fields ? fields.filter((f) => f.label.trim()).map((f) => ({ label: f.label.trim(), type: f.type, options: f.type === "select" ? f.options.split(",").map((s) => s.trim()).filter(Boolean) : [], label_i18n: f.i18n ?? null, options_i18n: f.type === "select" ? f.optI18n ?? null : null })) : [],
+        invites: list.map((c) => ({ contact: c, lang })),
         parent: parentId, group: parentId ? group.trim() : null,
       });
       if (res?.ok) {
@@ -161,7 +174,7 @@ function NewFormInner() {
         const d = res.delivery;
         if (d && d.ok === false && (d.failed?.length || d.error)) alert(tr(L("Form created, but some invites couldn't be delivered: ", "Formulaire créé, mais certaines invitations n'ont pu être envoyées : ")) + (d.failed?.map((f: any) => `${f.contact} (${f.error})`).join("; ") || d.error));
         router.push(`/forms?open=${res.form_id}`);
-      } else alert(res?.error || "Failed");
+      } else alert(tr(L("Something went wrong. Please try again.", "Une erreur est survenue. Veuillez réessayer.")));
     } catch (e: any) { alert(e.message); }
     creatingRef.current = false;
     setBusy(false);
@@ -184,7 +197,7 @@ function NewFormInner() {
           <span onClick={() => router.push("/forms")} title={tr(L("Back to home", "Retour à l'accueil"))} style={{ fontSize: 24, fontWeight: 800, color: C.ink, cursor: "pointer", lineHeight: 1 }}>‹</span>
           <div style={{ fontSize: 18, fontWeight: 800 }}>{tr(L("New form", "Nouveau formulaire"))}</div>
           <div style={{ marginLeft: "auto", display: "inline-flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
-            {(["en", "fr"] as const).map((l) => <span key={l} onClick={() => setLang(l)} style={{ padding: "5px 11px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", background: lang === l ? C.accent : "transparent", color: lang === l ? "#fff" : C.ink2 }}>{l.toUpperCase()}</span>)}
+            {(["en", "fr"] as const).map((l) => <span key={l} onClick={() => { setLang(l); cf.setLang(l).catch(() => {}); }} style={{ padding: "5px 11px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", background: lang === l ? C.accent : "transparent", color: lang === l ? "#fff" : C.ink2 }}>{l.toUpperCase()}</span>)}
           </div>
         </div>
 
@@ -261,13 +274,13 @@ function NewFormInner() {
                 {fields.map((f, i) => (
                   <div key={f.id} style={{ border: `1px solid ${C.line}`, borderRadius: 11, padding: 11, background: "#fff", display: "flex", flexDirection: "column", gap: 8 }}>
                     <div style={{ display: "flex", gap: 8 }}>
-                      <input value={f.label} onChange={(e) => setField(f.id, { label: e.target.value })} placeholder={tr(L(`Field ${i + 1} label`, `Libellé du champ ${i + 1}`))} style={{ ...inp, flex: 1 }} />
+                      <input value={f.i18n ? tr(f.i18n) : f.label} onChange={(e) => setField(f.id, { label: e.target.value, i18n: undefined })} placeholder={tr(L(`Field ${i + 1} label`, `Libellé du champ ${i + 1}`))} style={{ ...inp, flex: 1 }} />
                       <select value={f.type} onChange={(e) => setField(f.id, { type: e.target.value as FType })} style={{ ...inp, width: 130 }}>
                         {FTYPES.map((t) => <option key={t.v} value={t.v}>{tr(t.t)}</option>)}
                       </select>
                       <span onClick={() => rmField(f.id)} style={{ ...rnd, width: 38, color: "#B4531F" }}>✕</span>
                     </div>
-                    {f.type === "select" && <input value={f.options} onChange={(e) => setField(f.id, { options: e.target.value })} placeholder={tr(L("Options, comma-separated", "Options, séparées par des virgules"))} style={inp} />}
+                    {f.type === "select" && <input value={f.optI18n ? f.options.split(",").map((o) => tr(f.optI18n![o.trim()] ?? L(o, o))).join(",") : f.options} onChange={(e) => setField(f.id, { options: e.target.value, optI18n: undefined })} placeholder={tr(L("Options, comma-separated", "Options, séparées par des virgules"))} style={inp} />}
                   </div>
                 ))}
                 <div onClick={addField} style={{ border: `1px dashed ${C.line}`, borderRadius: 10, padding: 10, textAlign: "center", fontSize: 12.5, fontWeight: 700, color: C.accent, cursor: "pointer" }}>{tr(L("+ Add field", "+ Ajouter un champ"))}</div>
@@ -324,7 +337,7 @@ function NewFormInner() {
             <div style={{ padding: "12px 18px 2px" }}>
               <div style={lbl}>{tr(L("Includes", "Comprend"))}</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                {preview.fields.map((f) => <span key={f.label} style={{ fontSize: 11.5, fontWeight: 700, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, padding: "4px 10px", color: C.ink2 }}>{f.label}</span>)}
+                {preview.fields.map((f) => <span key={f.label.en} style={{ fontSize: 11.5, fontWeight: 700, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 999, padding: "4px 10px", color: C.ink2 }}>{tr(f.label)}</span>)}
                 {(Object.keys(preview.feats) as Feat[]).filter((k) => preview.feats[k] && (k === "voting" || k === "photos")).map((k) => <span key={k} style={{ fontSize: 11.5, fontWeight: 800, background: `${preview.color}14`, borderRadius: 999, padding: "4px 10px", color: preview.color }}>{k === "voting" ? tr(L("Voting / approval", "Vote / approbation")) : tr(L("Photos", "Photos"))}</span>)}
               </div>
             </div>

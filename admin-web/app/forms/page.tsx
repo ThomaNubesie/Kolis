@@ -5,15 +5,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { quorly as supabase } from "@/lib/quorly";
-import { cf, type CfFormBrief, type CfFormFull, type CfEntry, type CfFile, type CfFileRequest, type CfFolder, type CfShare, type CfFileActivity, type LostGuide, type CfDocComment, type CfDocDecision, type CfDownloadReq, type CfReceipt } from "@/lib/cf";
+import { useLang } from "@/lib/i18n";
+import { cf, type CfFormBrief, type CfFormFull, type CfEntry, type CfFile, type CfFileRequest, type CfFolder, type CfShare, type CfFileActivity, type LostGuide, type CfDocComment, type CfDocDecision, type CfDownloadReq, type CfReceipt, type CfOrg, type CfOrgTree } from "@/lib/cf";
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
 import { buildFormPdf, pdfFilename } from "@/lib/pdf";
 import ElectionPanel from "./ElectionPanel";
+import OrgHome from "./OrgHome";
 import { Folder, FolderPlus, Upload, Download, Eye, Link2, Clock, Pencil, FolderInput, Trash2, MoreVertical, ChevronRight, ChevronDown, X, Search, Home, Star, Share2, RotateCcw, List, LayoutGrid, Inbox, FileText, Lock, ShieldCheck, Send, CalendarClock, AlertTriangle, KeyRound, Users, LifeBuoy, ExternalLink, MapPin, MessageSquare, ThumbsUp, ThumbsDown, CheckCircle2, Receipt, Camera, Sparkles, Coins, Tag, Settings, PlusSquare } from "lucide-react";
 
+// Receipt categories. The English word is the STORED key (it lands in cf_receipts.category
+// and in the AI reader's output) — only the display label is translated.
 const RCAT = ["Meals", "Fuel", "Office", "Travel", "Lodging", "Supplies", "Groceries", "Utilities", "Medical", "Other"];
+const RCAT_FR: Record<string, string> = { Meals: "Repas", Fuel: "Carburant", Office: "Bureau", Travel: "Déplacements", Lodging: "Hébergement", Supplies: "Fournitures", Groceries: "Épicerie", Utilities: "Services publics", Medical: "Santé", Other: "Autre" };
+const rcat = (c: string | null | undefined, lang: string) => { const k = c || "Other"; return lang === "fr" ? (RCAT_FR[k] ?? k) : k; };
 const RCAT_COLOR: Record<string, string> = { Meals: "#C0392B", Fuel: "#1F7A4D", Office: "#2F3AA3", Travel: "#B4801F", Lodging: "#8A5A1F", Supplies: "#6B4FA3", Groceries: "#2F8F6B", Utilities: "#0EA5A5", Medical: "#D64545", Other: "#8A8378" };
-const money = (n: number | null | undefined, cur = "CAD") => n == null ? "—" : new Intl.NumberFormat("en-CA", { style: "currency", currency: cur || "CAD" }).format(n);
+const money = (n: number | null | undefined, cur = "CAD", lang = "en") => n == null ? "—" : new Intl.NumberFormat(lang === "fr" ? "fr-CA" : "en-CA", { style: "currency", currency: cur || "CAD" }).format(n);
 const isPdfPath = (p?: string | null) => !!p && p.toLowerCase().endsWith(".pdf");
 import { deriveKey, newSalt, makeCheck, verifyCheck, decryptToBlob } from "@/lib/e2e";
 
@@ -41,6 +47,41 @@ function expiryInfo(f: CfFile, tr: (o: any) => string) {
 
 const C = { paper: "#FAF8F4", panel: "#FFFFFF", ink: "#1C1B19", ink2: "#6B6863", faint: "#A8A29A", line: "#EAE4DA", line2: "#F1ECE3", accent: "#2F3AA3", accentSoft: "#EEEFF9", green: "#1F9D6B" };
 const L = (en: string, fr: string) => ({ en, fr });
+// The cf_* RPCs answer with machine codes ({ok:false, error:'not_admin'}). Never show one
+// raw — map it here so both languages get a sentence, and fall back to a generic line.
+const CF_ERR: Record<string, { en: string; fr: string }> = {
+  already_candidate: L("You're already running for a position in this election.", "Vous êtes déjà candidat·e à un poste de cette élection."),
+  already_invited: L("That email or phone is already on this form.", "Ce courriel ou téléphone est déjà sur ce formulaire."),
+  bad_value: L("That value isn't valid.", "Cette valeur n'est pas valide."),
+  color_taken: L("That colour is already taken — pick another.", "Cette couleur est déjà prise — choisissez-en une autre."),
+  comments_off: L("Comments are turned off on this form.", "Les commentaires sont désactivés sur ce formulaire."),
+  election_closed: L("This election is closed.", "Cette élection est terminée."),
+  entries_not_allowed: L("The admin hasn't allowed members to add entries.", "L'admin n'a pas autorisé les membres à ajouter des entrées."),
+  forbidden: L("You don't have access to that.", "Vous n'avez pas accès à cet élément."),
+  invalid_contact: L("Enter a valid email or phone.", "Entrez un courriel ou téléphone valide."),
+  invalid_or_used: L("That invite link is invalid or has already been used.", "Ce lien d'invitation est invalide ou déjà utilisé."),
+  invalid_code: L("That invite code isn't valid.", "Ce code d'invitation n'est pas valide."),
+  name_required: L("A name is required.", "Un nom est requis."),
+  no_candidate: L("No candidate found.", "Aucun candidat trouvé."),
+  no_invite: L("No invitation found for your account on this form.", "Aucune invitation trouvée pour votre compte sur ce formulaire."),
+  not_admin: L("Only the admin can do that.", "Seul l'admin peut faire cela."),
+  not_authed: L("Please sign in again.", "Veuillez vous reconnecter."),
+  not_author: L("Only the author can change this.", "Seul l'auteur peut modifier ceci."),
+  not_election: L("This sub-form isn't an election.", "Ce sous-formulaire n'est pas une élection."),
+  not_found: L("Not found.", "Introuvable."),
+  not_member: L("You're not a member of this form.", "Vous n'êtes pas membre de ce formulaire."),
+  not_parent_member: L("You must be a member of the organization first.", "Vous devez d'abord être membre de l'organisation."),
+  position_required: L("Choose a position.", "Choisissez un poste."),
+  reason_required: L("A reason is required.", "Une raison est requise."),
+  unknown_position: L("That position doesn't exist in this election.", "Ce poste n'existe pas dans cette élection."),
+  voting_off: L("Voting is turned off on this form.", "Le vote est désactivé sur ce formulaire."),
+};
+const cfErr = (code: any, tr: (o: { en: string; fr: string }) => string) =>
+  tr(CF_ERR[String(code ?? "")] ?? L("Something went wrong. Please try again.", "Une erreur est survenue. Veuillez réessayer."));
+// A field's label is the key its answers are stored under, so it never changes; when the
+// template seeded a translation, show that instead — the key underneath stays canonical.
+const flabel = (f: any, lang: string) => f?.label_i18n?.[lang] ?? f?.label ?? "";
+const foption = (f: any, o: string, lang: string) => f?.options_i18n?.[o]?.[lang] ?? o;
 const initials = (n?: string | null) => { if (!n) return "?"; const p = n.trim().split(/\s+/); return ((p[0]?.[0] ?? "") + (p[1]?.[0] ?? "")).toUpperCase(); };
 const fmt = (iso: string, lang: string) => { try { return new Date(iso).toLocaleString(lang === "fr" ? "fr-CA" : "en-CA", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); } catch { return iso; } };
 const fmtDate = (iso: string, lang: string) => { try { return new Date(iso).toLocaleDateString(lang === "fr" ? "fr-CA" : "en-CA", { year: "numeric", month: "short", day: "numeric" }); } catch { return iso; } };
@@ -54,7 +95,7 @@ function FormsInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const mobile = useMobile();
-  const [lang, setLang] = useState<"en" | "fr">("en");
+  const { lang, setLang } = useLang();   // shared + persisted, so the choice follows the member across screens
   const tr = (o: { en: string; fr: string }) => o[lang];
   const [list, setList] = useState<CfFormBrief[]>([]);
   const [sel, setSel] = useState<string | null>(null);
@@ -69,11 +110,25 @@ function FormsInner() {
   const [vaultId, setVaultId] = useState<string | null>(null);
   const [vaultBusy, setVaultBusy] = useState(false);
   const [show2fa, setShow2fa] = useState(false);
-  const [spaces, setSpaces] = useState<{ id: string; name: string; is_admin: boolean; members: number; invited: number }[]>([]);
+  // An ORGANIZATION is the container the group's whole life lives in; its
+  // DEPARTMENTS are the boards inside it. `tree` is the whole left rail in one
+  // round trip (cf_org_tree), so switching organizations is a single call.
+  const [orgs, setOrgs] = useState<CfOrg[]>([]);
+  const [activeOrg, setActiveOrg] = useState<string | null>(null);
+  const [tree, setTree] = useState<CfOrgTree | null>(null);
+  const [orgSwitch, setOrgSwitch] = useState(false);
+  const [orgTab, setOrgTab] = useState<"home" | "members" | "documents" | "settings">("home");
   const [newSpace, setNewSpace] = useState(false);
   const isVault = !!sel && sel === vaultId;
-  const isSpace = !!sel && spaces.some((s) => s.id === sel);
-  const loadSpaces = useCallback(() => { cf.mySpaces().then(setSpaces).catch(() => {}); }, []);
+  const isOrg = !!sel && orgs.some((o) => o.id === sel);
+  const spaces = orgs;          // legacy alias — the shared-folder call sites below
+  const isSpace = isOrg;
+  const loadSpaces = useCallback(() => {
+    cf.myOrgs().then((o) => { setOrgs(o); setActiveOrg((a) => (a && o.some((x) => x.id === a) ? a : o[0]?.id ?? null)); }).catch(() => {});
+  }, []);
+  const loadTree = useCallback((id: string) => {
+    cf.orgTree(id).then((t) => setTree(t && !(t as any).error ? t : null)).catch(() => setTree(null));
+  }, []);
   const openVault = async () => {
     setVaultBusy(true);
     try { const id = await cf.myVault(); setVaultId(id); setSel(id); } catch (e: any) { alert(e.message); }
@@ -93,8 +148,20 @@ function FormsInner() {
   const loadForm = useCallback(async (id: string) => {
     try { const [f, e] = await Promise.all([cf.form(id), cf.entries(id)]); setForm(f); setEntries(e); } catch (e: any) { setErr(e.message); }
   }, []);
-  useEffect(() => { if (!sel) return; setTab((sel === vaultId || spaces.some((s) => s.id === sel)) ? "folders" : "entries"); loadForm(sel); const ch = cf.subscribe(sel, () => cf.entries(sel).then(setEntries).catch(() => {})); return () => { ch.unsubscribe(); }; }, [sel, vaultId, spaces, loadForm]);
-  useEffect(() => { if (sel) cf.formMeta(sel).then(setMeta).catch(() => setMeta(null)); else setMeta(null); }, [sel]);
+  useEffect(() => { if (activeOrg) loadTree(activeOrg); else setTree(null); }, [activeOrg, loadTree]);
+  useEffect(() => {
+    if (!sel) return;
+    setTab((sel === vaultId || orgs.some((o) => o.id === sel)) ? "folders" : "entries");
+    // Take our seat first: a member of the organization is entitled to every
+    // department in it, but the row is only materialised when they open one.
+    (async () => { try { await cf.ensureMember(sel); } catch { /* not in an org — normal */ } loadForm(sel); })();
+    const ch = cf.subscribe(sel, () => cf.entries(sel).then(setEntries).catch(() => {}));
+    return () => { ch.unsubscribe(); };
+  }, [sel, vaultId, orgs, loadForm]);
+  useEffect(() => {
+    if (!sel) { setMeta(null); return; }
+    cf.formMeta(sel).then((m) => { setMeta(m); if (m?.org_id) setActiveOrg(m.org_id); }).catch(() => setMeta(null));
+  }, [sel]);
 
   if (loading) return <Shell><div style={{ padding: 40, color: C.faint }}>Loading…</div></Shell>;
   if (err) return <Shell><div style={{ padding: 40, color: "#B4531F" }}>{err}</div></Shell>;
@@ -107,7 +174,7 @@ function FormsInner() {
   };
   const langToggle = (
     <div style={{ display: "inline-flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
-      {(["en", "fr"] as const).map((l) => <span key={l} onClick={() => setLang(l)} style={{ padding: "5px 11px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", background: lang === l ? C.accent : "transparent", color: lang === l ? "#fff" : C.ink2 }}>{l.toUpperCase()}</span>)}
+      {(["en", "fr"] as const).map((l) => <span key={l} onClick={() => { setLang(l); cf.setLang(l).catch(() => {}); }} style={{ padding: "5px 11px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", background: lang === l ? C.accent : "transparent", color: lang === l ? "#fff" : C.ink2 }}>{l.toUpperCase()}</span>)}
     </div>
   );
 
@@ -139,24 +206,109 @@ function FormsInner() {
                 <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,.9)" }}>{tr(L("Upload private documents", "Téléverser des documents privés"))}</div>
               </div>
             </div>
-            {canCreate && <div style={{ background: C.panel, color: C.accent, border: `1px solid ${C.line}`, borderRadius: 11, padding: 11, textAlign: "center", fontSize: 13.5, fontWeight: 800, cursor: "pointer" }} onClick={() => router.push("/forms/new")}>{tr(L("+ New form", "+ Nouveau formulaire"))}</div>}
-            <JoinCode tr={tr} router={router} />
-            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: .9, textTransform: "uppercase", color: C.faint, padding: "6px 6px 2px" }}>{tr(L("Your forms", "Vos formulaires"))}</div>
-            {list.length === 0 && <div style={{ fontSize: 12.5, color: C.faint, padding: "6px" }}>{tr(L("No forms yet.", "Aucun formulaire."))}</div>}
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, overflow: "auto" }}>
-              {list.map((f) => (
-                <div key={f.id} onClick={() => setSel(f.id)} style={{ ...sItem(f.id === sel), flexDirection: "column", alignItems: "stretch", gap: 3, padding: "9px 10px" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.accent, flex: "0 0 auto" }} />
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+            {/* ===== ORGANIZATION SWITCHER ===== */}
+            {orgs.length > 0 && (() => {
+              const cur = orgs.find((o) => o.id === activeOrg) ?? orgs[0];
+              return (
+                <div style={{ position: "relative" }}>
+                  <div onClick={() => orgs.length > 1 ? setOrgSwitch((v) => !v) : setSel(cur.id)} style={{ display: "flex", alignItems: "center", gap: 9, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: "9px 11px", cursor: "pointer" }}>
+                    <span style={{ width: 26, height: 26, borderRadius: 7, background: cur.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 13, flex: "0 0 auto" }}>{(cur.name || "?").trim()[0]?.toUpperCase()}</span>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{cur.name}</div>
+                      {cur.my_title && <div style={{ fontSize: 10.5, color: C.faint, marginTop: 1 }}>{cur.my_title}</div>}
+                    </div>
+                    {orgs.length > 1 && <ChevronDown size={14} style={{ color: C.faint, flex: "0 0 auto" }} />}
                   </div>
-                  <div style={{ fontSize: 10.5, color: C.faint, paddingLeft: 15, lineHeight: 1.3 }}>
-                    {f.is_admin ? tr(L("You're admin", "Vous êtes admin")) : `${tr(L("Admin", "Admin"))}: ${f.admin ?? "—"}`}
-                    {f.joined_at ? ` · ${tr(L("joined", "rejoint"))} ${fmtDate(f.joined_at, lang)}` : ""}
-                  </div>
+                  {orgSwitch && (
+                    <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, boxShadow: "0 12px 30px rgba(0,0,0,.14)", padding: 5, zIndex: 30 }}>
+                      {orgs.map((o) => (
+                        <div key={o.id} onClick={() => { setActiveOrg(o.id); setOrgSwitch(false); setOrgTab("home"); setSel(o.id); }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 9px", borderRadius: 8, cursor: "pointer", background: o.id === activeOrg ? C.accentSoft : "transparent" }}>
+                          <span style={{ width: 22, height: 22, borderRadius: 6, background: o.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 11 }}>{(o.name || "?").trim()[0]?.toUpperCase()}</span>
+                          <span style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.name}</span>
+                        </div>
+                      ))}
+                      <div onClick={() => { setOrgSwitch(false); router.push("/forms/new-org"); }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 9px", borderRadius: 8, cursor: "pointer", color: C.accent, fontSize: 12.5, fontWeight: 800, borderTop: `1px solid ${C.line2}`, marginTop: 3 }}>
+                        <PlusSquare size={14} /> {tr(L("New organization", "Nouvelle organisation"))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })()}
+
+            {/* ===== ORGANIZATION ===== */}
+            {activeOrg && (
+              <>
+                <div style={railHead}>{tr(L("Organization", "Organisation"))}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {([["home", tr(L("Home", "Accueil")), <Home key="h" size={14} />],
+                     ["members", tr(L("Members", "Membres")), <Users key="m" size={14} />],
+                     ["documents", tr(L("Documents", "Documents")), <Folder key="d" size={14} />],
+                     ["settings", tr(L("Settings", "Paramètres")), <Settings key="s" size={14} />]] as const).map(([k, label, icon]) => (
+                    <div key={k} onClick={() => { setOrgTab(k as any); setSel(activeOrg); }} style={sItem(sel === activeOrg && orgTab === k)}>
+                      <span style={{ color: sel === activeOrg && orgTab === k ? C.accent : C.faint, display: "inline-flex" }}>{icon}</span>{label}
+                    </div>
+                  ))}
+                </div>
+
+                {/* ===== DEPARTMENTS ===== */}
+                <div style={{ ...railHead, display: "flex", alignItems: "center" }}>
+                  {tr(L("Departments", "Départements"))}
+                  {tree?.is_admin && <span onClick={() => router.push(`/forms/new?parent=${activeOrg}`)} title={tr(L("New department", "Nouveau département"))} style={{ marginLeft: "auto", color: C.accent, cursor: "pointer", display: "inline-flex" }}><PlusSquare size={14} /></span>}
+                </div>
+                {(tree?.departments?.length ?? 0) === 0 && <div style={{ fontSize: 12, color: C.faint, padding: "2px 6px 4px" }}>{tr(L("None yet — add the first one.", "Aucun — ajoutez le premier."))}</div>}
+                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                  {groupBy(tree?.departments ?? [], (d) => d.group_name || "").map(([g, items]) => (
+                    <div key={g || "_"}>
+                      {g && <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint, padding: "7px 8px 3px" }}>{g}</div>}
+                      {items.map((d) => (
+                        <div key={d.id} onClick={() => setSel(d.id)} style={{ ...sItem(d.id === sel), opacity: d.im_member || d.kind === "election" ? 1 : .72 }}>
+                          <span style={{ color: d.id === sel ? C.accent : C.faint, display: "inline-flex" }}>
+                            {d.kind === "election" ? <ThumbsUp size={14} /> : <FileText size={14} />}
+                          </span>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{d.name}</span>
+                          {d.kind === "election" && d.election_status === "open" && <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, flex: "0 0 auto" }} />}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* ===== PERSONAL BOARDS (no organization) ===== */}
+            {(() => {
+              const loose = list.filter((f) => !f.org_id && f.id !== vaultId && f.kind !== "org");
+              if (loose.length === 0 && orgs.length > 0) return null;
+              return (
+                <>
+                  <div style={railHead}>{orgs.length ? tr(L("Personal", "Personnel")) : tr(L("Your forms", "Vos formulaires"))}</div>
+                  {loose.length === 0 && <div style={{ fontSize: 12.5, color: C.faint, padding: "6px" }}>{tr(L("No forms yet.", "Aucun formulaire."))}</div>}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {loose.map((f) => (
+                      <div key={f.id} onClick={() => setSel(f.id)} style={{ ...sItem(f.id === sel), flexDirection: "column", alignItems: "stretch", gap: 3, padding: "9px 10px" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ width: 7, height: 7, borderRadius: "50%", background: C.accent, flex: "0 0 auto" }} />
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{f.name}</span>
+                        </div>
+                        <div style={{ fontSize: 10.5, color: C.faint, paddingLeft: 15, lineHeight: 1.3 }}>
+                          {f.is_admin ? tr(L("You're admin", "Vous êtes admin")) : `${tr(L("Admin", "Admin"))}: ${f.admin ?? "—"}`}
+                          {f.joined_at ? ` · ${tr(L("joined", "rejoint"))} ${fmtDate(f.joined_at, lang)}` : ""}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
+
+            {canCreate && (
+              <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+                <div style={{ flex: 1, background: C.accent, color: "#fff", border: 0, borderRadius: 11, padding: 11, textAlign: "center", fontSize: 13, fontWeight: 800, cursor: "pointer" }} onClick={() => router.push("/forms/new-org")}>{tr(L("+ Organization", "+ Organisation"))}</div>
+                <div style={{ flex: 1, background: C.panel, color: C.accent, border: `1px solid ${C.line}`, borderRadius: 11, padding: 11, textAlign: "center", fontSize: 13, fontWeight: 800, cursor: "pointer" }} onClick={() => router.push("/forms/new")}>{tr(L("+ Form", "+ Formulaire"))}</div>
+              </div>
+            )}
+            <JoinCode tr={tr} router={router} />
 
             <div onClick={() => setShow2fa(true)} style={{ marginTop: "auto", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, fontSize: 12, fontWeight: 800, color: C.accent, cursor: "pointer", padding: "10px 6px 6px", borderTop: `1px solid ${C.line}` }}><ShieldCheck size={14} /> {tr(L("Security & 2FA", "Sécurité & 2FA"))}</div>
             <div onClick={async () => { await supabase.auth.signOut({ scope: "local" }); }} style={{ textAlign: "center", fontSize: 12, fontWeight: 800, color: C.ink2, cursor: "pointer", padding: "4px 6px 4px" }}>{tr(L("Sign out", "Se déconnecter"))}</div>
@@ -183,7 +335,7 @@ function FormsInner() {
                 {isVault
                   ? <div style={{ fontSize: 11.5, color: C.faint, marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}><ShieldCheck size={13} style={{ color: C.green }} /> {tr(L("Private vault · only you can see these", "Coffre privé · vous seul y avez accès"))}</div>
                   : isSpace
-                  ? <div style={{ fontSize: 11.5, color: C.faint, marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}><Users size={12} style={{ color: "#6B4FA3" }} /> {tr(L("Shared folder", "Dossier partagé"))} · {form.members.filter((m) => m.status === "active").length} {tr(L("people", "personnes"))}{form.is_admin ? " · " + tr(L("You're admin", "Vous êtes admin")) : ""}</div>
+                  ? <div style={{ fontSize: 11.5, color: C.faint, marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}><Users size={12} style={{ color: "#6B4FA3" }} /> {tr(L("Organization", "Organisation"))} · {form.members.filter((m) => m.status === "active").length} {tr(L("people", "personnes"))}{form.is_admin ? " · " + tr(L("You're admin", "Vous êtes admin")) : ""}</div>
                   : <div style={{ fontSize: 11.5, color: C.faint, marginTop: 2 }}>{form.members.filter((m) => m.status === "active").length} {tr(L("members", "membres"))}{form.is_admin ? " · " + tr(L("You're admin", "Vous êtes admin")) : ""}</div>}
                 {!isVault && !isSpace && form.description && <div style={{ fontSize: 12, color: C.ink2, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: mobile ? 220 : 380 }}>{form.description}</div>}
               </div>
@@ -195,11 +347,11 @@ function FormsInner() {
             {!isVault && !isSpace && <div style={{ display: "flex", gap: 2, borderBottom: `1px solid ${C.line}`, padding: mobile ? "0 12px" : "0 22px", overflowX: "auto" }}>
               {(["entries", "folders", "files", "subforms", "receipts"] as const).map((k) => (
                 <div key={k} onClick={() => setTab(k)} style={{ padding: "10px 14px", fontSize: 13.5, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", color: tab === k ? C.accent : C.ink2, borderBottom: `2px solid ${tab === k ? C.accent : "transparent"}`, marginBottom: -1 }}>
-                  {k === "entries" ? tr(L("Entries", "Entrées")) : k === "folders" ? tr(L("Folders", "Dossiers")) : k === "files" ? tr(L("Files", "Fichiers")) : k === "receipts" ? tr(L("Receipts", "Reçus")) : <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>{tr(L("Sub-forms", "Sous-formulaires"))}{meta?.subform_count ? <span style={{ fontSize: 10.5, color: C.faint }}>{meta.subform_count}</span> : null}</span>}
+                  {k === "entries" ? tr(L("Entries", "Entrées")) : k === "folders" ? tr(L("Folders", "Dossiers")) : k === "files" ? tr(L("Files", "Fichiers")) : k === "receipts" ? tr(L("Receipts", "Reçus")) : <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>{tr(L("Departments", "Départements"))}{meta?.subform_count ? <span style={{ fontSize: 10.5, color: C.faint }}>{meta.subform_count}</span> : null}</span>}
                 </div>
               ))}
             </div>}
-            {(isVault || isSpace) && <div style={{ display: "flex", gap: 2, borderBottom: `1px solid ${C.line}`, padding: mobile ? "0 12px" : "0 22px" }}>
+            {isVault && <div style={{ display: "flex", gap: 2, borderBottom: `1px solid ${C.line}`, padding: mobile ? "0 12px" : "0 22px" }}>
               {(["folders", "files"] as const).map((k) => (
                 <div key={k} onClick={() => setTab(k)} style={{ padding: "10px 14px", fontSize: 13.5, fontWeight: 800, cursor: "pointer", color: tab === k ? C.accent : C.ink2, borderBottom: `2px solid ${tab === k ? C.accent : "transparent"}`, marginBottom: -1 }}>
                   {k === "folders" ? tr(L("Folders", "Dossiers")) : tr(L("Files", "Fichiers"))}
@@ -207,13 +359,22 @@ function FormsInner() {
               ))}
             </div>}
             <div style={{ padding: mobile ? "14px 16px" : "18px 22px", display: "flex", flexDirection: "column", gap: 16, overflow: "auto" }}>
-              {(!isVault && !isSpace && tab === "entries") ? (
+              {isOrg && orgTab === "documents" ? (
+                // The organization is itself a form, so its files live on it —
+                // this is where a documents-only group (a shared family folder,
+                // a bylaws archive) does all of its work.
+                <FilesPanel form={form} tr={tr} lang={lang} mobile={mobile} entries={entries} memberOf={memberOf} isVault={false} flat={false} />
+              ) : isOrg ? (
+                <OrgHome tree={tree} tab={orgTab as "home" | "members" | "settings"} setTab={setOrgTab} tr={tr} lang={lang} mobile={mobile}
+                  onOpen={(id: string) => setSel(id)}
+                  onChanged={() => { loadSpaces(); if (activeOrg) loadTree(activeOrg); cf.myForms().then(setList).catch(() => {}); }} />
+              ) : (!isVault && tab === "entries") ? (
                 (form.features as any)?.election ? (
                   <ElectionPanel form={form} tr={tr} lang={lang} mobile={mobile} />
                 ) : (
                 <>
-                  {form.is_admin && <PdfPanel form={form} entries={entries} memberOf={memberOf} tr={tr} />}
-                  <NewEntry form={form} tr={tr} mobile={mobile} onDone={() => sel && loadForm(sel)} />
+                  {form.is_admin && <PdfPanel form={form} entries={entries} memberOf={memberOf} tr={tr} lang={lang} />}
+                  <NewEntry form={form} tr={tr} lang={lang} mobile={mobile} onDone={() => sel && loadForm(sel)} />
                   {entries.map((e) => <EntryCard key={e.id} e={e} form={form!} lang={lang} tr={tr} mobile={mobile} memberOf={memberOf} reload={() => sel && cf.entries(sel).then(setEntries)} />)}
                   {entries.length === 0 && <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("No entries yet.", "Aucune entrée."))}</div>}
                 </>
@@ -227,10 +388,10 @@ function FormsInner() {
                   {isVault && tab === "folders" && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", fontSize: 11, fontWeight: 800, letterSpacing: .4, textTransform: "uppercase", color: C.faint }}>
-                        <Users size={13} style={{ marginRight: 6, color: "#6B4FA3" }} /> {tr(L("Shared folders", "Dossiers partagés"))}
-                        <span onClick={() => setNewSpace(true)} style={{ marginLeft: "auto", color: C.accent, cursor: "pointer", fontSize: 12, letterSpacing: 0, textTransform: "none", display: "inline-flex", alignItems: "center", gap: 4 }}><FolderPlus size={13} /> {tr(L("New shared folder", "Nouveau dossier partagé"))}</span>
+                        <Users size={13} style={{ marginRight: 6, color: "#6B4FA3" }} /> {tr(L("Organizations", "Organisations"))}
+                        <span onClick={() => router.push("/forms/new-org")} style={{ marginLeft: "auto", color: C.accent, cursor: "pointer", fontSize: 12, letterSpacing: 0, textTransform: "none", display: "inline-flex", alignItems: "center", gap: 4 }}><FolderPlus size={13} /> {tr(L("New organization", "Nouvelle organisation"))}</span>
                       </div>
-                      {spaces.length === 0 && <div style={{ fontSize: 12, color: C.faint }}>{tr(L("Share a folder to let family or a team upload & retrieve files.", "Partagez un dossier pour que votre famille ou équipe y dépose des fichiers."))}</div>}
+                      {spaces.length === 0 && <div style={{ fontSize: 12, color: C.faint }}>{tr(L("An organization holds your group's departments, members and documents in one place.", "Une organisation regroupe les départements, membres et documents de votre groupe."))}</div>}
                       {spaces.map((s) => (
                         <div key={s.id} onClick={() => setSel(s.id)} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "10px 13px", cursor: "pointer" }}>
                           <span style={{ width: 34, height: 34, borderRadius: 9, background: "#EFEAF7", color: "#6B4FA3", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}><Users size={17} /></span>
@@ -319,13 +480,13 @@ function Shell({ children }: { children: any }) {
   return <div style={{ background: C.paper, minHeight: "100vh", padding: 0 }}>{children}</div>;
 }
 
-function PdfPanel({ form, entries, memberOf, tr }: any) {
+function PdfPanel({ form, entries, memberOf, tr, lang }: any) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [extra, setExtra] = useState("");
   const memberEmails: string[] = (form.members ?? []).filter((m: any) => m.contact && String(m.contact).includes("@")).map((m: any) => m.contact);
   const [off, setOff] = useState<Record<string, boolean>>({});
-  const download = async () => { setBusy(true); try { const doc = await buildFormPdf(form, entries, memberOf); doc.save(pdfFilename(form)); } catch (e: any) { alert(e.message); } setBusy(false); };
+  const download = async () => { setBusy(true); try { const doc = await buildFormPdf(form, entries, memberOf, lang); doc.save(pdfFilename(form)); } catch (e: any) { alert(e.message); } setBusy(false); };
   const email = async () => {
     const chosen = memberEmails.filter((e) => !off[e]);
     const extras = extra.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
@@ -333,11 +494,11 @@ function PdfPanel({ form, entries, memberOf, tr }: any) {
     if (to.length === 0) { alert(tr(L("Add at least one recipient.", "Ajoutez au moins un destinataire."))); return; }
     setBusy(true);
     try {
-      const doc = await buildFormPdf(form, entries, memberOf);
+      const doc = await buildFormPdf(form, entries, memberOf, lang);
       const b64 = doc.output("datauristring").split(",")[1];
       const r = await cf.sendPdf(form.id, { filename: pdfFilename(form), pdf_base64: b64, recipients: to });
       if (r?.ok) { alert(tr(L(`Sent to ${r.sent} recipient(s).`, `Envoyé à ${r.sent} destinataire(s).`))); setOpen(false); }
-      else alert(r?.error || "Failed");
+      else alert(cfErr(r?.error, tr));
     } catch (e: any) { alert(e.message); }
     setBusy(false);
   };
@@ -566,7 +727,7 @@ function FilesPanel({ form, tr, lang, mobile, entries, memberOf, isVault, flat }
   const rename = async (f: CfFile) => { const n = window.prompt(tr(L("New name", "Nouveau nom")), f.name); if (n && n.trim() && n !== f.name) { try { await cf.fileRename(f.id, n.trim()); await load(); } catch (e: any) { alert(e.message); } } };
   const addReq = async () => { const l = window.prompt(tr(L("Request a file — what do you need? (e.g. Signed NDA)", "Demander un fichier — de quoi avez-vous besoin ? (ex. NDA signé)")) || ""); if (l && l.trim()) { try { await cf.fileRequestAdd(form.id, l.trim()); await load(); } catch (e: any) { alert(e.message); } } };
   const delReq = async (id: string) => { if (!confirm(tr(L("Delete this request?", "Supprimer cette demande ?")))) return; try { await cf.fileRequestDelete(id); await load(); } catch (e: any) { alert(e.message); } };
-  const saveFinal = async () => { setBusy(true); try { const doc = await buildFormPdf(form, entries, memberOf); const blob = doc.output("blob"); await cf.fileSavePdf(form.id, pdfFilename(form), blob); await load(); } catch (e: any) { alert(e.message); } setBusy(false); };
+  const saveFinal = async () => { setBusy(true); try { const doc = await buildFormPdf(form, entries, memberOf, lang); const blob = doc.output("blob"); await cf.fileSavePdf(form.id, pdfFilename(form), blob); await load(); } catch (e: any) { alert(e.message); } setBusy(false); };
   const newFolder = async () => { const n = window.prompt(tr(L("New folder name", "Nom du dossier"))); if (n && n.trim()) { try { await cf.folderAdd(form.id, n.trim(), cwd); await load(); } catch (e: any) { alert(e.message); } } };
   const renameFolder = async (d: CfFolder) => { const n = window.prompt(tr(L("Rename folder", "Renommer le dossier")), d.name); if (n && n.trim() && n !== d.name) { try { await cf.folderRename(d.id, n.trim()); await load(); } catch (e: any) { alert(e.message); } } };
   const delFolder = async (d: CfFolder) => { if (!confirm(tr(L(`Delete folder "${d.name}"? Files inside move back to the top level.`, `Supprimer le dossier « ${d.name} » ? Les fichiers reviennent au niveau supérieur.`)))) return; try { await cf.folderDelete(d.id); await load(); } catch (e: any) { alert(e.message); } };
@@ -850,7 +1011,7 @@ function FilesPanel({ form, tr, lang, mobile, entries, memberOf, isVault, flat }
 
 function ChevronUpTiny() { return <ChevronDown size={12} style={{ transform: "rotate(180deg)" }} />; }
 
-function ReceiptEditForm({ r, url, tr, onSave, onDelete, onOpen }: any) {
+function ReceiptEditForm({ r, url, tr, lang, onSave, onDelete, onOpen }: any) {
   const [merchant, setMerchant] = useState(r.merchant || ""); const [date, setDate] = useState(r.purchase_date || "");
   const [category, setCategory] = useState(r.category || "Other");
   const [subtotal, setSubtotal] = useState(r.subtotal ?? ""); const [tax, setTax] = useState(r.tax ?? ""); const [total, setTotal] = useState(r.total ?? "");
@@ -870,7 +1031,7 @@ function ReceiptEditForm({ r, url, tr, onSave, onDelete, onOpen }: any) {
         <div style={{ marginBottom: 8 }}><div style={lbl}>{tr(L("Merchant", "Marchand"))}</div><input value={merchant} onChange={(e) => setMerchant(e.target.value)} style={fld} /></div>
         <div style={{ display: "flex", gap: 8 }}>
           <div style={{ flex: 1, marginBottom: 8 }}><div style={lbl}>{tr(L("Date", "Date"))}</div><input type="date" value={date} onChange={(e) => setDate(e.target.value)} style={fld} /></div>
-          <div style={{ flex: 1, marginBottom: 8 }}><div style={lbl}>{tr(L("Category", "Catégorie"))}</div><select value={category} onChange={(e) => setCategory(e.target.value)} style={fld}>{RCAT.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
+          <div style={{ flex: 1, marginBottom: 8 }}><div style={lbl}>{tr(L("Category", "Catégorie"))}</div><select value={category} onChange={(e) => setCategory(e.target.value)} style={fld}>{RCAT.map((c) => <option key={c} value={c}>{rcat(c, lang)}</option>)}</select></div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <div style={{ flex: 1, marginBottom: 8 }}><div style={lbl}>{tr(L("Subtotal", "Sous-total"))}</div><input inputMode="decimal" value={subtotal} onChange={(e) => setSubtotal(e.target.value)} style={fld} /></div>
@@ -932,25 +1093,26 @@ function ReceiptsPanel({ form, tr, lang, mobile }: any) {
   const fname = (ext: string) => `${(form.name || "receipts").replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "")}-receipts.${ext}`;
   const exportCsv = () => {
     const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const lines = [["Merchant", "Date", "Category", "Subtotal", "Tax", "Total", "Currency", "Aligns with"].map(esc).join(",")];
-    recs.forEach((r) => lines.push([r.merchant, r.purchase_date, r.category, r.subtotal, r.tax, r.total, r.currency, r.aligns_with].map(esc).join(",")));
-    lines.push(""); lines.push(["", "", "Grand total", "", taxTotal.toFixed(2), grand.toFixed(2), cur, ""].map(esc).join(","));
+    const head = [L("Merchant", "Marchand"), L("Date", "Date"), L("Category", "Catégorie"), L("Subtotal", "Sous-total"), L("Tax", "Taxe"), L("Total", "Total"), L("Currency", "Devise"), L("Aligns with", "Rattaché à")].map(tr);
+    const lines = [head.map(esc).join(",")];
+    recs.forEach((r) => lines.push([r.merchant, r.purchase_date, rcat(r.category, lang), r.subtotal, r.tax, r.total, r.currency, r.aligns_with].map(esc).join(",")));
+    lines.push(""); lines.push(["", "", tr(L("Grand total", "Total général")), "", taxTotal.toFixed(2), grand.toFixed(2), cur, ""].map(esc).join(","));
     const blob = new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = fname("csv"); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
   };
-  const exportPdf = async () => { try { const { buildReceiptsPdf } = await import("@/lib/pdf"); const doc = await buildReceiptsPdf(form.name, recs); doc.save(fname("pdf")); } catch (e: any) { alert(e.message); } };
+  const exportPdf = async () => { try { const { buildReceiptsPdf } = await import("@/lib/pdf"); const doc = await buildReceiptsPdf(form.name, recs, lang); doc.save(fname("pdf")); } catch (e: any) { alert(e.message); } };
   const sendReport = async () => {
     const emails = emailTo.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean);
     if (!emails.length) { alert(tr(L("Enter at least one email.", "Entrez au moins un courriel."))); return; }
     setSending(true);
     try {
       const { buildReceiptsPdf } = await import("@/lib/pdf");
-      const doc = await buildReceiptsPdf(form.name, recs);
+      const doc = await buildReceiptsPdf(form.name, recs, lang);
       const b64 = doc.output("datauristring").split(",")[1];
-      const msg = emailMsg.trim() || tr(L(`Expense report — ${recs.length} receipts · grand total ${money(grand, cur)}.`, `Note de frais — ${recs.length} reçus · total ${money(grand, cur)}.`));
+      const msg = emailMsg.trim() || tr(L(`Expense report — ${recs.length} receipts · grand total ${money(grand, cur, lang)}.`, `Note de frais — ${recs.length} reçus · total ${money(grand, cur, lang)}.`));
       const r = await cf.sendPdf(form.id, { filename: fname("pdf"), pdf_base64: b64, recipients: emails, message: msg });
       if (r?.ok) { alert(tr(L(`Sent to ${r.sent} recipient(s).`, `Envoyé à ${r.sent} destinataire(s).`))); setEmailOpen(false); setEmailTo(""); setEmailMsg(""); }
-      else alert(r?.error || "Failed");
+      else alert(cfErr(r?.error, tr));
     } catch (e: any) { alert(e.message); }
     setSending(false);
   };
@@ -971,7 +1133,7 @@ function ReceiptsPanel({ form, tr, lang, mobile }: any) {
   const byCat: Record<string, number> = {}; recs.forEach((r) => { const c = r.category || "Other"; byCat[c] = (byCat[c] || 0) + (r.total || 0); });
   const cats = Object.keys(byCat).sort((a, b) => byCat[b] - byCat[a]);
   const cur = recs[0]?.currency || "CAD";
-  const chip = (c: string | null) => <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 20, background: (RCAT_COLOR[c || "Other"] || "#8A8378") + "22", color: RCAT_COLOR[c || "Other"] || "#8A8378" }}>{c || "Other"}</span>;
+  const chip = (c: string | null) => <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 20, background: (RCAT_COLOR[c || "Other"] || "#8A8378") + "22", color: RCAT_COLOR[c || "Other"] || "#8A8378" }}>{rcat(c, lang)}</span>;
   const seg: any = (v: string, label: string, Ic: any) => <span onClick={() => setView(v as any)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 999, fontSize: 12.5, fontWeight: 800, cursor: "pointer", border: `1px solid ${rview === v ? "#dfe1f4" : C.line}`, background: rview === v ? C.accentSoft : "#fff", color: rview === v ? C.accent : C.ink2 }}><Ic size={14} /> {label}</span>;
   const scanR = recs.find((r) => r.id === scanSel);
 
@@ -1006,17 +1168,17 @@ function ReceiptsPanel({ form, tr, lang, mobile }: any) {
       {/* LEDGER */}
       {rview === "ledger" && recs.length > 0 && <div>
         {cats.map((c) => <div key={c}>
-          <div style={{ display: "flex", fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: .4, color: C.faint, padding: "12px 6px 5px" }}>{c}<span style={{ marginLeft: "auto", color: C.ink, fontVariantNumeric: "tabular-nums" }}>{money(byCat[c], cur)}</span></div>
+          <div style={{ display: "flex", fontSize: 10.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: .4, color: C.faint, padding: "12px 6px 5px" }}>{rcat(c, lang)}<span style={{ marginLeft: "auto", color: C.ink, fontVariantNumeric: "tabular-nums" }}>{money(byCat[c], cur, lang)}</span></div>
           {recs.filter((r) => (r.category || "Other") === c).map((r) => (
             <div key={r.id} onClick={() => setEdit(r)} style={{ display: "grid", gridTemplateColumns: mobile ? "44px 1fr auto" : "48px 1fr 92px 96px", gap: 10, alignItems: "center", padding: "9px 6px", borderBottom: `1px solid ${C.line2}`, cursor: "pointer" }}>
               <div style={{ width: 44, height: 44, borderRadius: 8, overflow: "hidden", background: "#f3efe7", border: `1px solid ${C.line}`, display: "flex", alignItems: "center", justifyContent: "center" }}>{urls[r.id] && !isPdfPath(r.image_path) ? <img src={urls[r.id]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Receipt size={16} style={{ color: C.faint }} />}</div>
-              <div style={{ minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.merchant || tr(L("(unread)", "(non lu)"))} {r.status === "review" && <Sparkles size={11} style={{ color: "#6B4FA3", display: "inline", verticalAlign: "middle" }} />}</div><div style={{ fontSize: 11, color: C.faint }}>{r.tax != null ? tr(L("Tax", "Taxe")) + " " + money(r.tax, cur) : ""}{r.aligns_with ? " · " + r.aligns_with : ""}</div></div>
+              <div style={{ minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.merchant || tr(L("(unread)", "(non lu)"))} {r.status === "review" && <Sparkles size={11} style={{ color: "#6B4FA3", display: "inline", verticalAlign: "middle" }} />}</div><div style={{ fontSize: 11, color: C.faint }}>{r.tax != null ? tr(L("Tax", "Taxe")) + " " + money(r.tax, cur, lang) : ""}{r.aligns_with ? " · " + r.aligns_with : ""}</div></div>
               {!mobile && <div style={{ fontSize: 12, color: C.ink2 }}>{r.purchase_date || "—"}</div>}
-              <div style={{ textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money(r.total, cur)}</div>
+              <div style={{ textAlign: "right", fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money(r.total, cur, lang)}</div>
             </div>
           ))}
         </div>)}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, background: "#1C1B19", color: "#fff", borderRadius: 12, padding: "14px 18px", marginTop: 14 }}><Coins size={20} /><div style={{ fontWeight: 800, fontSize: 13 }}>{tr(L("Grand total", "Total général"))} · {recs.length}</div><div style={{ marginLeft: "auto", fontSize: 22, fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>{money(grand, cur)}</div></div>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, background: "#1C1B19", color: "#fff", borderRadius: 12, padding: "14px 18px", marginTop: 14 }}><Coins size={20} /><div style={{ fontWeight: 800, fontSize: 13 }}>{tr(L("Grand total", "Total général"))} · {recs.length}</div><div style={{ marginLeft: "auto", fontSize: 22, fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>{money(grand, cur, lang)}</div></div>
       </div>}
 
       {/* DASHBOARD */}
@@ -1024,18 +1186,18 @@ function ReceiptsPanel({ form, tr, lang, mobile }: any) {
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: .4, color: C.faint }}>{tr(L("Grand total", "Total général"))}</div>
-            <div style={{ fontSize: 30, fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>{money(grand, cur)}</div>
+            <div style={{ fontSize: 30, fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>{money(grand, cur, lang)}</div>
             <div style={{ fontSize: 11.5, color: C.ink2 }}>{recs.length} {tr(L("receipts", "reçus"))}</div>
             <div style={{ height: 1, background: C.line, margin: "12px 0" }} />
-            {cats.map((c) => <div key={c} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, padding: "5px 0" }}>{chip(c)}<div style={{ flex: 1, height: 7, borderRadius: 6, background: RCAT_COLOR[c] || "#8A8378", opacity: .85, maxWidth: `${grand ? (byCat[c] / grand) * 100 : 0}%`, minWidth: 6 }} /><span style={{ fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money(byCat[c], cur)}</span></div>)}
+            {cats.map((c) => <div key={c} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, padding: "5px 0" }}>{chip(c)}<div style={{ flex: 1, height: 7, borderRadius: 6, background: RCAT_COLOR[c] || "#8A8378", opacity: .85, maxWidth: `${grand ? (byCat[c] / grand) * 100 : 0}%`, minWidth: 6 }} /><span style={{ fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{money(byCat[c], cur, lang)}</span></div>)}
           </div>
-          <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 16, fontSize: 12, color: C.ink2 }}><b style={{ color: C.ink }}>{tr(L("Tax total", "Total des taxes"))}</b><div style={{ fontSize: 20, fontWeight: 900, fontVariantNumeric: "tabular-nums", marginTop: 2 }}>{money(taxTotal, cur)}</div></div>
+          <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 16, fontSize: 12, color: C.ink2 }}><b style={{ color: C.ink }}>{tr(L("Tax total", "Total des taxes"))}</b><div style={{ fontSize: 20, fontWeight: 900, fontVariantNumeric: "tabular-nums", marginTop: 2 }}>{money(taxTotal, cur, lang)}</div></div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 12, alignContent: "start" }}>
           {recs.map((r) => (
             <div key={r.id} onClick={() => setEdit(r)} style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 13, overflow: "hidden", cursor: "pointer" }}>
               <div style={{ height: 96, background: "#efeae0", display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>{urls[r.id] && !isPdfPath(r.image_path) ? <img src={urls[r.id]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Receipt size={24} style={{ color: "#c9c1b2" }} />}<span style={{ position: "absolute", top: 8, left: 8 }}>{chip(r.category)}</span></div>
-              <div style={{ padding: "10px 11px" }}><div style={{ fontWeight: 800, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.merchant || tr(L("(unread)", "(non lu)"))}</div><div style={{ fontSize: 11, color: C.faint }}>{r.purchase_date || "—"}</div><div style={{ fontSize: 16, fontWeight: 900, fontVariantNumeric: "tabular-nums", marginTop: 2 }}>{money(r.total, cur)}</div></div>
+              <div style={{ padding: "10px 11px" }}><div style={{ fontWeight: 800, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.merchant || tr(L("(unread)", "(non lu)"))}</div><div style={{ fontSize: 11, color: C.faint }}>{r.purchase_date || "—"}</div><div style={{ fontSize: 16, fontWeight: 900, fontVariantNumeric: "tabular-nums", marginTop: 2 }}>{money(r.total, cur, lang)}</div></div>
             </div>
           ))}
         </div>
@@ -1047,14 +1209,14 @@ function ReceiptsPanel({ form, tr, lang, mobile }: any) {
           {recs.map((r) => (
             <div key={r.id} onClick={() => setScanSel(r.id)} style={{ display: "flex", alignItems: "center", gap: 10, padding: 9, borderRadius: 10, cursor: "pointer", border: `1px solid ${scanSel === r.id ? "#dfe1f4" : "transparent"}`, background: scanSel === r.id ? C.accentSoft : "transparent" }}>
               <div style={{ width: 34, height: 34, borderRadius: 7, overflow: "hidden", background: "#f3efe7", border: `1px solid ${C.line}`, display: "flex", alignItems: "center", justifyContent: "center" }}>{urls[r.id] && !isPdfPath(r.image_path) ? <img src={urls[r.id]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Receipt size={14} style={{ color: C.faint }} />}</div>
-              <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.merchant || tr(L("(unread)", "(non lu)"))}</div><div style={{ fontSize: 10.5, color: C.faint }}>{money(r.total, cur)}</div></div>
+              <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 12.5, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.merchant || tr(L("(unread)", "(non lu)"))}</div><div style={{ fontSize: 10.5, color: C.faint }}>{money(r.total, cur, lang)}</div></div>
               <span style={{ fontSize: 9.5, fontWeight: 800, borderRadius: 20, padding: "1px 7px", background: r.status === "review" ? "#FBF1E0" : "#EAF6F0", color: r.status === "review" ? "#B4801F" : "#1F7A4D" }}>{r.status === "review" ? tr(L("review", "réviser")) : "✓"}</span>
             </div>
           ))}
-          <div style={{ display: "flex", alignItems: "center", gap: 12, background: "#1C1B19", color: "#fff", borderRadius: 12, padding: "11px 13px", marginTop: 12 }}><div style={{ fontWeight: 800, fontSize: 12 }}>{tr(L("Grand total", "Total général"))}</div><div style={{ marginLeft: "auto", fontSize: 18, fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>{money(grand, cur)}</div></div>
+          <div style={{ display: "flex", alignItems: "center", gap: 12, background: "#1C1B19", color: "#fff", borderRadius: 12, padding: "11px 13px", marginTop: 12 }}><div style={{ fontWeight: 800, fontSize: 12 }}>{tr(L("Grand total", "Total général"))}</div><div style={{ marginLeft: "auto", fontSize: 18, fontWeight: 900, fontVariantNumeric: "tabular-nums" }}>{money(grand, cur, lang)}</div></div>
         </div>
         <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 16 }}>
-          {scanR ? <ReceiptEditForm r={scanR} url={urls[scanR.id]} tr={tr} onSave={(p: any) => save(scanR, p)} onDelete={() => del(scanR)} onOpen={() => openOriginal(scanR)} /> : <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("Select a receipt.", "Sélectionnez un reçu."))}</div>}
+          {scanR ? <ReceiptEditForm r={scanR} url={urls[scanR.id]} tr={tr} lang={lang} onSave={(p: any) => save(scanR, p)} onDelete={() => del(scanR)} onOpen={() => openOriginal(scanR)} /> : <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("Select a receipt.", "Sélectionnez un reçu."))}</div>}
         </div>
       </div>}
 
@@ -1063,7 +1225,7 @@ function ReceiptsPanel({ form, tr, lang, mobile }: any) {
           <div style={{ fontSize: 15, fontWeight: 800, flex: 1, display: "flex", alignItems: "center", gap: 8 }}><Receipt size={17} style={{ color: C.accent }} /> {tr(L("Receipt", "Reçu"))}</div>
           <span onClick={() => setEdit(null)} style={{ color: C.faint, cursor: "pointer", display: "flex" }}><X size={18} /></span>
         </div>
-        <div style={{ padding: 16, overflow: "auto" }}><ReceiptEditForm r={edit} url={urls[edit.id]} tr={tr} onSave={async (p: any) => { await save(edit, p); setEdit(null); }} onDelete={() => del(edit)} onOpen={() => openOriginal(edit)} /></div>
+        <div style={{ padding: 16, overflow: "auto" }}><ReceiptEditForm r={edit} url={urls[edit.id]} tr={tr} lang={lang} onSave={async (p: any) => { await save(edit, p); setEdit(null); }} onDelete={() => del(edit)} onOpen={() => openOriginal(edit)} /></div>
       </>, () => setEdit(null), 560)}
 
       {emailOpen && modalShell(<>
@@ -1072,7 +1234,7 @@ function ReceiptsPanel({ form, tr, lang, mobile }: any) {
           <span onClick={() => setEmailOpen(false)} style={{ color: C.faint, cursor: "pointer", display: "flex" }}><X size={18} /></span>
         </div>
         <div style={{ padding: 16 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#F7F4EE", borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}><Coins size={16} style={{ color: C.accent }} /><div style={{ fontSize: 12.5 }}>{recs.length} {tr(L("receipts", "reçus"))} · <b>{money(grand, cur)}</b> · {tr(L("PDF attached", "PDF en pièce jointe"))}</div></div>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#F7F4EE", borderRadius: 10, padding: "10px 12px", marginBottom: 12 }}><Coins size={16} style={{ color: C.accent }} /><div style={{ fontSize: 12.5 }}>{recs.length} {tr(L("receipts", "reçus"))} · <b>{money(grand, cur, lang)}</b> · {tr(L("PDF attached", "PDF en pièce jointe"))}</div></div>
           <div style={railLbl}>{tr(L("To (emails)", "À (courriels)"))}</div>
           <input value={emailTo} onChange={(e) => setEmailTo(e.target.value)} placeholder={tr(L("accountant@firm.ca, …", "comptable@…"))} style={{ ...inp, marginTop: 6 }} autoFocus />
           <div style={{ ...railLbl, marginTop: 12 }}>{tr(L("Message (optional)", "Message (optionnel)"))}</div>
@@ -1140,7 +1302,7 @@ function SubformsPanel({ form, tr, lang, onOpen }: any) {
   const createVote = async () => {
     const nm = voteName.trim(); if (!nm) return;
     try { const r = await cf.createVoteSubform(form.id, group, nm); setAddingVote(false); setVoteName(""); reload(); onOpen(r.form_id); }
-    catch (e: any) { alert(e?.message || "Failed"); }
+    catch (e: any) { alert(e?.message || cfErr(null, tr)); }
   };
   const groups: Record<string, any[]> = {};
   subs.forEach((s) => { const g = s.group_name || tr(L("General", "Général")); (groups[g] = groups[g] || []).push(s); });
@@ -1150,8 +1312,8 @@ function SubformsPanel({ form, tr, lang, onOpen }: any) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 12.5, color: C.ink2, flex: 1, minWidth: 160 }}>{tr(L("Group sub-forms by type — e.g. Leaders, Financial, Board. Each has its own members.", "Regroupez les sous-formulaires par type — ex. Direction, Finances, Conseil. Chacun a ses propres membres."))}</div>
-        {form.is_admin && <span style={{ ...abtn, background: C.accent, color: "#fff", borderColor: C.accent }} onClick={() => setAdding((a) => !a)}><FileText size={14} /> {tr(L("New sub-form", "Nouveau sous-formulaire"))}</span>}
+        <div style={{ fontSize: 12.5, color: C.ink2, flex: 1, minWidth: 160 }}>{tr(L("Group departments by type — e.g. Governance, Finance, Records. Each has its own members.", "Regroupez les départements par type — ex. Gouvernance, Finances, Registres. Chacun a ses propres membres."))}</div>
+        {form.is_admin && <span style={{ ...abtn, background: C.accent, color: "#fff", borderColor: C.accent }} onClick={() => setAdding((a) => !a)}><FileText size={14} /> {tr(L("New department", "Nouveau département"))}</span>}
         {(form.is_admin || myRole === "admin") && <span style={{ ...abtn, background: "#fff", color: C.accent, borderColor: C.accent }} onClick={() => setAddingVote((a) => !a)}><ThumbsUp size={14} /> {tr(L("New election", "Nouvelle élection"))}</span>}
       </div>
       {addingVote && <div style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 8, background: "#fff" }}>
@@ -1175,13 +1337,13 @@ function SubformsPanel({ form, tr, lang, onOpen }: any) {
           <div onClick={startNew} style={{ flex: 2, textAlign: "center", background: C.accent, color: "#fff", borderRadius: 9, padding: 10, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{tr(L("Continue — choose template & invite", "Continuer — modèle & invitations"))}</div>
         </div>
       </div>}
-      {subs.length === 0 && !adding && <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("No sub-forms yet.", "Aucun sous-formulaire."))}</div>}
+      {subs.length === 0 && !adding && <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("No departments yet.", "Aucun département."))}</div>}
       {Object.keys(groups).sort().map((g) => (
         <div key={g}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: .4, textTransform: "uppercase", color: C.faint, margin: "0 2px 6px" }}>{g}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {groups[g].map((s) => (
-              <div key={s.id} onClick={async () => { if (s.im_member) return onOpen(s.id); if (s.kind === "election") { try { const r = await cf.electionEnsureMember(s.id); if (r?.ok) return onOpen(s.id); } catch { /* fall through */ } } alert(tr(L("You're not a member of this sub-form. Ask its admin to invite you.", "Vous n'êtes pas membre de ce sous-formulaire. Demandez à son admin de vous inviter."))); }} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "11px 13px", cursor: "pointer", opacity: s.im_member || s.kind === "election" ? 1 : .6 }}>
+              <div key={s.id} onClick={async () => { if (s.im_member) return onOpen(s.id); if (s.kind === "election") { try { const r = await cf.electionEnsureMember(s.id); if (r?.ok) return onOpen(s.id); } catch { /* fall through */ } } alert(tr(L("You're not a member of this department. Ask its admin to invite you.", "Vous n'êtes pas membre de ce département. Demandez à son admin de vous inviter."))); }} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "11px 13px", cursor: "pointer", opacity: s.im_member || s.kind === "election" ? 1 : .6 }}>
                 <span style={{ width: 32, height: 32, borderRadius: 8, background: s.im_member || s.kind === "election" ? C.accentSoft : "#F0EEE9", color: s.im_member || s.kind === "election" ? C.accent : C.faint, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>{s.kind === "election" ? <ThumbsUp size={15} /> : s.im_member ? <FileText size={16} /> : <Lock size={15} />}</span>
                 <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}{s.kind === "election" ? <span style={{ fontSize: 10.5, fontWeight: 800, color: C.accent, background: C.accentSoft, borderRadius: 6, padding: "1px 6px", marginLeft: 6 }}>{tr(L("Election", "Élection"))}</span> : ""}</div><div style={{ fontSize: 11.5, color: C.faint }}>{s.members} {tr(L("members", "membres"))}{s.is_admin ? " · " + tr(L("admin", "admin")) : s.kind === "election" ? " · " + tr(L("open to all members", "ouvert à tous les membres")) : s.im_member ? "" : " · " + tr(L("not a member", "non membre"))}</div></div>
                 <ChevronRight size={16} style={{ color: C.faint }} />
@@ -1489,7 +1651,7 @@ function SaveFormModal({ vaultId, tr, lang, memberOf, onClose, onSaved }: any) {
     try {
       const [full, ents] = await Promise.all([cf.form(f.id), cf.entries(f.id)]);
       const mo: Record<string, any> = {}; (full.members ?? []).forEach((x: any) => { if (x.id) mo[x.id] = x; });
-      const doc = await buildFormPdf(full, ents, mo); const blob = doc.output("blob");
+      const doc = await buildFormPdf(full, ents, mo, lang); const blob = doc.output("blob");
       await cf.fileSavePdf(vaultId, pdfFilename(full), blob); onSaved();
     } catch (e: any) { alert(e.message); setBusy(null); }
   };
@@ -1829,7 +1991,7 @@ function FormEdit({ form, tr, isSpace, onSaved, onDeleted }: any) {
   ];
   const save = async () => {
     if (!n.trim()) return; setBusy(true);
-    try { const r = await cf.updateForm(form.id, n.trim(), d); if (r?.ok) { setOpen(false); onSaved(); } else alert(r?.error || "Failed"); }
+    try { const r = await cf.updateForm(form.id, n.trim(), d); if (r?.ok) { setOpen(false); onSaved(); } else alert(cfErr(r?.error, tr)); }
     catch (e: any) { alert(e.message); }
     setBusy(false);
   };
@@ -1916,7 +2078,7 @@ function MembersRail({ form, tr, lang, sel, loadForm }: any) {
           {form?.is_admin && m.role !== "admin" && m.id && <span onClick={() => remove(m)} title={tr(L("Remove", "Retirer"))} style={{ color: C.faint, cursor: "pointer", display: "flex", flex: "0 0 auto" }}><X size={15} /></span>}
         </div>
       ))}
-      {form?.is_admin && <Invite form={form.id} tr={tr} onDone={() => sel && loadForm(sel)} />}
+      {form?.is_admin && <Invite form={form.id} tr={tr} lang={lang} onDone={() => sel && loadForm(sel)} />}
     </>
   );
 }
@@ -1945,7 +2107,7 @@ function ResendLink({ form, contact, tr }: any) {
     setPick(false); if (busy) return; setBusy(true);
     const r = await cf.sendInvites(form, contact, channel); setBusy(false);
     if (r?.ok) alert(tr(L("Invite resent.", "Invitation renvoyée.")));
-    else alert(tr(L("Couldn't resend: ", "Échec du renvoi : ")) + (r?.failed?.[0]?.error || r?.error || "unknown"));
+    else alert(tr(L("Couldn't resend: ", "Échec du renvoi : ")) + cfErr(r?.failed?.[0]?.error || r?.error, tr));
   };
   if (busy) return <span style={{ marginLeft: "auto", fontSize: 10.5, fontWeight: 800, color: C.faint }}>…</span>;
   if (pick) return (
@@ -1958,7 +2120,7 @@ function ResendLink({ form, contact, tr }: any) {
   return <span onClick={() => setPick(true)} style={{ marginLeft: "auto", fontSize: 10.5, fontWeight: 800, color: C.accent, cursor: "pointer" }}>{tr(L("Resend", "Renvoyer"))}</span>;
 }
 
-function Invite({ form, tr, onDone }: any) {
+function Invite({ form, tr, lang, onDone }: any) {
   const [v, setV] = useState(""); const [busy, setBusy] = useState(false);
   // Accept many contacts at once: split on newline, comma, or semicolon.
   const list = v.split(/[,\n;]+/).map((s) => s.trim()).filter(Boolean);
@@ -1966,18 +2128,16 @@ function Invite({ form, tr, onDone }: any) {
     if (!list.length || busy) return; setBusy(true);
     try {
       if (list.length === 1) {
-        const r = await cf.invite(form, list[0]);
+        const r = await cf.invite(form, list[0], lang);
         if (r && r.ok === false) {
-          alert(r.error === "already_invited" ? tr(L("That email or phone is already on this form.", "Ce courriel ou téléphone est déjà sur ce formulaire."))
-            : r.error === "invalid_contact" ? tr(L("Enter a valid email or phone.", "Entrez un courriel ou téléphone valide."))
-            : (r.error || "Failed"));
+          alert(cfErr(r.error, tr));
         } else {
           const d = r?.delivery;
           if (d && d.ok === false) alert(tr(L("Member added, but the invite couldn't be delivered: ", "Membre ajouté, mais l'invitation n'a pu être envoyée : ")) + (d.failed?.[0]?.error || d.error || "unknown"));
           setV(""); onDone();
         }
       } else {
-        const r = await cf.inviteMany(form, list);
+        const r = await cf.inviteMany(form, list, lang);
         const parts: string[] = [];
         if (r.added) parts.push(tr(L(`${r.added} invited`, `${r.added} invité(s)`)));
         if (r.already) parts.push(tr(L(`${r.already} already on form`, `${r.already} déjà membre(s)`)));
@@ -2002,10 +2162,10 @@ function Invite({ form, tr, onDone }: any) {
   );
 }
 
-function NewEntry({ form, tr, onDone }: any) {
+function NewEntry({ form, tr, lang, onDone }: any) {
   const canPost = form.is_admin || form.features?.member_entries;
   // When the form defines no structured fields, give a single free-text "Note" area.
-  const fields = (form.features?.fields && (form.fields?.length ?? 0) > 0) ? form.fields : [{ id: "__note", label: "Note", type: "longtext" }];
+  const fields = (form.features?.fields && (form.fields?.length ?? 0) > 0) ? form.fields : [{ id: "__note", label: "Note", type: "longtext", label_i18n: { en: "Note", fr: "Note" } }];
   const [open, setOpen] = useState(false);
   const [vals, setVals] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
@@ -2014,7 +2174,7 @@ function NewEntry({ form, tr, onDone }: any) {
     setBusy(true);
     try {
       const r = await cf.addEntry(form.id, vals);
-      if (r && r.ok === false) alert(r.error === "entries_not_allowed" ? tr(L("The admin hasn't allowed members to add entries.", "L'admin n'a pas autorisé les membres à ajouter des entrées.")) : (r.error || "Failed"));
+      if (r && r.ok === false) alert(cfErr(r.error, tr));
       else { setVals({}); setOpen(false); onDone(); }
     } catch (e: any) { alert(e.message); }
     setBusy(false);
@@ -2025,9 +2185,9 @@ function NewEntry({ form, tr, onDone }: any) {
     <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
       {fields.map((f: any) => (
         <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint }}>{f.label}</span>
+          <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint }}>{flabel(f, lang)}</span>
           {f.type === "longtext" ? <textarea value={vals[f.label] ?? ""} onChange={(e) => setVals((v) => ({ ...v, [f.label]: e.target.value }))} style={{ ...inp, minHeight: 60 }} />
-            : f.type === "select" ? <select value={vals[f.label] ?? ""} onChange={(e) => setVals((v) => ({ ...v, [f.label]: e.target.value }))} style={inp}><option value="">—</option>{(f.options ?? []).map((o: string) => <option key={o} value={o}>{o}</option>)}</select>
+            : f.type === "select" ? <select value={vals[f.label] ?? ""} onChange={(e) => setVals((v) => ({ ...v, [f.label]: e.target.value }))} style={inp}><option value="">—</option>{(f.options ?? []).map((o: string) => <option key={o} value={o}>{foption(f, o, lang)}</option>)}</select>
             : <input type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"} value={vals[f.label] ?? ""} onChange={(e) => setVals((v) => ({ ...v, [f.label]: e.target.value }))} style={inp} />}
         </div>
       ))}
@@ -2062,8 +2222,8 @@ function EntryCard({ e, form, lang, tr, mobile, memberOf, reload }: any) {
           const all = [...defined, ...extras];
           return all.map((f: any) => (
             <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 2, gridColumn: f.type === "longtext" ? "1 / -1" : "auto" }}>
-              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint }}>{f.label}</span>
-              <span style={{ fontSize: 13, color: C.ink, fontWeight: f.type === "longtext" ? 500 : 600, whiteSpace: "pre-wrap" }}>{String(e.values?.[f.label] ?? "—")}</span>
+              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint }}>{flabel(f, lang)}</span>
+              <span style={{ fontSize: 13, color: C.ink, fontWeight: f.type === "longtext" ? 500 : 600, whiteSpace: "pre-wrap" }}>{(() => { const v = e.values?.[f.label]; return v == null || v === "" ? "—" : f.type === "select" ? foption(f, String(v), lang) : String(v); })()}</span>
             </div>
           ));
         })()}
@@ -2100,6 +2260,17 @@ function EntryCard({ e, form, lang, tr, mobile, memberOf, reload }: any) {
 }
 
 const sItem = (on: boolean): any => ({ padding: "9px 10px", borderRadius: 8, fontSize: 13, color: on ? C.ink : C.ink2, fontWeight: on ? 700 : 400, display: "flex", alignItems: "center", gap: 8, background: on ? "#fff" : "transparent", cursor: "pointer" });
+const railHead: any = { fontSize: 10, fontWeight: 800, letterSpacing: .9, textTransform: "uppercase", color: C.faint, padding: "10px 6px 2px" };
+// Stable grouping that keeps the server's ordering and floats the ungrouped first.
+function groupBy<T>(rows: T[], key: (r: T) => string): [string, T[]][] {
+  const out: [string, T[]][] = [];
+  rows.forEach((r) => {
+    const k = key(r);
+    const hit = out.find(([g]) => g === k);
+    if (hit) hit[1].push(r); else out.push([k, [r]]);
+  });
+  return out.sort((a, b) => (a[0] === "" ? -1 : b[0] === "" ? 1 : a[0].localeCompare(b[0])));
+}
 const railLbl: any = { fontSize: 10, fontWeight: 800, letterSpacing: .9, textTransform: "uppercase", color: C.faint, margin: "6px 2px 8px" };
 const chip = (c?: string): any => ({ width: 20, height: 20, borderRadius: 6, background: c ?? "#999", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9, fontWeight: 800, flex: "0 0 20px" });
 const inp: any = { border: `1px solid ${C.line}`, borderRadius: 8, padding: "9px 11px", fontSize: 13, background: "#fff", color: C.ink, outline: "none", width: "100%" };

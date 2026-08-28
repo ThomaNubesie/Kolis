@@ -11,7 +11,11 @@ const lbl: any = { fontSize: 11, fontWeight: 800, letterSpacing: .4, textTransfo
 const card: any = { background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14 };
 const netStr = (n: number) => `${n >= 0 ? "+" : ""}${n}`;
 
-export default function ElectionPanel({ form, tr, mobile }: { form: CfFormFull; tr: (o: any) => string; lang: string; mobile?: boolean }) {
+// Backend answers with machine codes and fetch failures carry English messages — never
+// surface either raw; this is the one sentence a member sees when something breaks.
+const failed = (tr: (o: any) => string) => tr(L("Something went wrong. Please try again.", "Une erreur est survenue. Veuillez réessayer."));
+
+export default function ElectionPanel({ form, tr, lang, mobile }: { form: CfFormFull; tr: (o: any) => string; lang: string; mobile?: boolean }) {
   const [el, setEl] = useState<CfElection | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -20,7 +24,7 @@ export default function ElectionPanel({ form, tr, mobile }: { form: CfFormFull; 
 
   const load = useCallback(async () => {
     try { await cf.electionEnsureMember(form.id).catch(() => {}); const r = await cf.electionResults(form.id); setEl(r); }
-    catch (e: any) { setErr(e?.message || "load_failed"); }
+    catch (e: any) { setErr(failed(tr)); }
   }, [form.id]);
   useEffect(() => { load(); }, [load]);
 
@@ -35,7 +39,7 @@ export default function ElectionPanel({ form, tr, mobile }: { form: CfFormFull; 
 
   const vote = async (entry: string, value: "for" | "against", reason: string) => {
     setErr(""); try { await cf.electionVote(entry, value, reason); await load(); }
-    catch (e: any) { setErr(e?.message || "vote_failed"); }
+    catch (e: any) { setErr(failed(tr)); }
   };
 
   const doClose = async () => {
@@ -48,21 +52,26 @@ export default function ElectionPanel({ form, tr, mobile }: { form: CfFormFull; 
       let saved = false, mailed = 0;
       try {
         const recipientsArr = Array.isArray((res as any).recipients) ? (res as any).recipients as string[] : [];
-        const doc = await buildElectionPdf(form.name, res, recipientsArr.length || undefined);
+        const doc = await buildElectionPdf(form.name, res, recipientsArr.length || undefined, lang as any);
         const blob = doc.output("blob") as Blob;
         const b64 = String(doc.output("datauristring")).split("base64,")[1] || "";
         try { const fileId = await cf.fileSavePdf(form.id, "election-results.pdf", blob); if (res.election_folder) await cf.fileMove(fileId, res.election_folder).catch(() => {}); saved = true; } catch { /* keep going */ }
-        const winners = res.candidates.filter((c) => c.winner).map((c) => `${c.position}: ${c.name} (${c.for} For / ${c.against} Against)`).join("\n");
+        // One email goes to the whole membership at once, and a board is rarely single-language —
+        // so the body carries both, EN block then FR block, rather than the closer's language only.
+        const won = res.candidates.filter((c) => c.winner);
+        const winnersEn = won.map((c) => `${c.position}: ${c.name} (${c.for} For / ${c.against} Against)`).join("\n");
+        const winnersFr = won.map((c) => `${c.position} : ${c.name} (${c.for} Pour / ${c.against} Contre)`).join("\n");
         const recipients = Array.isArray((res as any).recipients) ? (res as any).recipients as string[] : [];
         if (recipients.length && b64) {
-          const r = await cf.sendPdf(form.id, { filename: "election-results.pdf", pdf_base64: b64, recipients, message: `The election “${form.name}” is closed. Winners:\n${winners || "(no votes cast)"}\n\nFull results with every member's reason are attached.` });
+          const body = `The election “${form.name}” is closed. Winners:\n${winnersEn || "(no votes cast)"}\n\nFull results with every member's reason are attached.\n\n— — —\n\nL'élection « ${form.name} » est clôturée. Gagnants :\n${winnersFr || "(aucun vote exprimé)"}\n\nLes résultats complets, avec la raison de chaque membre, sont en pièce jointe.`;
+          const r = await cf.sendPdf(form.id, { filename: "election-results.pdf", pdf_base64: b64, recipients, message: body });
           mailed = r?.sent ?? (r?.ok ? recipients.length : 0);
         }
       } catch { /* email/pdf best-effort — the election is already closed in the DB */ }
       setCloseNote(tr(L(`Election closed. ${saved ? "Results saved to the Election folder" : "Results ready"}${mailed ? ` · emailed to ${mailed} member${mailed === 1 ? "" : "s"}` : ""}.`,
         `Élection clôturée. ${saved ? "Résultats enregistrés dans le dossier Élection" : "Résultats prêts"}${mailed ? ` · envoyés à ${mailed} membre${mailed === 1 ? "" : "s"}` : ""}.`)));
       await load();
-    } catch (e: any) { setErr(e?.message || "close_failed"); }
+    } catch (e: any) { setErr(failed(tr)); }
     finally { setClosing(false); }
   };
 
@@ -143,7 +152,7 @@ function PositionsEditor({ form, el, tr, onSaved }: { form: CfFormFull; el: CfEl
   const [busy, setBusy] = useState(false);
   useEffect(() => { setItems(el.positions); }, [el.positions]);
   const save = async (next: string[]) => {
-    setBusy(true); try { await cf.setPositions(form.id, next); onSaved(); } catch (e: any) { alert(e?.message || "Failed"); } finally { setBusy(false); }
+    setBusy(true); try { await cf.setPositions(form.id, next); onSaved(); } catch (e: any) { alert(failed(tr)); } finally { setBusy(false); }
   };
   const addItem = () => { const v = add.trim(); if (!v || items.includes(v)) { setAdd(""); return; } const next = [...items, v]; setItems(next); setAdd(""); save(next); };
   const remove = (v: string) => { const next = items.filter((x) => x !== v); setItems(next); save(next); };
@@ -185,7 +194,7 @@ function CandidacyForm({ form, el, positions, tr, onDone, setBusy, busy }: { for
     if (!position || !running.trim()) return;
     setBusy(true);
     try { await cf.declareCandidacy(form.id, position, running.trim(), plan.trim()); setShow(false); setRunning(""); setPlan(""); onDone(); }
-    catch (e: any) { alert(e?.message === "already_candidate" ? tr(L("You've already declared for this position.", "Vous êtes déjà candidat à ce poste.")) : (e?.message || "Failed")); }
+    catch (e: any) { alert(e?.message === "already_candidate" ? tr(L("You've already declared for this position.", "Vous êtes déjà candidat à ce poste.")) : failed(tr)); }
     finally { setBusy(false); }
   };
   if (!show) return (

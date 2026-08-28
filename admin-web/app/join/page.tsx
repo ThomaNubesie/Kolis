@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { quorly as supabase } from "@/lib/quorly";
 import { cf } from "@/lib/cf";
 import QuorlyOnboard from "@/components/QuorlyOnboard";
+import { useLang } from "@/lib/i18n";
 
 const COLORS = ["#3B6FE0", "#E4632A", "#1F9D6B", "#8A4FD0", "#C99A1E", "#D14D8B", "#2AA6B8", "#7A8340", "#D93A3A", "#6D28D9", "#0891B2", "#BE5D1E", "#3F8F3F", "#C2417E", "#5B7C99", "#8A6D3B"];
 const C = { paper: "#FAF8F4", ink: "#1C1B19", ink2: "#6B6863", faint: "#A8A29A", line: "#EAE4DA", accent: "#2F3AA3" };
@@ -20,7 +21,7 @@ function JoinInner() {
   const params = useSearchParams();
   const [token, setToken] = useState(params.get("token") || "");
   const [mcode, setMcode] = useState("");
-  const [lang, setLang] = useState<"en" | "fr">("en");
+  const { lang, setLang } = useLang();
   const tr = (o: { en: string; fr: string }) => o[lang];
   const [info, setInfo] = useState<any>(null);
   const [onboarded, setOnboarded] = useState<boolean | null>(null);

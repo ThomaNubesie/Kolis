@@ -186,7 +186,7 @@ function FormsInner() {
         {showHome && (
           <aside style={{ background: "#F4F1EB", borderRight: mobile ? "none" : `1px solid ${C.line}`, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 10, minHeight: mobile ? "100vh" : "auto" }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
-              <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start" }}>
+              <div onClick={() => { setOrgSwitch(false); setOrgTab("home"); setSel(activeOrg ?? null); }} title={tr(L("Home", "Accueil"))} style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", cursor: "pointer" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ width: 34, height: 34, borderRadius: 9, background: C.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 }}>Q</div>
                   <div style={{ fontWeight: 800, fontSize: 18, letterSpacing: -.2 }}>Quorly</div>

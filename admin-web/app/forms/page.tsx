@@ -686,7 +686,7 @@ function FilesPanel({ form, tr, lang, mobile, entries, memberOf, isVault, flat }
         const obj = fresh.find((x) => x.id === u.id) ?? ({ id: u.id, name: u.name, expires_at: null, reminder_days: [30, 7, 1] } as unknown as CfFile);
         setSuggest({ file: obj, type: tr(L(d.en!, d.fr!)), filed: filedType ? tr(L(filedType.fEn!, filedType.fFr!)) : null } as any); break;
       }
-    } catch (e: any) { alert(e.message); }
+    } catch (e: any) { const pm = planLimitMsg(e, tr(L("en", "fr")) as "en" | "fr"); if (pm) { if (confirm(pm)) window.open("/pricing", "_blank"); } else alert(e.message); }
     setBusy(false);
   };
   // Upload a whole folder (webkitdirectory) — creates a subfolder named after the picked directory.
@@ -2056,12 +2056,12 @@ function FormEdit({ form, tr, isSpace, onSaved, onDeleted }: any) {
               <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#F7F4EE", borderRadius: 10, padding: "11px 12px" }}>
                 <ShieldCheck size={17} style={{ color: r2fa ? C.green : C.faint, flex: "0 0 auto" }} />
                 <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 800 }}>{tr(L("Require two-factor (2FA)", "Exiger la 2FA"))}</div><div style={{ fontSize: 10.5, color: C.faint }}>{tr(L("Members must pass 2FA to open this form.", "Les membres doivent passer la 2FA pour ouvrir ce formulaire."))}</div></div>
-                <span onClick={async () => { const next = !r2fa; setR2fa(next); try { await cf.setForm2fa(form.id, next); } catch (e: any) { alert(e.message); setR2fa(!next); } }} style={{ width: 38, height: 22, borderRadius: 99, background: r2fa ? C.accent : "#D9D3C8", position: "relative", cursor: "pointer", flex: "0 0 auto" }}><span style={{ position: "absolute", top: 2, [r2fa ? "right" : "left"]: 2, width: 18, height: 18, borderRadius: "50%", background: "#fff" } as any} /></span>
+                <span onClick={async () => { const next = !r2fa; setR2fa(next); try { await cf.setForm2fa(form.id, next); } catch (e: any) { const pm = planLimitMsg(e, tr(L("en", "fr")) as "en" | "fr"); if (pm) { if (confirm(pm)) window.open("/pricing", "_blank"); } else alert(e.message); setR2fa(!next); } }} style={{ width: 38, height: 22, borderRadius: 99, background: r2fa ? C.accent : "#D9D3C8", position: "relative", cursor: "pointer", flex: "0 0 auto" }}><span style={{ position: "absolute", top: 2, [r2fa ? "right" : "left"]: 2, width: 18, height: 18, borderRadius: "50%", background: "#fff" } as any} /></span>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, background: "#F7F4EE", borderRadius: 10, padding: "11px 12px" }}>
                 <Download size={17} style={{ color: rdl ? C.accent : C.faint, flex: "0 0 auto" }} />
                 <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 13, fontWeight: 800 }}>{tr(L("Approve downloads", "Approuver les téléchargements"))}</div><div style={{ fontSize: 10.5, color: C.faint }}>{tr(L("Members' downloads need your approval; you're notified.", "Les téléchargements des membres nécessitent votre approbation."))}</div></div>
-                <span onClick={async () => { const next = !rdl; setRdl(next); try { await cf.setDownloadApproval(form.id, next); } catch (e: any) { alert(e.message); setRdl(!next); } }} style={{ width: 38, height: 22, borderRadius: 99, background: rdl ? C.accent : "#D9D3C8", position: "relative", cursor: "pointer", flex: "0 0 auto" }}><span style={{ position: "absolute", top: 2, [rdl ? "right" : "left"]: 2, width: 18, height: 18, borderRadius: "50%", background: "#fff" } as any} /></span>
+                <span onClick={async () => { const next = !rdl; setRdl(next); try { await cf.setDownloadApproval(form.id, next); } catch (e: any) { const pm = planLimitMsg(e, tr(L("en", "fr")) as "en" | "fr"); if (pm) { if (confirm(pm)) window.open("/pricing", "_blank"); } else alert(e.message); setRdl(!next); } }} style={{ width: 38, height: 22, borderRadius: 99, background: rdl ? C.accent : "#D9D3C8", position: "relative", cursor: "pointer", flex: "0 0 auto" }}><span style={{ position: "absolute", top: 2, [rdl ? "right" : "left"]: 2, width: 18, height: 18, borderRadius: "50%", background: "#fff" } as any} /></span>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <div onClick={() => setOpen(false)} style={{ flex: 1, border: `1px solid ${C.line}`, borderRadius: 9, padding: 11, textAlign: "center", fontWeight: 800, fontSize: 13.5, color: C.ink2, cursor: "pointer" }}>{tr(L("Cancel", "Annuler"))}</div>

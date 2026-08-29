@@ -62,6 +62,13 @@ export type CfCandidate = { entry_id: string; author_id: string; name: string; p
 export type CfVoteReason = { entry_id: string; candidate: string; position: string; value: "for" | "against"; reason: string; voter: string; created_at: string };
 export type CfElection = { ok: boolean; error?: string; status: "open" | "closed"; closed_at: string | null; closed_by?: string | null; is_admin: boolean; positions: string[]; election_folder: string | null; my_candidacies: string[]; candidates: CfCandidate[]; reasons: CfVoteReason[] };
 
+// ===== Town Hall =====
+export type CfThReply = { id: string; body: string; created_at: string; author: string; author_color: string | null };
+export type CfThComment = CfThReply & { replies: CfThReply[] };
+export type CfThEntry = { id: string; seq: number; body: string; summary: string | null; created_at: string; author: string; author_color: string | null; mine: boolean; media: { path: string; kind: string }[]; for: number; against: number; my_vote: "for" | "against" | null; comments: CfThComment[] };
+export type CfThTopic = { id: string; title: string; status: "open" | "closed"; created_at: string; closed_at: string | null; pdf_path: string | null };
+export type CfThFeed = { is_admin: boolean; error?: string; topic: CfThTopic | null; entries: CfThEntry[] };
+
 export const cf = {
   canCreate: (): Promise<boolean> => rpc("cf_can_create"),
   myProfile: (): Promise<{ name?: string }> => rpc("cf_my_profile"),
@@ -207,6 +214,25 @@ export const cf = {
   receiptUpdate: (id: string, f: { merchant?: string | null; date?: string | null; category?: string | null; subtotal?: number | null; tax?: number | null; total?: number | null; aligns?: string | null; status?: string }) =>
     rpc("cf_receipt_update", { p_id: id, p_merchant: f.merchant ?? null, p_date: f.date ?? null, p_category: f.category ?? null, p_subtotal: f.subtotal ?? null, p_tax: f.tax ?? null, p_total: f.total ?? null, p_aligns: f.aligns ?? null, p_status: f.status ?? null }),
   async receiptDelete(id: string) { const path = await rpc("cf_receipt_delete", { p_id: id }); if (path) await supabase.storage.from("cf-files").remove([path]).catch(() => {}); },
+
+  // ===== Town Hall (shared per-org concerns board) =====
+  thFeed: (org: string): Promise<CfThFeed> => rpc("th_feed", { p_org: org }),
+  thOpenTopic: (org: string, title: string) => rpc("th_open_topic", { p_org: org, p_title: title }),
+  thCloseTopic: (topic: string) => rpc("th_close_topic", { p_topic: topic }),
+  thEntryAdd: (topic: string, body: string) => rpc("th_entry_add", { p_topic: topic, p_body: body }),
+  thVote: (entry: string, value: "for" | "against") => rpc("th_vote", { p_entry: entry, p_value: value }),
+  thComment: (entry: string, parent: string | null, body: string) => rpc("th_comment_add", { p_entry: entry, p_parent: parent, p_body: body }),
+  thMediaAdd: (entry: string, path: string, kind: string) => rpc("th_media_add", { p_entry: entry, p_path: path, p_kind: kind }),
+  async thUploadMedia(org: string, file: File): Promise<{ path: string; kind: string }> {
+    const safe = file.name.replace(/[^\w.\-]+/g, "_").slice(-70);
+    const path = `${org}/townhall/${crypto.randomUUID()}-${safe}`;
+    const up = await supabase.storage.from("cf-files").upload(path, file, { contentType: file.type || undefined });
+    if (up.error) throw new Error(up.error.message);
+    return { path, kind: /^video\//.test(file.type) ? "video" : "image" };
+  },
+  thMediaUrl: async (path: string): Promise<string> => { const { data } = await supabase.storage.from("cf-files").createSignedUrl(path, 3600); return data?.signedUrl ?? ""; },
+  thSummarize: async (org: string, entry: string) => { try { const { data } = await supabase.functions.invoke("cf-th-summarize", { body: { org_id: org, entry_id: entry } }); return data; } catch (e: any) { return { ok: false, error: e?.message }; } },
+  thPublish: async (topic: string) => { try { const { data } = await supabase.functions.invoke("cf-th-publish", { body: { topic_id: topic } }); return data; } catch (e: any) { return { ok: false, error: e?.message }; } },
   form: (id: string): Promise<CfFormFull> => rpc("cf_form", { p_form: id }),
   entries: (id: string): Promise<CfEntry[]> => rpc("cf_entries", { p_form: id }),
   createForm: async (p: { name: string; description?: string; features: any; approval: number; color: string; adminName?: string; fields?: any[]; invites?: { contact: string }[]; parent?: string | null; group?: string | null }) => {

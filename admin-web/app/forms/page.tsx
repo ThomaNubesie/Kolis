@@ -11,6 +11,7 @@ import QuorlyAuthGate from "@/components/QuorlyAuthGate";
 import { buildFormPdf, pdfFilename } from "@/lib/pdf";
 import ElectionPanel from "./ElectionPanel";
 import OrgHome from "./OrgHome";
+import TownHall from "./TownHall";
 import { Folder, FolderPlus, Upload, Download, Eye, Link2, Clock, Pencil, FolderInput, Trash2, MoreVertical, ChevronRight, ChevronDown, X, Search, Home, Star, Share2, RotateCcw, List, LayoutGrid, Inbox, FileText, Lock, ShieldCheck, Send, CalendarClock, AlertTriangle, KeyRound, Users, LifeBuoy, ExternalLink, MapPin, MessageSquare, ThumbsUp, ThumbsDown, CheckCircle2, Receipt, Camera, Sparkles, Coins, Tag, Settings, PlusSquare, TrendingUp } from "lucide-react";
 
 // Receipt categories. The English word is the STORED key (it lands in cf_receipts.category
@@ -117,7 +118,7 @@ function FormsInner() {
   const [activeOrg, setActiveOrg] = useState<string | null>(null);
   const [tree, setTree] = useState<CfOrgTree | null>(null);
   const [orgSwitch, setOrgSwitch] = useState(false);
-  const [orgTab, setOrgTab] = useState<"home" | "members" | "documents" | "settings">("home");
+  const [orgTab, setOrgTab] = useState<"home" | "members" | "documents" | "townhall" | "settings">("home");
   const [qoAdmin, setQoAdmin] = useState(false); // outreach/prospecting operator → sees the GROWTH rail group
   const [newSpace, setNewSpace] = useState(false);
   const isVault = !!sel && sel === vaultId;
@@ -246,6 +247,7 @@ function FormsInner() {
                   {([["home", tr(L("Home", "Accueil")), <Home key="h" size={14} />],
                      ["members", tr(L("Members", "Membres")), <Users key="m" size={14} />],
                      ["documents", tr(L("Documents", "Documents")), <Folder key="d" size={14} />],
+                     ["townhall", tr(L("Town Hall", "Assemblée")), <MessageSquare key="t" size={14} />],
                      ["settings", tr(L("Settings", "Paramètres")), <Settings key="s" size={14} />]] as const).map(([k, label, icon]) => (
                     <div key={k} onClick={() => { setOrgTab(k as any); setSel(activeOrg); }} style={sItem(sel === activeOrg && orgTab === k)}>
                       <span style={{ color: sel === activeOrg && orgTab === k ? C.accent : C.faint, display: "inline-flex" }}>{icon}</span>{label}
@@ -379,6 +381,8 @@ function FormsInner() {
                 // this is where a documents-only group (a shared family folder,
                 // a bylaws archive) does all of its work.
                 <FilesPanel form={form} tr={tr} lang={lang} mobile={mobile} entries={entries} memberOf={memberOf} isVault={false} flat={false} />
+              ) : isOrg && orgTab === "townhall" ? (
+                <TownHall org={form.id} tr={tr} lang={lang} />
               ) : isOrg ? (
                 <OrgHome tree={tree} tab={orgTab as "home" | "members" | "settings"} setTab={setOrgTab} tr={tr} lang={lang} mobile={mobile}
                   onOpen={(id: string) => setSel(id)}

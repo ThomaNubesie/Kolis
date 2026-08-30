@@ -8,6 +8,7 @@ const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE
 const RESEND = Deno.env.get("RESEND_API_KEY");
 const FROM = "Quorly <noreply@loadq.ca>";
 const TW_SID = Deno.env.get("KOLIS_TWILIO_SID"), TW_TOKEN = Deno.env.get("KOLIS_TWILIO_TOKEN"), TW_FROM = Deno.env.get("KOLIS_TWILIO_FROM");
+const MMS_MEDIA = "https://quorly.ca/mms-logo"; // branded PNG banner shown on the text (MMS)
 const CF_SECRET = "kolis_notify_9f3a2c7b1e6d4084";
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-api-version, x-kolis-secret", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
@@ -18,6 +19,7 @@ async function sms(phone: string, body: string) {
   if (!(TW_SID && TW_TOKEN && TW_FROM)) return { ok: false, error: "twilio_not_configured" };
   let to = String(phone).replace(/[^\d+]/g, ""); if (!to.startsWith("+")) to = to.length === 10 ? "+1" + to : "+" + to;
   const p = new URLSearchParams({ To: to, Body: body }); TW_FROM.startsWith("MG") ? p.set("MessagingServiceSid", TW_FROM) : p.set("From", TW_FROM);
+  if (MMS_MEDIA) p.set("MediaUrl", MMS_MEDIA); // send as MMS with the Quorly banner (auto-falls back to SMS+link if unsupported)
   const r = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TW_SID}/Messages.json`, { method: "POST", headers: { Authorization: "Basic " + btoa(`${TW_SID}:${TW_TOKEN}`), "Content-Type": "application/x-www-form-urlencoded" }, body: p.toString() });
   return r.ok ? { ok: true } : { ok: false, error: `twilio_${r.status}` };
 }

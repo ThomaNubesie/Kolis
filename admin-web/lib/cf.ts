@@ -424,6 +424,16 @@ export const cf = {
     const path = await rpc("cf_file_delete", { p_file: id });
     if (path) await supabase.storage.from("cf-files").remove([path]).catch(() => {});
   },
+  // ===== Auto-translation (see lib/autotranslate.tsx) =====
+  // The cache is keyed by a hash of the source text, so a lookup requires already
+  // holding the source, and a sentence is paid for once across the whole product.
+  trGet: (hashes: string[], lang: "en" | "fr"): Promise<Record<string, string>> => rpc("cf_tr_get", { p_h: hashes, p_lang: lang }),
+  trPut: (items: { h: string; src: string; out: string }[], lang: "en" | "fr") => rpc("cf_tr_put", { p_items: items, p_lang: lang }),
+  async translateBatch(items: { k: string; text: string }[], targetLang: string): Promise<{ ok?: boolean; items?: { k: string; text: string }[] }> {
+    const { data, error } = await supabase.functions.invoke("cf-ai", { body: { action: "translate_batch", items, target_lang: targetLang } });
+    if (error) throw new Error(error.message);
+    return data as any;
+  },
   async ai(action: "polish" | "translate", text: string, opts?: { tone?: string; target_lang?: string }) {
     const { data, error } = await supabase.functions.invoke("cf-ai", { body: { action, text, ...opts } });
     if (error) throw new Error(error.message);

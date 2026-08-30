@@ -66,6 +66,30 @@ Rules: "category" MUST be one of: Meals, Fuel, Office, Travel, Lodging, Supplies
       return json({ ok: true, fields });
     }
 
+    // ---- Batch translation, for showing a whole screen in the reader's language ----
+    // The app sends every visible string it hasn't cached yet; one call per screen
+    // instead of one per sentence. Anything already in the target language comes back
+    // unchanged, so mixed-language boards cost nothing extra.
+    if (b.action === "translate_batch") {
+      const items: { k: string; text: string }[] = Array.isArray(b.items) ? b.items.slice(0, 60) : [];
+      const target = String(b.target_lang || "English");
+      if (items.length === 0) return json({ ok: true, items: [] });
+      const payload = items.map((it, i) => ({ i, text: String(it.text || "").slice(0, 1200) }));
+      const sys = `You are a professional translator. Translate every item's "text" into ${target}.
+If an item is ALREADY in ${target}, return it unchanged. Preserve meaning, names, numbers, emoji and line breaks.
+Never add notes, quotes or explanation. Return ONLY a raw JSON array (no markdown, no code fences) of the SAME length and order as the input, each element {"i":<the same i>,"text":"<translation>"}.`;
+      const raw = await llm(sys, JSON.stringify(payload), 8000);
+      let clean = raw.trim();
+      const s0 = clean.indexOf("["), e0 = clean.lastIndexOf("]");
+      if (s0 >= 0 && e0 > s0) clean = clean.slice(s0, e0 + 1);
+      let out: any[] = [];
+      try { out = JSON.parse(clean); } catch { out = []; }
+      const byI = new Map<number, string>();
+      for (const o of out) if (o && typeof o.i === "number" && typeof o.text === "string") byI.set(o.i, o.text);
+      // A model that drops or mangles an item must not blank the screen: fall back to the source.
+      return json({ ok: true, items: items.map((it, i) => ({ k: it.k, text: byI.get(i) ?? it.text })) });
+    }
+
     const text = String(b.text || "").slice(0, 6000);
     if (!text) return json({ error: "no_text" }, 400);
     if (b.action === "translate") {

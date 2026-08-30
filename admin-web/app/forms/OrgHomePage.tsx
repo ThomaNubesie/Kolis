@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cf, type CfOrgTree, type CfOrgMember } from "@/lib/cf";
 import { memberColors } from "@/lib/colors";
+import { useAutoT, useDeptLabel } from "@/lib/autotranslate";
 import { Users, Folder, MessageSquare, ChevronRight, Pencil, Plus, X, LayoutGrid, FileText, ImagePlus } from "lucide-react";
 import Announcements from "./Announcements";
 import EmojiPicker from "./EmojiPicker";
@@ -39,6 +40,8 @@ const coverSrc = (k: string) => `/covers/${k}.jpg`;
 const ORG_COLORS = ["#2F3AA3", "#1F9D6B", "#E4632A", "#8A4FD0", "#C99A1E", "#D14D8B"];
 
 export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, onChanged }: { tree: CfOrgTree; tr: TR; lang: "en" | "fr"; mobile: boolean; onOpen: (id: string) => void; setTab: (t: any) => void; onChanged: () => void }) {
+  const at = useAutoT();   // names and text the group wrote, in the reader's language
+  const dlabel = useDeptLabel();
   const color = tree.color || "#2F3AA3";
   const c: any = tree.home_content || {};
   // The header may run a solid of its own; the rest of the page keeps the org colour.
@@ -139,7 +142,7 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
                 style={{ width: 30, height: 30, borderRadius: 8, background: "#EEEBFA", color: C.accent, display: "flex", alignItems: "center", justifyContent: "center", flex: "none", fontSize: d.emoji ? 16 : undefined, cursor: tree.is_admin ? "pointer" : "inherit" }}>
                 {d.emoji || <FileText size={15} />}
               </span>
-              <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.name}</div><div style={{ fontSize: 11, color: C.faint }}>{d.members} {tr(L("members", "membres"))} · {d.entries} {tr(L("entries", "entrées"))}</div></div>
+              <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{dlabel(d)}</div><div style={{ fontSize: 11, color: C.faint }}>{d.members} {tr(L("members", "membres"))} · {d.entries} {tr(L("entries", "entrées"))}</div></div>
               <ChevronRight size={16} style={{ color: C.faint }} />
             </div>
           ))}

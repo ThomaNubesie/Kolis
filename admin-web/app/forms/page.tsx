@@ -8,6 +8,7 @@ import { quorly as supabase } from "@/lib/quorly";
 import { useLang } from "@/lib/i18n";
 import { cf, planLimitMsg, type CfFormBrief, type CfFormFull, type CfEntry, type CfFile, type CfFileRequest, type CfFolder, type CfShare, type CfFileActivity, type LostGuide, type CfDocComment, type CfDocDecision, type CfDownloadReq, type CfReceipt, type CfOrg, type CfOrgTree } from "@/lib/cf";
 import { memberColors } from "@/lib/colors";
+import { AutoTranslateProvider, useAutoT, useDeptLabel } from "@/lib/autotranslate";
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
 import { buildFormPdf, pdfFilename } from "@/lib/pdf";
 import ElectionPanel from "./ElectionPanel";
@@ -94,7 +95,14 @@ const fmtDate = (iso: string, lang: string) => { try { return new Date(iso).toLo
 function useMobile(bp = 820) { const [m, setM] = useState(false); useEffect(() => { const f = () => setM(window.innerWidth < bp); f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, [bp]); return m; }
 
 export default function FormsPage() {
-  return <Suspense fallback={null}><QuorlyAuthGate><FormsInner /></QuorlyAuthGate></Suspense>;
+  return <Suspense fallback={null}><QuorlyAuthGate><FormsShell /></QuorlyAuthGate></Suspense>;
+}
+
+// The provider has to sit OUTSIDE FormsInner: hooks called in that component's body
+// would otherwise read the default (identity) context and never translate.
+function FormsShell() {
+  const { lang } = useLang();
+  return <AutoTranslateProvider lang={lang}><FormsInner /></AutoTranslateProvider>;
 }
 
 function FormsInner() {
@@ -102,6 +110,8 @@ function FormsInner() {
   const sp = useSearchParams();
   const mobile = useMobile();
   const { lang, setLang } = useLang();   // shared + persisted, so the choice follows the member across screens
+  const at = useAutoT();                 // written content, in the reader's language
+  const dlabel = useDeptLabel();         // Town Hall reads Assemblée in French, not "Hôtel de ville"
   const tr = (o: { en: string; fr: string }) => o[lang];
   const [list, setList] = useState<CfFormBrief[]>([]);
   const [sel, setSel] = useState<string | null>(null);
@@ -280,7 +290,7 @@ function FormsInner() {
                           <span style={{ color: d.id === sel ? C.accent : C.faint, display: "inline-flex", fontSize: d.emoji ? 14 : undefined }}>
                             {d.emoji || (d.kind === "election" ? <ThumbsUp size={14} /> : <FileText size={14} />)}
                           </span>
-                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{d.name}</span>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{dlabel(d)}</span>
                           {d.kind === "election" && d.election_status === "open" && <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, flex: "0 0 auto" }} />}
                         </div>
                       ))}
@@ -358,7 +368,7 @@ function FormsInner() {
               {isSpace && <span style={{ width: 34, height: 34, borderRadius: 9, background: "#EFEAF7", color: "#6B4FA3", display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}><Users size={18} /></span>}
               <div style={{ minWidth: 0 }}>
                 {!isVault && !isSpace && meta?.parent_id && <div onClick={() => setSel(meta.parent_id!)} style={{ fontSize: 11, fontWeight: 800, color: C.accent, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 3, marginBottom: 1 }}><ChevronRight size={12} style={{ transform: "rotate(180deg)" }} /> {meta.parent_name}{meta.group_name ? " · " + meta.group_name : ""}</div>}
-                <div style={{ fontSize: mobile ? 16 : 18, fontWeight: 800, letterSpacing: -.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{isVault ? tr(L("My Files", "Mes fichiers")) : form.name}</div>
+                <div style={{ fontSize: mobile ? 16 : 18, fontWeight: 800, letterSpacing: -.3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{isVault ? tr(L("My Files", "Mes fichiers")) : dlabel({ kind: meta?.kind, name: form.name })}</div>
                 {isVault
                   ? <div style={{ fontSize: 11.5, color: C.faint, marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}><ShieldCheck size={13} style={{ color: C.green }} /> {tr(L("Private vault · only you can see these", "Coffre privé · vous seul y avez accès"))}</div>
                   : isSpace
@@ -1392,6 +1402,7 @@ function SubformsPanel({ form, tr, lang, onOpen }: any) {
 
 // Comments + approve/reject voting on a file or folder → reach a decision.
 function DiscussionPanel({ type, id, tr, lang }: { type: "file" | "folder"; id: string; tr: (o: any) => string; lang: string }) {
+  const at = useAutoT();
   const [comments, setComments] = useState<CfDocComment[]>([]);
   const [dec, setDec] = useState<CfDocDecision | null>(null);
   const [body, setBody] = useState(""); const [busy, setBusy] = useState(false);
@@ -1416,7 +1427,7 @@ function DiscussionPanel({ type, id, tr, lang }: { type: "file" | "folder"; id: 
         {comments.map((c) => (
           <div key={c.id} style={{ display: "flex", gap: 8, padding: "6px 0", fontSize: 12.5 }}>
             <span style={{ width: 9, height: 9, borderRadius: "50%", background: c.author_color ?? "#CCC", marginTop: 4, flex: "0 0 auto" }} />
-            <div><div><b style={{ fontWeight: 800 }}>{c.author_name}</b> <span style={{ color: C.faint, fontSize: 10.5 }}>{fmtDate(c.created_at, lang)}</span></div><div style={{ color: C.ink, lineHeight: 1.45 }}>{c.body}</div></div>
+            <div><div><b style={{ fontWeight: 800 }}>{c.author_name}</b> <span style={{ color: C.faint, fontSize: 10.5 }}>{fmtDate(c.created_at, lang)}</span></div><div style={{ color: C.ink, lineHeight: 1.45 }}>{at(c.body)}</div></div>
           </div>
         ))}
       </div>
@@ -2289,6 +2300,7 @@ function NewEntry({ form, tr, lang, onDone }: any) {
 }
 
 function EntryCard({ e, form, lang, tr, mobile, memberOf, reload }: any) {
+  const at = useAutoT();   // what the member wrote, in the reader's language
   const a = memberOf[e.author];
   const [cmt, setCmt] = useState(""); const [trx, setTrx] = useState<string | null>(null); const [busy, setBusy] = useState(false);
   const vote = async () => { try { await cf.vote(e.id, "approve"); reload(); } catch (er: any) { alert(er.message); } };
@@ -2312,7 +2324,7 @@ function EntryCard({ e, form, lang, tr, mobile, memberOf, reload }: any) {
           return all.map((f: any) => (
             <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 2, gridColumn: f.type === "longtext" ? "1 / -1" : "auto" }}>
               <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint }}>{flabel(f, lang)}</span>
-              <span style={{ fontSize: 13, color: C.ink, fontWeight: f.type === "longtext" ? 500 : 600, whiteSpace: "pre-wrap" }}>{(() => { const v = e.values?.[f.label]; return v == null || v === "" ? "—" : f.type === "select" ? foption(f, String(v), lang) : String(v); })()}</span>
+              <span style={{ fontSize: 13, color: C.ink, fontWeight: f.type === "longtext" ? 500 : 600, whiteSpace: "pre-wrap" }}>{(() => { const v = e.values?.[f.label]; return v == null || v === "" ? "—" : f.type === "select" ? foption(f, String(v), lang) : at(String(v)); })()}</span>
             </div>
           ));
         })()}
@@ -2335,7 +2347,7 @@ function EntryCard({ e, form, lang, tr, mobile, memberOf, reload }: any) {
         <div style={{ borderTop: `1px solid ${C.line2}`, background: "#FCFBF8", padding: "11px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
           {e.comments.map((c: any) => { const ca = memberOf[c.author]; return (
             <div key={c.id} style={{ display: "flex", gap: 9 }}><span style={chip(ca?.color)}>{initials(ca?.name)}</span>
-              <div><span style={{ fontSize: 11.5, fontWeight: 800, color: ca?.color }}>{ca?.name ?? "—"}</span><span style={{ fontSize: 9.5, color: C.faint, marginLeft: 7 }}>{fmt(c.created_at, lang)}</span><div style={{ fontSize: 12, color: C.ink2, marginTop: 2 }}>{c.body}</div></div>
+              <div><span style={{ fontSize: 11.5, fontWeight: 800, color: ca?.color }}>{ca?.name ?? "—"}</span><span style={{ fontSize: 9.5, color: C.faint, marginLeft: 7 }}>{fmt(c.created_at, lang)}</span><div style={{ fontSize: 12, color: C.ink2, marginTop: 2 }}>{at(c.body)}</div></div>
             </div>); })}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <input value={cmt} onChange={(ev) => setCmt(ev.target.value)} onKeyDown={(ev) => ev.key === "Enter" && addC()} placeholder={tr(L("Write a comment…", "Écrire un commentaire…"))} style={{ ...inp, flex: 1 }} />

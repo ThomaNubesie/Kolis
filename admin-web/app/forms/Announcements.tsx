@@ -4,6 +4,7 @@
 // department; a department admin can post to THIS department or up to the ASSEMBLY.
 import { useCallback, useEffect, useState } from "react";
 import { cf, type CfAnnFeed } from "@/lib/cf";
+import { useAutoT } from "@/lib/autotranslate";
 import { Megaphone, Clock, Trash2, Plus, X } from "lucide-react";
 
 const C = { panel: "#FFFFFF", ink: "#14131A", ink2: "#4A4A46", faint: "#8a8790", line: "#ECE9E2", accent: "#2F3AA3", cream: "#FBF8F2", red: "#C0392B", amber: "#A86A12", green: "#178A4E" };
@@ -13,6 +14,7 @@ const inp: any = { border: `1.5px solid #E3E0D8`, borderRadius: 9, padding: "8px
 const initials = (n: string) => (n || "?").trim().split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase() || "?";
 
 export default function Announcements({ form, orgId, tr, lang, welcome, mobile }: { form: string; orgId?: string | null; tr: TR; lang: "en" | "fr"; welcome?: boolean; mobile?: boolean }) {
+  const at = useAutoT();   // announcements are written in one language, read in another
   const [feed, setFeed] = useState<CfAnnFeed | null>(null);
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState(""); const [deadline, setDeadline] = useState("");
@@ -94,7 +96,7 @@ export default function Announcements({ form, orgId, tr, lang, welcome, mobile }
                   <span style={{ fontSize: 11, color: C.faint }}>{fmtDate(a.created_at)}</span>
                   {a.can_delete && <span onClick={() => del(a.id)} style={{ marginLeft: "auto", color: C.faint, cursor: "pointer", display: "flex" }}><Trash2 size={14} /></span>}
                 </div>
-                <div style={{ fontSize: 14, color: C.ink, marginTop: 4, whiteSpace: "pre-wrap" }}>{a.body}</div>
+                <div style={{ fontSize: 14, color: C.ink, marginTop: 4, whiteSpace: "pre-wrap" }}>{at(a.body)}</div>
                 {d && <div style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 8, fontSize: 11.5, fontWeight: 800, color: d.col, background: "#fff", border: `1px solid ${d.col}33`, borderRadius: 999, padding: "3px 9px" }}><Clock size={12} /> {d.txt}</div>}
               </div>
             </div>

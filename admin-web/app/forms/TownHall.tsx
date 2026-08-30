@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cf, planLimitMsg, type CfThFeed, type CfThEntry, type CfThComment } from "@/lib/cf";
 import { buildTownHallPdf } from "@/lib/pdf";
 import { memberColors } from "@/lib/colors";
+import { useAutoT } from "@/lib/autotranslate";
 import { ThumbsUp, ThumbsDown, ImagePlus, Sparkles, Lock, MessageSquare, Send, Loader2 } from "lucide-react";
 
 const C = { paper: "#F1EEE7", panel: "#FFFFFF", ink: "#14131A", ink2: "#6B6863", faint: "#9a97a4", line: "#ECE9E2", accent: "#2F3AA3", accentSoft: "#EEEBFA", yea: "#178A4E", yeaS: "#E7F6EE", nay: "#C0392B", nayS: "#FBE9E7", violet: "#6B4FA3", violetS: "#F3EFFB" };
@@ -29,6 +30,7 @@ function MediaThumb({ path, kind }: { path: string; kind: string }) {
 }
 
 function Thread({ entry, open, tr, lang, reload, org, cmap }: { entry: CfThEntry; open: boolean; tr: TR; lang: "en" | "fr"; reload: () => void; org: string; cmap: Record<string, string> }) {
+  const at = useAutoT();   // concerns are written in whichever language the member speaks
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
@@ -51,7 +53,7 @@ function Thread({ entry, open, tr, lang, reload, org, cmap }: { entry: CfThEntry
             <span style={av(cmap[c.author] ?? c.author_color, 26)}>{initials(c.author)}</span>
             <div style={{ flex: 1, background: C.paper, border: `1px solid ${C.line}`, borderRadius: 10, padding: "8px 11px" }}>
               <div style={{ fontWeight: 800, fontSize: 12 }}>{c.author}</div>
-              <div style={{ fontSize: 12.5, color: "#3A3A37", marginTop: 2 }}>{c.body}</div>
+              <div style={{ fontSize: 12.5, color: "#3A3A37", marginTop: 2 }}>{at(c.body)}</div>
               {open && <div onClick={() => { setReplyTo(replyTo === c.id ? null : c.id); setReplyText(""); }} style={{ fontSize: 10.5, fontWeight: 800, color: C.accent, cursor: "pointer", marginTop: 5 }}>{tr(L("Reply", "Répondre"))}</div>}
             </div>
           </div>
@@ -60,7 +62,7 @@ function Thread({ entry, open, tr, lang, reload, org, cmap }: { entry: CfThEntry
               <span style={av(cmap[r.author] ?? r.author_color, 22)}>{initials(r.author)}</span>
               <div style={{ flex: 1, background: C.violetS, border: `1px solid #E4DEF7`, borderRadius: 10, padding: "7px 10px" }}>
                 <div style={{ fontSize: 9.5, fontWeight: 800, color: C.violet, textTransform: "uppercase", letterSpacing: .3 }}>{tr(L("Reply", "Réponse"))} · {r.author}</div>
-                <div style={{ fontSize: 12.5, color: "#3A3A37", marginTop: 2 }}>{r.body}</div>
+                <div style={{ fontSize: 12.5, color: "#3A3A37", marginTop: 2 }}>{at(r.body)}</div>
               </div>
             </div>
           ))}
@@ -83,6 +85,7 @@ function Thread({ entry, open, tr, lang, reload, org, cmap }: { entry: CfThEntry
 }
 
 function EntryCard({ e, open, tr, lang, reload, org, cmap }: { e: CfThEntry; open: boolean; tr: TR; lang: "en" | "fr"; reload: () => void; org: string; cmap: Record<string, string> }) {
+  const at = useAutoT();
   const total = e.for + e.against;
   const pct = total ? Math.round((e.for / total) * 100) : 50;
   const vote = async (v: "for" | "against") => {
@@ -94,7 +97,7 @@ function EntryCard({ e, open, tr, lang, reload, org, cmap }: { e: CfThEntry; ope
         <span style={av(cmap[e.author] ?? e.author_color, 34)}>{initials(e.author)}</span>
         <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 800, fontSize: 13.5 }}>{e.author}</div><div style={{ fontSize: 11, color: C.faint }}>#{e.seq}</div></div>
       </div>
-      <div style={{ fontSize: 14.5, color: C.ink, margin: "11px 0", whiteSpace: "pre-wrap" }}>{e.body}</div>
+      <div style={{ fontSize: 14.5, color: C.ink, margin: "11px 0", whiteSpace: "pre-wrap" }}>{at(e.body)}</div>
       {e.media.length > 0 && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "10px 0" }}>{e.media.map((m, i) => <MediaThumb key={i} path={m.path} kind={m.kind} />)}</div>}
 
       <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "12px 0", flexWrap: "wrap" }}>
@@ -111,7 +114,7 @@ function EntryCard({ e, open, tr, lang, reload, org, cmap }: { e: CfThEntry; ope
       {e.summary && (
         <div style={{ background: C.violetS, border: `1px solid #E4DEF7`, borderRadius: 12, padding: "11px 13px", marginTop: 4 }}>
           <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: .4, textTransform: "uppercase", color: C.violet, display: "flex", alignItems: "center", gap: 6 }}><Sparkles size={12} /> {tr(L("Running summary", "Résumé en direct"))}</div>
-          <div style={{ fontSize: 12.5, color: "#3A3A37", marginTop: 5 }}>{e.summary}</div>
+          <div style={{ fontSize: 12.5, color: "#3A3A37", marginTop: 5 }}>{at(e.summary)}</div>
         </div>
       )}
 
@@ -171,6 +174,7 @@ export default function TownHall({ org, tr, lang }: { org: string; tr: TR; lang:
     });
     return memberColors(seen);
   }, [feed]);
+  const at = useAutoT();
   const topic = feed?.topic ?? null;
   const isAdmin = !!feed?.is_admin;
   const open = topic?.status === "open";
@@ -216,7 +220,7 @@ export default function TownHall({ org, tr, lang }: { org: string; tr: TR; lang:
         <span style={{ width: 44, height: 44, borderRadius: 12, background: C.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flex: "0 0 auto" }}>🏛️</span>
         <div style={{ flex: 1, minWidth: 180 }}>
           <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint }}>{tr(L("Topic of discussion", "Sujet de discussion"))}{isAdmin ? "" : ` · ${tr(L("set by admin", "défini par l'admin"))}`}</div>
-          <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>{topic ? topic.title : tr(L("No topic open yet.", "Aucun sujet ouvert."))}</div>
+          <div style={{ fontSize: 18, fontWeight: 800, marginTop: 2 }}>{topic ? at(topic.title) : tr(L("No topic open yet.", "Aucun sujet ouvert."))}</div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
           {topic && <span style={{ fontSize: 10.5, fontWeight: 800, padding: "3px 9px", borderRadius: 999, background: open ? C.yeaS : C.violetS, color: open ? C.yea : C.violet }}>{open ? tr(L("Open for entries", "Ouvert aux entrées")) : tr(L("Closed", "Clos"))}</span>}

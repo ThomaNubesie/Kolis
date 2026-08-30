@@ -95,6 +95,16 @@ export const cf = {
   orgBySlug: (slug: string): Promise<{ id: string; name: string; slug: string; color: string; org_type: string | null } | { error: string }> => rpc("cf_org_by_slug", { p_slug: slug }),
   orgTree: (org: string): Promise<CfOrgTree> => rpc("cf_org_tree", { p_org: org }),
   orgSetHome: (org: string, template: string | null, content: any) => rpc("cf_org_set_home", { p_org: org, p_template: template, p_content: content ?? {} }),
+  // Home-page cover photo. Orgs either keep one of the offered /covers/*.jpg or
+  // upload their own; the upload lands in the org's own cf-files folder, so the
+  // same membership RLS that guards documents guards the cover (read via fileUrl).
+  async uploadOrgCover(org: string, file: File): Promise<string> {
+    const safe = file.name.replace(/[^\w.\-]+/g, "_").slice(-70);
+    const path = `${org}/cover/${crypto.randomUUID()}-${safe}`;
+    const up = await supabase.storage.from("cf-files").upload(path, file, { contentType: file.type || undefined });
+    if (up.error) throw new Error(up.error.message);
+    return path;
+  },
   orgMembers: (org: string): Promise<CfOrgMember[]> => rpc("cf_org_members", { p_org: org }),
   departments: (org: string): Promise<{ id: string; name: string; group_name: string; kind: string; is_admin: boolean; members: number; im_member: boolean }[]> => rpc("cf_departments", { p_org: org }),
   // Take your seat in a department your organization already vouches for. Called

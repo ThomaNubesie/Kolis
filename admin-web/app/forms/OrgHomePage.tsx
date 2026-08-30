@@ -5,7 +5,7 @@
 // to Departments · Town Hall · Members · Documents so Home is the org's front door.
 import { useCallback, useEffect, useState } from "react";
 import { cf, type CfOrgTree, type CfOrgMember } from "@/lib/cf";
-import { Users, Folder, MessageSquare, ChevronRight, Pencil, Plus, X, LayoutGrid, FileText } from "lucide-react";
+import { Users, Folder, MessageSquare, ChevronRight, Pencil, Plus, X, LayoutGrid, FileText, ImagePlus } from "lucide-react";
 import Announcements from "./Announcements";
 
 const C = { paper: "#F1EEE7", panel: "#FFFFFF", ink: "#14131A", ink2: "#4A4A46", faint: "#8a8790", line: "#ECE9E2", accent: "#2F3AA3", cream: "#FBF8F2" };
@@ -16,28 +16,47 @@ const initials = (n: string) => (n || "?").trim().split(/\s+/).map((w) => w[0]).
 const badgeOf = (n: string) => (n.match(/\d{2,}/)?.[0]) || initials(n);
 const av = (c: string | null, s: number): any => ({ width: s, height: s, borderRadius: "50%", background: c || C.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: s * 0.4, flex: "0 0 auto" });
 
-const TEMPLATES: { id: string; nm: [string, string]; hero: "left" | "center" | "inline" | "editorial"; blocks: string[] }[] = [
-  { id: "1", nm: ["Community", "Communauté"], hero: "left", blocks: ["mission", "bureau", "announcements"] },
-  { id: "2", nm: ["Civic / Board", "Civique"], hero: "inline", blocks: ["stats", "officers", "docs"] },
-  { id: "3", nm: ["Club", "Club"], hero: "center", blocks: ["stats", "meeting", "mission"] },
-  { id: "4", nm: ["Bulletin", "Babillard"], hero: "left", blocks: ["pinned", "announcements"] },
-  { id: "5", nm: ["Congregation", "Congrégation"], hero: "center", blocks: ["bureau", "meeting"] },
-  { id: "6", nm: ["Syndicate", "Syndicat"], hero: "inline", blocks: ["stats", "officers", "announcements"] },
-  { id: "7", nm: ["Campus / PAC", "Comité d'école"], hero: "center", blocks: ["mission", "announcements"] },
-  { id: "8", nm: ["Union / Local", "Syndical"], hero: "left", blocks: ["bureau", "announcements", "meeting"] },
-  { id: "9", nm: ["Cause", "Cause"], hero: "center", blocks: ["stats", "mission"] },
-  { id: "10", nm: ["Newsroom", "Salle de presse"], hero: "editorial", blocks: ["pinned", "announcements"] },
+// One template, one cover photo, one key: /public/covers/<cover>.jpg (CC0 — see
+// CREDITS.json). The swap gallery in the editor is generated from this same list,
+// so the photos offered are always exactly the templates we ship.
+const TEMPLATES: { id: string; nm: [string, string]; hero: "left" | "center" | "inline" | "editorial"; cover: string; blocks: string[] }[] = [
+  { id: "1", nm: ["Community", "Communauté"], hero: "left", cover: "community", blocks: ["mission", "bureau", "announcements"] },
+  { id: "2", nm: ["Civic / Board", "Civique"], hero: "inline", cover: "board", blocks: ["stats", "officers", "docs"] },
+  { id: "3", nm: ["Club", "Club"], hero: "center", cover: "club", blocks: ["stats", "meeting", "mission"] },
+  { id: "4", nm: ["Bulletin", "Babillard"], hero: "left", cover: "bulletin", blocks: ["pinned", "announcements"] },
+  { id: "5", nm: ["Congregation", "Congrégation"], hero: "center", cover: "congregation", blocks: ["bureau", "meeting"] },
+  { id: "6", nm: ["Syndicate", "Syndicat"], hero: "inline", cover: "syndicate", blocks: ["stats", "officers", "announcements"] },
+  { id: "7", nm: ["Campus / PAC", "Comité d'école"], hero: "center", cover: "campus", blocks: ["mission", "announcements"] },
+  { id: "8", nm: ["Union / Local", "Syndical"], hero: "left", cover: "union", blocks: ["bureau", "announcements", "meeting"] },
+  { id: "9", nm: ["Cause", "Cause"], hero: "center", cover: "cause", blocks: ["stats", "mission"] },
+  { id: "10", nm: ["Newsroom", "Salle de presse"], hero: "editorial", cover: "newsroom", blocks: ["pinned", "announcements"] },
 ];
+const coverSrc = (k: string) => `/covers/${k}.jpg`;
+// Same six solids a group picks from at sign-up (new-org). The header is this
+// colour flat, or this colour gradiented over the cover photo.
+const ORG_COLORS = ["#2F3AA3", "#1F9D6B", "#E4632A", "#8A4FD0", "#C99A1E", "#D14D8B"];
 
 export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, onChanged }: { tree: CfOrgTree; tr: TR; lang: "en" | "fr"; mobile: boolean; onOpen: (id: string) => void; setTab: (t: any) => void; onChanged: () => void }) {
   const color = tree.color || "#2F3AA3";
   const c: any = tree.home_content || {};
+  // The header may run a solid of its own; the rest of the page keeps the org colour.
+  const heroColor = c.cover_color || color;
   const tmplId = tree.home_template || "";
   const tmpl = TEMPLATES.find((t) => t.id === tmplId);
   const tv = (o: any, k: string) => (lang === "fr" && o?.[k + "_fr"]) ? o[k + "_fr"] : (o?.[k] ?? "");
   const [officers, setOfficers] = useState<CfOrgMember[]>([]);
   const [editing, setEditing] = useState(false);
+  const [coverUrl, setCoverUrl] = useState("");
   useEffect(() => { cf.orgMembers(tree.id).then((ms) => setOfficers(ms.filter((m) => m.title))).catch(() => {}); }, [tree.id]);
+  // An uploaded cover is a private storage object, so it needs a signed URL; an
+  // offered cover is just a static file. "none" = the org turned the photo off.
+  useEffect(() => {
+    let live = true;
+    if (c.cover_path) { cf.fileUrl(c.cover_path).then((u) => live && setCoverUrl(u)).catch(() => live && setCoverUrl("")); return () => { live = false; }; }
+    const k = c.cover || tmpl?.cover || "";
+    setCoverUrl(!k || k === "none" ? "" : coverSrc(k));
+    return () => { live = false; };
+  }, [c.cover, c.cover_path, tmpl?.cover]);
 
   const anns: any[] = Array.isArray(c.announcements) ? c.announcements : [];
   const stats: any[] = Array.isArray(c.stats) ? c.stats : [];
@@ -69,7 +88,14 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
       </div>
     );
     return (
-      <div style={{ background: `linear-gradient(135deg, ${color}, ${color}), linear-gradient(#0002,#0004)`, backgroundBlendMode: "multiply", color: "#fff", borderRadius: 18, padding: "26px 24px", textAlign: align === "center" ? "center" : "left" }}>
+      <div style={{
+        background: coverUrl
+          ? `linear-gradient(135deg, ${heroColor}F0, ${heroColor}8C), url("${coverUrl}") center/cover no-repeat`
+          : `linear-gradient(135deg, ${heroColor}, ${heroColor}), linear-gradient(#0002,#0004)`,
+        backgroundBlendMode: coverUrl ? "normal" : "multiply",
+        color: "#fff", borderRadius: 18, padding: coverUrl ? (mobile ? "30px 20px" : "38px 26px") : "26px 24px",
+        textAlign: align === "center" ? "center" : "left",
+      }}>
         {align === "editorial" && <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: ".1em", textTransform: "uppercase", opacity: .75 }}>{tr(L("Digest", "Bulletin"))}</div>}
         {align === "inline" ? (
           <div style={{ display: "flex", alignItems: "center", gap: 13 }}>{logo}<div><div style={{ fontSize: 26, fontWeight: 800 }}>{tree.name}</div>{(tree.legal_name || tree.org_type) && <div style={{ opacity: .85, fontSize: 13 }}>{tree.legal_name || tree.org_type}</div>}</div></div>
@@ -126,6 +152,7 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
 // ---------- Editor ----------
 function Editor({ tree, tr, lang, onClose, onSaved }: { tree: CfOrgTree; tr: TR; lang: "en" | "fr"; onClose: () => void; onSaved: () => void }) {
   const c0: any = tree.home_content || {};
+  const color = tree.color || "#2F3AA3";
   const [tmpl, setTmpl] = useState(tree.home_template || "1");
   const [content, setContent] = useState<any>({
     tagline: c0.tagline || "", tagline_fr: c0.tagline_fr || "",
@@ -137,8 +164,21 @@ function Editor({ tree, tr, lang, onClose, onSaved }: { tree: CfOrgTree; tr: TR;
     docs: Array.isArray(c0.docs) ? c0.docs : [],
   });
   const [busy, setBusy] = useState(false);
+  // "" = whatever the chosen template offers, "none" = no photo, else a COVERS key.
+  const [cover, setCover] = useState<string>(c0.cover || "");
+  const [coverColor, setCoverColor] = useState<string>(c0.cover_color || "");
+  const tint = coverColor || color;
+  const [coverPath, setCoverPath] = useState<string>(c0.cover_path || "");
+  const [customUrl, setCustomUrl] = useState("");
+  useEffect(() => { let live = true; if (coverPath) cf.fileUrl(coverPath).then((u) => live && setCustomUrl(u)).catch(() => live && setCustomUrl("")); else setCustomUrl(""); return () => { live = false; }; }, [coverPath]);
+  const uploadCover = async (f: File | undefined) => {
+    if (!f) return;
+    setBusy(true);
+    try { const p = await cf.uploadOrgCover(tree.id, f); setCoverPath(p); setCover(""); } catch (e: any) { alert(e.message); }
+    setBusy(false);
+  };
   const set = (k: string, v: any) => setContent((p: any) => ({ ...p, [k]: v }));
-  const save = async () => { setBusy(true); try { const r = await cf.orgSetHome(tree.id, tmpl, content); if (r?.ok === false) alert(r.error); else onSaved(); } catch (e: any) { alert(e.message); } setBusy(false); };
+  const save = async () => { setBusy(true); try { const r = await cf.orgSetHome(tree.id, tmpl, { ...content, cover, cover_color: coverColor || null, cover_path: coverPath || null }); if (r?.ok === false) alert(r.error); else onSaved(); } catch (e: any) { alert(e.message); } setBusy(false); };
   const lbl: any = { fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: .4, color: C.faint, margin: "14px 0 5px" };
   const row = (o: any, k: string, ph: string) => (
     <div style={{ display: "flex", gap: 7, marginBottom: 6 }}>
@@ -155,11 +195,54 @@ function Editor({ tree, tr, lang, onClose, onSaved }: { tree: CfOrgTree; tr: TR;
       <div style={lbl}>{tr(L("Template", "Modèle"))}</div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(120px,1fr))", gap: 8 }}>
         {TEMPLATES.map((t) => (
-          <div key={t.id} onClick={() => setTmpl(t.id)} style={{ border: `2px solid ${tmpl === t.id ? C.accent : C.line}`, borderRadius: 10, padding: "9px 10px", cursor: "pointer", background: tmpl === t.id ? "#EEEBFA" : "#fff" }}>
-            <div style={{ fontSize: 9.5, fontWeight: 900, color: "#fff", background: C.accent, borderRadius: 4, padding: "0 5px", display: "inline-block" }}>{t.id}</div>
-            <div style={{ fontWeight: 800, fontSize: 12.5, marginTop: 4 }}>{lang === "fr" ? t.nm[1] : t.nm[0]}</div>
+          // Each tile is a miniature of its own hero — the photo under the same
+          // brand tint the live header uses, so picking a template is picking a look.
+          <div key={t.id} onClick={() => setTmpl(t.id)} style={{ border: `2px solid ${tmpl === t.id ? C.accent : C.line}`, borderRadius: 10, overflow: "hidden", cursor: "pointer", background: `linear-gradient(135deg, ${tint}F0, ${tint}8C), url("${coverSrc(t.cover)}") center/cover no-repeat`, minHeight: 78, padding: "9px 10px", display: "flex", flexDirection: "column", justifyContent: "flex-end", color: "#fff" }}>
+            <div style={{ fontSize: 9.5, fontWeight: 900, color: tint, background: "#fff", borderRadius: 4, padding: "0 5px", display: "inline-block", alignSelf: "flex-start" }}>{t.id}</div>
+            <div style={{ fontWeight: 800, fontSize: 12.5, marginTop: 4, textShadow: "0 1px 3px rgba(0,0,0,.45)" }}>{lang === "fr" ? t.nm[1] : t.nm[0]}</div>
           </div>
         ))}
+      </div>
+
+      <div style={lbl}>{tr(L("Cover colour", "Couleur de couverture"))}</div>
+      <div style={{ fontSize: 12, color: C.faint, marginBottom: 8 }}>{tr(L("The header colour — solid on its own, or gradiented over the photo you pick below.", "La couleur de l'en-tête — unie, ou en dégradé sur la photo choisie ci-dessous."))}</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        {ORG_COLORS.map((hex) => (
+          <span key={hex} onClick={() => setCoverColor(hex)} title={hex} style={{ width: 34, height: 34, borderRadius: 10, background: hex, cursor: "pointer", boxShadow: tint === hex ? `0 0 0 2px #fff inset, 0 0 0 2px ${hex}` : "none", border: `1px solid rgba(0,0,0,.08)` }} />
+        ))}
+      </div>
+
+      <div style={lbl}>{tr(L("Cover photo", "Photo de couverture"))}</div>
+      <div style={{ fontSize: 12, color: C.faint, marginBottom: 8 }}>{tr(L("Every template comes with a photo. Choose another, keep the colour solid, or upload your own.", "Chaque modèle a une photo. Choisissez-en une autre, gardez la couleur unie, ou téléversez la vôtre."))}</div>
+      {customUrl && (
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", border: `2px solid ${!cover ? C.accent : C.line}` }}>
+            <img src={customUrl} alt="" style={{ width: "100%", height: 120, objectFit: "cover", display: "block" }} />
+            <span onClick={() => { setCoverPath(""); setCustomUrl(""); }} style={{ position: "absolute", top: 8, right: 8, background: "rgba(0,0,0,.55)", color: "#fff", borderRadius: 8, padding: "4px 8px", fontSize: 11.5, fontWeight: 800, cursor: "pointer" }}>{tr(L("Remove", "Retirer"))}</span>
+            <span style={{ position: "absolute", bottom: 8, left: 10, color: "#fff", fontSize: 11.5, fontWeight: 800, textShadow: "0 1px 3px rgba(0,0,0,.6)" }}>{tr(L("Your photo", "Votre photo"))}</span>
+          </div>
+        </div>
+      )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(104px,1fr))", gap: 8 }}>
+        {/* Solid first, then the same colour gradiented over each template's photo. */}
+        {[{ k: "none", nm: ["Solid colour", "Couleur unie"] as [string, string] },
+          { k: "", nm: ["Template default", "Modèle par défaut"] as [string, string] },
+          ...TEMPLATES.map((t) => ({ k: t.cover, nm: t.nm }))].map((o) => {
+          const on = !coverPath && cover === o.k;
+          const photo = o.k === "none" ? "" : coverSrc(o.k || TEMPLATES.find((t) => t.id === tmpl)?.cover || "community");
+          return (
+            <div key={o.k || "default"} onClick={() => { setCover(o.k); setCoverPath(""); }} style={{ borderRadius: 10, overflow: "hidden", cursor: "pointer", boxShadow: on ? `0 0 0 2px #fff inset, 0 0 0 2px ${C.accent}` : `0 0 0 1px ${C.line}` }}>
+              <div style={{ height: 56, display: "flex", alignItems: "flex-end", padding: "6px 8px", background: photo ? `linear-gradient(135deg, ${tint}F0, ${tint}8C), url("${photo}") center/cover no-repeat` : tint }}>
+                <span style={{ color: "#fff", fontSize: 10.5, fontWeight: 800, textShadow: "0 1px 3px rgba(0,0,0,.5)" }}>{lang === "fr" ? o.nm[1] : o.nm[0]}</span>
+              </div>
+            </div>
+          );
+        })}
+        <label style={{ border: `2px dashed ${C.line}`, borderRadius: 10, cursor: "pointer", background: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, minHeight: 78, color: C.accent }}>
+          <input type="file" accept="image/*" style={{ display: "none" }} onChange={(e) => { uploadCover(e.target.files?.[0]); e.currentTarget.value = ""; }} />
+          <ImagePlus size={17} />
+          <span style={{ fontSize: 11.5, fontWeight: 800, textAlign: "center", padding: "0 6px" }}>{busy ? "…" : tr(L("Upload yours", "Téléverser"))}</span>
+        </label>
       </div>
       <div style={lbl}>{tr(L("Tagline", "Accroche"))}</div>{row(content, "tagline", tr(L("Tagline", "Accroche")))}
       <div style={lbl}>{tr(L("About / mission", "À propos / mission"))}</div>

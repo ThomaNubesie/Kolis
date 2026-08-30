@@ -44,3 +44,8 @@ export NETLIFY_AUTH_TOKEN
 # while anything added since the cached build 404s.
 echo "Building + deploying admin-web to production (quorly.ca)…"
 npx --yes netlify-cli@latest deploy --prod --build --skip-functions-cache --site "$SITE_ID"
+
+# The CLI exits 0 even when the publish shipped zero functions and every route
+# 502s, so its success is not evidence. Check the live site, and roll back to the
+# last deploy that actually answers if it is down. See verify-deploy.sh.
+./verify-deploy.sh "$SITE_ID" "https://quorly.ca" / /forms /pricing

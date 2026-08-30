@@ -47,3 +47,8 @@ echo "Building + deploying admin-web to production (business.kolis.ca)…"
 # added since the cached build 404s. Cost is ~30s of extra build; the
 # alternative is a green deploy that is quietly missing pages.
 npx --yes netlify-cli@latest deploy --prod --build --skip-functions-cache --site "$SITE_ID"
+
+# The CLI exits 0 even when the publish shipped zero functions and every route
+# 502s, so its success is not evidence. Check the live site, and roll back to the
+# last deploy that actually answers if it is down. See verify-deploy.sh.
+./verify-deploy.sh "$SITE_ID" "https://business.kolis.ca" / /forms

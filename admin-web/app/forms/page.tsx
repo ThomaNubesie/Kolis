@@ -183,7 +183,13 @@ function FormsInner() {
   }, [sel, vaultId, orgs, loadForm]);
   useEffect(() => {
     if (!sel) { setMeta(null); return; }
-    cf.formMeta(sel).then((m) => { setMeta(m); if (m?.org_id) setActiveOrg(m.org_id); }).catch(() => setMeta(null));
+    // A department that holds offices should show them first — its own entries are
+    // rarely the point once the work is divided between its offices.
+    cf.formMeta(sel).then((m) => {
+      setMeta(m);
+      if (m?.org_id) setActiveOrg(m.org_id);
+      setTab((m?.subform_count ?? 0) > 0 ? "subforms" : "entries");
+    }).catch(() => setMeta(null));
   }, [sel]);
 
   if (loading) return <Shell><div style={{ padding: 40, color: C.faint }}>Loading…</div></Shell>;
@@ -384,7 +390,7 @@ function FormsInner() {
             {!isVault && !isSpace && <div style={{ display: "flex", gap: 2, borderBottom: `1px solid ${C.line}`, padding: mobile ? "0 12px" : "0 22px", overflowX: "auto" }}>
               {(["entries", "folders", "files", "subforms", "receipts"] as const).map((k) => (
                 <div key={k} onClick={() => setTab(k)} style={{ padding: "10px 14px", fontSize: 13.5, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", color: tab === k ? C.accent : C.ink2, borderBottom: `2px solid ${tab === k ? C.accent : "transparent"}`, marginBottom: -1 }}>
-                  {k === "entries" ? tr(L("Entries", "Entrées")) : k === "folders" ? tr(L("Folders", "Dossiers")) : k === "files" ? tr(L("Files", "Fichiers")) : k === "receipts" ? tr(L("Receipts", "Reçus")) : <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>{tr(L("Departments", "Départements"))}{meta?.subform_count ? <span style={{ fontSize: 10.5, color: C.faint }}>{meta.subform_count}</span> : null}</span>}
+                  {k === "entries" ? tr(L("Entries", "Entrées")) : k === "folders" ? tr(L("Folders", "Dossiers")) : k === "files" ? tr(L("Files", "Fichiers")) : k === "receipts" ? tr(L("Receipts", "Reçus")) : <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>{tr(L("Offices", "Bureaux"))}{meta?.subform_count ? <span style={{ fontSize: 10.5, color: C.faint }}>{meta.subform_count}</span> : null}</span>}
                 </div>
               ))}
             </div>}
@@ -1356,8 +1362,8 @@ function SubformsPanel({ form, tr, lang, onOpen }: any) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 12.5, color: C.ink2, flex: 1, minWidth: 160 }}>{tr(L("Group departments by type — e.g. Governance, Finance, Records. Each has its own members.", "Regroupez les départements par type — ex. Gouvernance, Finances, Registres. Chacun a ses propres membres."))}</div>
-        {form.is_admin && <span style={{ ...abtn, background: C.accent, color: "#fff", borderColor: C.accent }} onClick={() => setAdding((a) => !a)}><FileText size={14} /> {tr(L("New department", "Nouveau département"))}</span>}
+        <div style={{ fontSize: 12.5, color: C.ink2, flex: 1, minWidth: 160 }}>{tr(L("The offices this department is divided into — e.g. Governance, Finance, Records. Each office has its own members, entries, folders, files and receipts.", "Les bureaux qui composent ce département — ex. Gouvernance, Finances, Registres. Chaque bureau a ses propres membres, entrées, dossiers, fichiers et reçus."))}</div>
+        {form.is_admin && <span style={{ ...abtn, background: C.accent, color: "#fff", borderColor: C.accent }} onClick={() => setAdding((a) => !a)}><FileText size={14} /> {tr(L("New office", "Nouveau bureau"))}</span>}
         {(form.is_admin || myRole === "admin") && <span style={{ ...abtn, background: "#fff", color: C.accent, borderColor: C.accent }} onClick={() => setAddingVote((a) => !a)}><ThumbsUp size={14} /> {tr(L("New election", "Nouvelle élection"))}</span>}
       </div>
       {addingVote && <div style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 8, background: "#fff" }}>
@@ -1381,13 +1387,13 @@ function SubformsPanel({ form, tr, lang, onOpen }: any) {
           <div onClick={startNew} style={{ flex: 2, textAlign: "center", background: C.accent, color: "#fff", borderRadius: 9, padding: 10, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{tr(L("Continue — choose template & invite", "Continuer — modèle & invitations"))}</div>
         </div>
       </div>}
-      {subs.length === 0 && !adding && <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("No departments yet.", "Aucun département."))}</div>}
+      {subs.length === 0 && !adding && <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("No offices yet.", "Aucun bureau."))}</div>}
       {Object.keys(groups).sort().map((g) => (
         <div key={g}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: .4, textTransform: "uppercase", color: C.faint, margin: "0 2px 6px" }}>{g}</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {groups[g].map((s) => (
-              <div key={s.id} onClick={async () => { if (s.im_member) return onOpen(s.id); if (s.kind === "election") { try { const r = await cf.electionEnsureMember(s.id); if (r?.ok) return onOpen(s.id); } catch { /* fall through */ } } alert(tr(L("You're not a member of this department. Ask its admin to invite you.", "Vous n'êtes pas membre de ce département. Demandez à son admin de vous inviter."))); }} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "11px 13px", cursor: "pointer", opacity: s.im_member || s.kind === "election" ? 1 : .6 }}>
+              <div key={s.id} onClick={async () => { if (s.im_member) return onOpen(s.id); if (s.kind === "election") { try { const r = await cf.electionEnsureMember(s.id); if (r?.ok) return onOpen(s.id); } catch { /* fall through */ } } alert(tr(L("You're not a member of this office. Ask its admin to invite you.", "Vous n'êtes pas membre de ce bureau. Demandez à son admin de vous inviter."))); }} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "11px 13px", cursor: "pointer", opacity: s.im_member || s.kind === "election" ? 1 : .6 }}>
                 <span style={{ width: 32, height: 32, borderRadius: 8, background: s.im_member || s.kind === "election" ? C.accentSoft : "#F0EEE9", color: s.im_member || s.kind === "election" ? C.accent : C.faint, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>{s.kind === "election" ? <ThumbsUp size={15} /> : s.im_member ? <FileText size={16} /> : <Lock size={15} />}</span>
                 <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}{s.kind === "election" ? <span style={{ fontSize: 10.5, fontWeight: 800, color: C.accent, background: C.accentSoft, borderRadius: 6, padding: "1px 6px", marginLeft: 6 }}>{tr(L("Election", "Élection"))}</span> : ""}</div><div style={{ fontSize: 11.5, color: C.faint }}>{s.members} {tr(L("members", "membres"))}{s.is_admin ? " · " + tr(L("admin", "admin")) : s.kind === "election" ? " · " + tr(L("open to all members", "ouvert à tous les membres")) : s.im_member ? "" : " · " + tr(L("not a member", "non membre"))}</div></div>
                 <ChevronRight size={16} style={{ color: C.faint }} />

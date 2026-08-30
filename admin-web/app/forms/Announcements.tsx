@@ -17,6 +17,7 @@ export default function Announcements({ form, orgId, tr, lang, welcome, mobile }
   const [open, setOpen] = useState(false);
   const [body, setBody] = useState(""); const [deadline, setDeadline] = useState("");
   const [target, setTarget] = useState<"local" | "assembly">("local");
+  const [notify, setNotify] = useState(true);
   const [busy, setBusy] = useState(false);
   const load = useCallback(() => cf.annList(form).then(setFeed).catch(() => setFeed(null)), [form]);
   useEffect(() => { load(); }, [load]);
@@ -36,7 +37,16 @@ export default function Announcements({ form, orgId, tr, lang, welcome, mobile }
     try {
       const r = await cf.annAdd(tgt, body.trim(), deadline || null);
       if (r?.ok === false) alert(r.error === "not_admin" ? tr(L("You can't post here.", "Vous ne pouvez pas publier ici.")) : r.error);
-      else { setBody(""); setDeadline(""); setOpen(false); setTarget("local"); if (tgt === form) load(); else alert(tr(L("Posted to the assembly.", "Publié à l'assemblée."))); }
+      else {
+        setBody(""); setDeadline(""); setOpen(false); setTarget("local");
+        let note = tgt === form ? "" : tr(L("Posted to the assembly.", "Publié à l'assemblée."));
+        if (notify && r?.id) {
+          const n = await cf.annNotify(r.id);
+          if (n?.ok) note = (note ? note + " " : "") + tr(L(`Notified ${n.emailed} by email, ${n.texted} by text.`, `${n.emailed} notifiés par courriel, ${n.texted} par texto.`));
+        }
+        if (tgt === form) load();
+        if (note) alert(note);
+      }
     } catch (e: any) { alert(e.message); }
     setBusy(false);
   };
@@ -64,6 +74,10 @@ export default function Announcements({ form, orgId, tr, lang, welcome, mobile }
             )}
             <span onClick={post} style={{ marginLeft: "auto", background: C.accent, color: "#fff", borderRadius: 9, padding: "8px 14px", fontSize: 12.5, fontWeight: 800, cursor: "pointer", opacity: body.trim() && !busy ? 1 : .6 }}>{busy ? "…" : tr(L("Post", "Publier"))}</span>
           </div>
+          <label style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 10, fontSize: 12, color: C.ink2, cursor: "pointer" }}>
+            <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} style={{ width: 15, height: 15, accentColor: C.accent }} />
+            {tr(L("Notify all members by text & email", "Avertir tous les membres par texto et courriel"))}
+          </label>
         </div>
       )}
 

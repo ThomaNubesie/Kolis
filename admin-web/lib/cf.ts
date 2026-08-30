@@ -78,6 +78,7 @@ export const cf = {
   annList: (form: string): Promise<CfAnnFeed> => rpc("cf_ann_list", { p_form: form }),
   annAdd: (form: string, body: string, deadline: string | null) => rpc("cf_ann_add", { p_form: form, p_body: body, p_deadline: deadline }),
   annDelete: (id: string) => rpc("cf_ann_delete", { p_id: id }),
+  annNotify: async (id: string) => { try { const { data } = await supabase.functions.invoke("cf-ann-notify", { body: { announcement_id: id, base_url: typeof window !== "undefined" ? window.location.origin : undefined } }); return data; } catch (e: any) { return { ok: false, error: e?.message }; } },
   myProfile: (): Promise<{ name?: string }> => rpc("cf_my_profile"),
   setProfile: (name: string) => rpc("cf_set_profile", { p_name: name }),
   myForms: (): Promise<CfFormBrief[]> => rpc("cf_my_forms"),

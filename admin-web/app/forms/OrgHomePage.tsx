@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { cf, type CfOrgTree, type CfOrgMember } from "@/lib/cf";
 import { Users, Folder, MessageSquare, ChevronRight, Pencil, Plus, X, LayoutGrid, FileText } from "lucide-react";
+import Announcements from "./Announcements";
 
 const C = { paper: "#F1EEE7", panel: "#FFFFFF", ink: "#14131A", ink2: "#4A4A46", faint: "#8a8790", line: "#ECE9E2", accent: "#2F3AA3", cream: "#FBF8F2" };
 const L = (en: string, fr: string) => ({ en, fr });
@@ -51,7 +52,7 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
       if (k === "officers") return <div style={secStyle}><h3 style={h3}>{tr(L("Officers", "Dirigeants"))}</h3>{officers.map((m) => <div key={m.member_id} style={{ display: "flex", gap: 8, padding: "8px 0", borderTop: `1px solid ${C.line}`, fontSize: 13.5 }}><b>{m.name}</b> — <span style={{ color: C.ink2 }}>{m.title}</span></div>)}</div>;
       return <div style={secStyle}><h3 style={h3}>{tr(L("The bureau", "Le bureau"))}</h3><div style={{ display: "grid", gridTemplateColumns: `repeat(${mobile ? 2 : 4},1fr)`, gap: 12 }}>{officers.slice(0, 8).map((m) => <div key={m.member_id} style={{ textAlign: "center" }}><div style={{ ...av(m.color, 48), margin: "0 auto 6px" }}>{initials(m.name)}</div><div style={{ fontWeight: 800, fontSize: 12.5 }}>{m.name}</div><div style={{ fontSize: 11, color: C.faint }}>{m.title}</div></div>)}</div></div>;
     }
-    if (k === "announcements" && anns.length > 0) return <div style={secStyle}><h3 style={h3}>{tr(L("Announcements", "Annonces"))}</h3>{anns.map((a, i) => <div key={i} style={{ display: "flex", gap: 10, padding: "9px 0", borderTop: i ? `1px solid ${C.line}` : 0 }}><span style={{ width: 9, height: 9, borderRadius: "50%", background: color, marginTop: 5, flex: "none" }} /><div style={{ fontSize: 13.5 }}>{a.date ? <b>{a.date} — </b> : null}{tv(a, "text")}</div></div>)}</div>;
+    if (k === "announcements") return null; // now a live dated feed rendered once below the hero
     if (k === "meeting" && (tv(c.meeting || {}, "when") || tv(c.meeting || {}, "where"))) return <div style={secStyle}><h3 style={h3}>📅 {tr(L("Meetings", "Réunions"))}</h3><div style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: 13 }}><div style={{ fontWeight: 800, fontSize: 14.5 }}>{tv(c.meeting, "when")}</div><div style={{ fontSize: 12.5, color: C.faint, marginTop: 3 }}>{tv(c.meeting, "where")}</div></div></div>;
     if (k === "stats" && stats.length > 0) return <div style={secStyle}><div style={{ display: "grid", gridTemplateColumns: `repeat(${mobile ? 2 : Math.min(4, stats.length)},1fr)`, gap: 11 }}>{stats.map((s, i) => <div key={i} style={{ background: C.cream, border: `1px solid ${C.line}`, borderRadius: 12, padding: 13, textAlign: "center" }}><div style={{ fontSize: 22, fontWeight: 900, color }}>{s.n}</div><div style={{ fontSize: 11, color: C.faint }}>{tv(s, "label")}</div></div>)}</div></div>;
     if (k === "docs" && docs.length > 0) return <div style={secStyle}><h3 style={h3}>{tr(L("Documents", "Documents"))}</h3>{docs.map((d, i) => <div key={i} style={{ display: "flex", gap: 9, padding: "8px 0", borderTop: i ? `1px solid ${C.line}` : 0, fontSize: 13.5 }}>📄 {tv(d, "label")}</div>)}</div>;
@@ -115,6 +116,7 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
       )}
       {!tmpl && !tree.is_admin && <div style={{ color: C.faint, fontSize: 13, marginBottom: 12 }}>{tree.name}</div>}
       {tmpl && <Hero />}
+      {tmpl && <Announcements form={tree.id} tr={tr} lang={lang} welcome mobile={mobile} />}
       {tmpl && tmpl.blocks.map((k) => <Block key={k} k={k} />)}
       <Explore />
     </div>
@@ -165,13 +167,7 @@ function Editor({ tree, tr, lang, onClose, onSaved }: { tree: CfOrgTree; tr: TR;
       <div style={lbl}>{tr(L("Pinned message", "Message épinglé"))}</div>{row(content.pinned, "text", tr(L("Pinned", "Épinglé")))}
       <div style={lbl}>{tr(L("Meeting — when / where", "Réunion — quand / où"))}</div>{row(content.meeting, "when", tr(L("When", "Quand")))}{row(content.meeting, "where", tr(L("Where", "Où")))}
       <div style={lbl}>{tr(L("Announcements", "Annonces"))}</div>
-      {content.announcements.map((a: any, i: number) => (
-        <div key={i} style={{ border: `1px solid ${C.line}`, borderRadius: 9, padding: 8, marginBottom: 6 }}>
-          <div style={{ display: "flex", gap: 7, marginBottom: 6 }}><input value={a.date || ""} onChange={(e) => { a.date = e.target.value; setContent({ ...content }); }} placeholder={tr(L("Date", "Date"))} style={{ ...inp, maxWidth: 110 }} /><span onClick={() => set("announcements", content.announcements.filter((_: any, j: number) => j !== i))} style={{ marginLeft: "auto", cursor: "pointer", color: C.faint, display: "flex", alignItems: "center" }}><X size={16} /></span></div>
-          {row(a, "text", tr(L("Announcement", "Annonce")))}
-        </div>
-      ))}
-      <span onClick={() => set("announcements", [...content.announcements, { date: "", text: "", text_fr: "" }])} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12.5, fontWeight: 800, color: C.accent, cursor: "pointer", marginTop: 2 }}><Plus size={14} /> {tr(L("Add announcement", "Ajouter une annonce"))}</span>
+      <div style={{ fontSize: 12, color: C.faint }}>{tr(L("Announcements are now live dated posts. Add or delete them, with deadlines, right on the Home page.", "Les annonces sont maintenant des publications datées. Ajoutez ou supprimez-les, avec échéances, sur la page d'accueil."))}</div>
       <div style={lbl}>{tr(L("Stats (number + label)", "Statistiques (nombre + libellé)"))}</div>
       {content.stats.map((s: any, i: number) => (
         <div key={i} style={{ display: "flex", gap: 7, marginBottom: 6, alignItems: "center" }}>

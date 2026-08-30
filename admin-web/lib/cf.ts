@@ -69,8 +69,15 @@ export type CfThEntry = { id: string; seq: number; body: string; summary: string
 export type CfThTopic = { id: string; title: string; status: "open" | "closed"; created_at: string; closed_at: string | null; pdf_path: string | null };
 export type CfThFeed = { is_admin: boolean; error?: string; topic: CfThTopic | null; entries: CfThEntry[] };
 
+// ===== Announcements (live dated posts; org=assembly or a department) =====
+export type CfAnnouncement = { id: string; body: string; deadline: string | null; created_at: string; author: string; author_color: string | null; can_delete: boolean };
+export type CfAnnFeed = { error?: string; can_post: boolean; items: CfAnnouncement[] };
+
 export const cf = {
   canCreate: (): Promise<boolean> => rpc("cf_can_create"),
+  annList: (form: string): Promise<CfAnnFeed> => rpc("cf_ann_list", { p_form: form }),
+  annAdd: (form: string, body: string, deadline: string | null) => rpc("cf_ann_add", { p_form: form, p_body: body, p_deadline: deadline }),
+  annDelete: (id: string) => rpc("cf_ann_delete", { p_id: id }),
   myProfile: (): Promise<{ name?: string }> => rpc("cf_my_profile"),
   setProfile: (name: string) => rpc("cf_set_profile", { p_name: name }),
   myForms: (): Promise<CfFormBrief[]> => rpc("cf_my_forms"),

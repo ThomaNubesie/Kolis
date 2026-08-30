@@ -12,6 +12,7 @@ import { buildFormPdf, pdfFilename } from "@/lib/pdf";
 import ElectionPanel from "./ElectionPanel";
 import OrgHome from "./OrgHome";
 import TownHall from "./TownHall";
+import Announcements from "./Announcements";
 import { Folder, FolderPlus, Upload, Download, Eye, Link2, Clock, Pencil, FolderInput, Trash2, MoreVertical, ChevronRight, ChevronDown, X, Search, Home, Star, Share2, RotateCcw, List, LayoutGrid, Inbox, FileText, Lock, ShieldCheck, Send, CalendarClock, AlertTriangle, KeyRound, Users, LifeBuoy, ExternalLink, MapPin, MessageSquare, ThumbsUp, ThumbsDown, CheckCircle2, Receipt, Camera, Sparkles, Coins, Tag, Settings, PlusSquare, TrendingUp } from "lucide-react";
 
 // Receipt categories. The English word is the STORED key (it lands in cf_receipts.category
@@ -388,16 +389,19 @@ function FormsInner() {
                   onOpen={(id: string) => setSel(id)}
                   onChanged={() => { loadSpaces(); if (activeOrg) loadTree(activeOrg); cf.myForms().then(setList).catch(() => {}); }} />
               ) : (!isVault && tab === "entries") ? (
-                (form.features as any)?.election ? (
-                  <ElectionPanel form={form} tr={tr} lang={lang} mobile={mobile} />
-                ) : (
                 <>
-                  {form.is_admin && <PdfPanel form={form} entries={entries} memberOf={memberOf} tr={tr} lang={lang} />}
-                  <NewEntry form={form} tr={tr} lang={lang} mobile={mobile} onDone={() => sel && loadForm(sel)} />
-                  {entries.map((e) => <EntryCard key={e.id} e={e} form={form!} lang={lang} tr={tr} mobile={mobile} memberOf={memberOf} reload={() => sel && cf.entries(sel).then(setEntries)} />)}
-                  {entries.length === 0 && <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("No entries yet.", "Aucune entrée."))}</div>}
+                  <Announcements form={form.id} orgId={meta?.parent_id ?? null} tr={tr} lang={lang} mobile={mobile} />
+                  {(form.features as any)?.election ? (
+                    <ElectionPanel form={form} tr={tr} lang={lang} mobile={mobile} />
+                  ) : (
+                  <>
+                    {form.is_admin && <PdfPanel form={form} entries={entries} memberOf={memberOf} tr={tr} lang={lang} />}
+                    <NewEntry form={form} tr={tr} lang={lang} mobile={mobile} onDone={() => sel && loadForm(sel)} />
+                    {entries.map((e) => <EntryCard key={e.id} e={e} form={form!} lang={lang} tr={tr} mobile={mobile} memberOf={memberOf} reload={() => sel && cf.entries(sel).then(setEntries)} />)}
+                    {entries.length === 0 && <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("No entries yet.", "Aucune entrée."))}</div>}
+                  </>
+                  )}
                 </>
-                )
               ) : tab === "subforms" ? (
                 <SubformsPanel form={form} tr={tr} lang={lang} onOpen={(id: string) => setSel(id)} />
               ) : tab === "receipts" ? (

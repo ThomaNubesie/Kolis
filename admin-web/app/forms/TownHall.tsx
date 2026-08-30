@@ -6,6 +6,7 @@
 // participants (cf-th-publish). Backend: th_* RPCs, org-membership gated.
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cf, planLimitMsg, type CfThFeed, type CfThEntry, type CfThComment } from "@/lib/cf";
+import { buildTownHallPdf } from "@/lib/pdf";
 import { ThumbsUp, ThumbsDown, ImagePlus, Sparkles, Lock, MessageSquare, Send, Loader2 } from "lucide-react";
 
 const C = { paper: "#F1EEE7", panel: "#FFFFFF", ink: "#14131A", ink2: "#6B6863", faint: "#9a97a4", line: "#ECE9E2", accent: "#2F3AA3", accentSoft: "#EEEBFA", yea: "#178A4E", yeaS: "#E7F6EE", nay: "#C0392B", nayS: "#FBE9E7", violet: "#6B4FA3", violetS: "#F3EFFB" };
@@ -141,7 +142,14 @@ export default function TownHall({ org, tr, lang }: { org: string; tr: TR; lang:
     if (!topic || !confirm(tr(L("Close this topic and publish the summary PDF to all participants?", "Clore ce sujet et publier le PDF de synthèse à tous les participants ?")))) return;
     const r = await cf.thCloseTopic(topic.id);
     if (r?.ok === false) { alert(r.error); return; }
-    try { await cf.thPublish(topic.id); } catch { /* PDF + email are best-effort (cf-th-publish) */ }
+    try {
+      const fresh = await cf.thFeed(org);
+      const b64 = await buildTownHallPdf(topic.title, fresh.entries ?? [], lang);
+      const members = await cf.orgMembers(org);
+      const emails = Array.from(new Set((members ?? []).map((m: any) => String(m.contact || "").trim().toLowerCase()).filter((c: string) => c.includes("@"))));
+      if (b64 && emails.length) await cf.sendPdf(org, { filename: `townhall-${topic.title.replace(/[^a-z0-9]+/gi, "-").slice(0, 40)}.pdf`, pdf_base64: b64, recipients: emails, message: tr(L(`Published summary of the Town Hall topic "${topic.title}".`, `Synthèse publiée du sujet d'assemblée « ${topic.title} ».`)) });
+      alert(tr(L(`Topic closed. Summary PDF emailed to ${emails.length} participant(s).`, `Sujet clos. PDF de synthèse envoyé à ${emails.length} participant(s).`)));
+    } catch (e: any) { alert(tr(L("Closed, but the summary email failed: ", "Clos, mais l'envoi de la synthèse a échoué : ")) + (e?.message || "")); }
     load();
   };
   const submitEntry = async () => {

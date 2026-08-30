@@ -1,6 +1,6 @@
 // Client-side PDF builder for a Quorly form (jsPDF loaded from CDN — no npm dep).
 // Produces a jsPDF doc with: header, NDA clause, members, and every entry (fields, status, comments).
-import type { CfFormFull, CfEntry, CfReceipt, CfElection } from "@/lib/cf";
+import type { CfFormFull, CfEntry, CfReceipt, CfElection, CfThEntry } from "@/lib/cf";
 
 declare global { interface Window { jspdf?: any } }
 
@@ -311,4 +311,40 @@ export async function buildReceiptsPdf(formName: string, recs: CfReceipt[], lang
   doc.setFontSize(13); setC(accent);
   doc.text(tr(L("GRAND TOTAL", "TOTAL GÉNÉRAL")), col.cat, y); doc.text(fm(grand), col.total, y, { align: "right" });
   return doc;
+}
+
+// Town Hall closing summary → base64 PDF (topic, overall yea/nay tally, each concern
+// with its running summary + vote). Margins respected (M + ensure() pagination).
+export async function buildTownHallPdf(topicTitle: string, entries: CfThEntry[], lang: PdfLang = "en"): Promise<string> {
+  const tr = T9N(lang);
+  const JsPDF = await ensureJsPDF();
+  const doc = new JsPDF({ unit: "pt", format: "a4" });
+  const W = doc.internal.pageSize.getWidth(), H = doc.internal.pageSize.getHeight();
+  const M = 48; let y = M;
+  const ink = [28, 27, 25], faint = [140, 135, 128], accent = [47, 58, 163], line = [225, 220, 210], yea = [23, 138, 78], nay = [192, 57, 43];
+  const ensure = (h: number) => { if (y + h > H - M) { doc.addPage(); y = M; } };
+  const text = (s: string, x: number, size = 10, style = "normal", color = ink, maxW = W - M - x) => {
+    doc.setFont("helvetica", style); doc.setFontSize(size); doc.setTextColor(color[0], color[1], color[2]);
+    for (const ln of doc.splitTextToSize(String(s ?? ""), maxW)) { ensure(size + 4); doc.text(ln, x, y); y += size + 4; }
+  };
+  const rule = () => { ensure(12); doc.setDrawColor(line[0], line[1], line[2]); doc.line(M, y, W - M, y); y += 12; };
+  doc.setFillColor(accent[0], accent[1], accent[2]); doc.roundedRect(M, y, 20, 20, 4, 4, "F");
+  doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text("Q", M + 6, y + 14);
+  doc.setTextColor(ink[0], ink[1], ink[2]); doc.setFontSize(13); doc.text("Quorly", M + 28, y + 14); y += 34;
+  text(tr(L("Town Hall — published summary", "Assemblée — synthèse publiée")), M, 9, "normal", faint);
+  text(topicTitle, M, 17, "bold");
+  let tf = 0, ta = 0; entries.forEach((e) => { tf += e.for; ta += e.against; });
+  text(`${tr(L("Overall", "Total"))}: ${tf} ${tr(L("for", "pour"))} · ${ta} ${tr(L("against", "contre"))} · ${entries.length} ${tr(L("concerns", "préoccupations"))}`, M, 10, "bold", accent);
+  rule();
+  entries.slice().reverse().forEach((e) => {
+    ensure(56);
+    text(`#${e.seq} · ${e.author}`, M, 11, "bold");
+    text(e.body, M, 10.5);
+    text(`${tr(L("Votes", "Votes"))}: ${e.for} ${tr(L("for", "pour"))} / ${e.against} ${tr(L("against", "contre"))}`, M, 9.5, "bold", e.for >= e.against ? yea : nay);
+    if (e.summary) text(`${tr(L("Summary", "Résumé"))}: ${e.summary}`, M + 6, 9.5, "italic", faint);
+    y += 6; rule();
+  });
+  text(tr(L("Prepared with Quorly · quorly.ca", "Préparé avec Quorly · quorly.ca")), M, 8, "normal", faint);
+  const uri = doc.output("datauristring");
+  return uri.split("base64,")[1] || "";
 }

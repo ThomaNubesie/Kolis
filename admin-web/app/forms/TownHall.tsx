@@ -4,9 +4,10 @@
 // vote and a two-level comment thread; each entry carries a running AI summary
 // (populated by the cf-th-summarize edge fn). Closing publishes a PDF + emails
 // participants (cf-th-publish). Backend: th_* RPCs, org-membership gated.
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { cf, planLimitMsg, type CfThFeed, type CfThEntry, type CfThComment } from "@/lib/cf";
 import { buildTownHallPdf } from "@/lib/pdf";
+import { memberColors } from "@/lib/colors";
 import { ThumbsUp, ThumbsDown, ImagePlus, Sparkles, Lock, MessageSquare, Send, Loader2 } from "lucide-react";
 
 const C = { paper: "#F1EEE7", panel: "#FFFFFF", ink: "#14131A", ink2: "#6B6863", faint: "#9a97a4", line: "#ECE9E2", accent: "#2F3AA3", accentSoft: "#EEEBFA", yea: "#178A4E", yeaS: "#E7F6EE", nay: "#C0392B", nayS: "#FBE9E7", violet: "#6B4FA3", violetS: "#F3EFFB" };
@@ -27,7 +28,7 @@ function MediaThumb({ path, kind }: { path: string; kind: string }) {
     : <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="" style={box} /></a>;
 }
 
-function Thread({ entry, open, tr, lang, reload, org }: { entry: CfThEntry; open: boolean; tr: TR; lang: "en" | "fr"; reload: () => void; org: string }) {
+function Thread({ entry, open, tr, lang, reload, org, cmap }: { entry: CfThEntry; open: boolean; tr: TR; lang: "en" | "fr"; reload: () => void; org: string; cmap: Record<string, string> }) {
   const [text, setText] = useState("");
   const [replyTo, setReplyTo] = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
@@ -47,7 +48,7 @@ function Thread({ entry, open, tr, lang, reload, org }: { entry: CfThEntry; open
       {entry.comments.map((c: CfThComment) => (
         <div key={c.id}>
           <div style={{ display: "flex", gap: 9 }}>
-            <span style={av(c.author_color, 26)}>{initials(c.author)}</span>
+            <span style={av(cmap[c.author] ?? c.author_color, 26)}>{initials(c.author)}</span>
             <div style={{ flex: 1, background: C.paper, border: `1px solid ${C.line}`, borderRadius: 10, padding: "8px 11px" }}>
               <div style={{ fontWeight: 800, fontSize: 12 }}>{c.author}</div>
               <div style={{ fontSize: 12.5, color: "#3A3A37", marginTop: 2 }}>{c.body}</div>
@@ -56,7 +57,7 @@ function Thread({ entry, open, tr, lang, reload, org }: { entry: CfThEntry; open
           </div>
           {(c.replies ?? []).map((r) => (
             <div key={r.id} style={{ marginLeft: 35, borderLeft: `2px solid ${C.violetS}`, paddingLeft: 11, marginTop: 7, display: "flex", gap: 9 }}>
-              <span style={av(r.author_color, 22)}>{initials(r.author)}</span>
+              <span style={av(cmap[r.author] ?? r.author_color, 22)}>{initials(r.author)}</span>
               <div style={{ flex: 1, background: C.violetS, border: `1px solid #E4DEF7`, borderRadius: 10, padding: "7px 10px" }}>
                 <div style={{ fontSize: 9.5, fontWeight: 800, color: C.violet, textTransform: "uppercase", letterSpacing: .3 }}>{tr(L("Reply", "Réponse"))} · {r.author}</div>
                 <div style={{ fontSize: 12.5, color: "#3A3A37", marginTop: 2 }}>{r.body}</div>
@@ -81,7 +82,7 @@ function Thread({ entry, open, tr, lang, reload, org }: { entry: CfThEntry; open
   );
 }
 
-function EntryCard({ e, open, tr, lang, reload, org }: { e: CfThEntry; open: boolean; tr: TR; lang: "en" | "fr"; reload: () => void; org: string }) {
+function EntryCard({ e, open, tr, lang, reload, org, cmap }: { e: CfThEntry; open: boolean; tr: TR; lang: "en" | "fr"; reload: () => void; org: string; cmap: Record<string, string> }) {
   const total = e.for + e.against;
   const pct = total ? Math.round((e.for / total) * 100) : 50;
   const vote = async (v: "for" | "against") => {
@@ -90,7 +91,7 @@ function EntryCard({ e, open, tr, lang, reload, org }: { e: CfThEntry; open: boo
   return (
     <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 16, padding: 16, marginTop: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-        <span style={av(e.author_color, 34)}>{initials(e.author)}</span>
+        <span style={av(cmap[e.author] ?? e.author_color, 34)}>{initials(e.author)}</span>
         <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 800, fontSize: 13.5 }}>{e.author}</div><div style={{ fontSize: 11, color: C.faint }}>#{e.seq}</div></div>
       </div>
       <div style={{ fontSize: 14.5, color: C.ink, margin: "11px 0", whiteSpace: "pre-wrap" }}>{e.body}</div>
@@ -114,7 +115,38 @@ function EntryCard({ e, open, tr, lang, reload, org }: { e: CfThEntry; open: boo
         </div>
       )}
 
-      <Thread entry={e} open={open} tr={tr} lang={lang} reload={reload} org={org} />
+      <Thread entry={e} open={open} tr={tr} lang={lang} reload={reload} org={org} cmap={cmap} />
+    </div>
+  );
+}
+
+// Invite straight from the assembly hall, so whoever is running the meeting can
+// bring someone in without leaving for the Members tab.
+function InviteBar({ org, tr, lang }: { org: string; tr: TR; lang: "en" | "fr" }) {
+  const [contact, setContact] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState("");
+  const send = async () => {
+    const c = contact.trim(); if (!c || busy) return;
+    setBusy(true); setMsg("");
+    try {
+      const r = await cf.orgInvite(org, c, null, lang);
+      if (r?.ok === false) {
+        const pm = planLimitMsg(r, lang);
+        setMsg(pm || (r.error === "already_invited" ? tr(L("Already invited.", "Déjà invité.")) : r.error === "not_admin" ? tr(L("You don't have permission to invite.", "Vous n'avez pas la permission d'inviter.")) : r.error || "Failed"));
+      } else { setContact(""); setMsg(tr(L("Invitation sent.", "Invitation envoyée."))); }
+    } catch (e: any) { setMsg(e.message); }
+    setBusy(false);
+  };
+  return (
+    <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, padding: "12px 14px", marginTop: 14 }}>
+      <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint, marginBottom: 7 }}>{tr(L("Invite to the assembly", "Inviter à l'assemblée"))}</div>
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <input value={contact} onChange={(e) => setContact(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
+          placeholder={tr(L("Email or phone", "Courriel ou téléphone"))} style={{ ...inp, flex: 1, minWidth: 180 }} />
+        <span onClick={send} style={{ ...btn(C.accent, "#fff"), opacity: contact.trim() && !busy ? 1 : .6 }}><Send size={13} /> {busy ? "…" : tr(L("Invite", "Inviter"))}</span>
+      </div>
+      {msg && <div style={{ fontSize: 12, marginTop: 7, color: /sent|envoyée/i.test(msg) ? C.yea : "#B4531F" }}>{msg}</div>}
     </div>
   );
 }
@@ -128,6 +160,17 @@ export default function TownHall({ org, tr, lang }: { org: string; tr: TR; lang:
   const load = useCallback(() => { cf.thFeed(org).then(setFeed).catch(() => setFeed(null)); }, [org]);
   useEffect(() => { load(); }, [load]);
 
+  // One colour per voice across the whole hall — entries, comments and replies —
+  // so the same person is the same dot everywhere and no two people collide.
+  const cmap = useMemo(() => {
+    const seen: { key: string; color?: string | null }[] = [];
+    const add = (name: string, color: string | null) => { if (name && !seen.some((x) => x.key === name)) seen.push({ key: name, color }); };
+    (feed?.entries ?? []).forEach((e) => {
+      add(e.author, e.author_color);
+      (e.comments ?? []).forEach((c) => { add(c.author, c.author_color); (c.replies ?? []).forEach((r) => add(r.author, r.author_color)); });
+    });
+    return memberColors(seen);
+  }, [feed]);
   const topic = feed?.topic ?? null;
   const isAdmin = !!feed?.is_admin;
   const open = topic?.status === "open";
@@ -182,6 +225,9 @@ export default function TownHall({ org, tr, lang }: { org: string; tr: TR; lang:
         </div>
       </div>
 
+      {/* Invite from the assembly hall, without leaving for the Members tab. */}
+      {isAdmin && <InviteBar org={org} tr={tr} lang={lang} />}
+
       {/* composer */}
       {topic && open && (
         <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, padding: 14, marginTop: 14 }}>
@@ -198,7 +244,7 @@ export default function TownHall({ org, tr, lang }: { org: string; tr: TR; lang:
 
       {/* entries */}
       {feed.entries.length === 0 && topic && <div style={{ color: C.faint, fontSize: 13, marginTop: 16 }}>{tr(L("No concerns yet — be the first to voice one.", "Aucune préoccupation — soyez le premier à en exprimer une."))}</div>}
-      {feed.entries.map((e) => <EntryCard key={e.id} e={e} open={!!open} tr={tr} lang={lang} reload={load} org={org} />)}
+      {feed.entries.map((e) => <EntryCard key={e.id} e={e} open={!!open} tr={tr} lang={lang} reload={load} org={org} cmap={cmap} />)}
     </div>
   );
 }

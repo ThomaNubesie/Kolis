@@ -3,8 +3,9 @@
 // templates (cf_forms.home_template) and edits content blocks (home_content);
 // members/visitors land here. Every template ends with an "Explore" hub linking
 // to Departments · Town Hall · Members · Documents so Home is the org's front door.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { cf, type CfOrgTree, type CfOrgMember } from "@/lib/cf";
+import { memberColors } from "@/lib/colors";
 import { Users, Folder, MessageSquare, ChevronRight, Pencil, Plus, X, LayoutGrid, FileText, ImagePlus } from "lucide-react";
 import Announcements from "./Announcements";
 
@@ -58,6 +59,8 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
     return () => { live = false; };
   }, [c.cover, c.cover_path, tmpl?.cover]);
 
+  // No two faces in the bureau wear the same colour.
+  const oc = useMemo(() => memberColors(officers.map((m) => ({ key: m.member_id, color: m.color }))), [officers]);
   const anns: any[] = Array.isArray(c.announcements) ? c.announcements : [];
   const stats: any[] = Array.isArray(c.stats) ? c.stats : [];
   const docs: any[] = Array.isArray(c.docs) ? c.docs : [];
@@ -69,7 +72,7 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
     if (k === "pinned" && tv(c.pinned || {}, "text")) return <div style={secStyle}><h3 style={h3}>📌 {tr(L("Pinned", "Épinglé"))}</h3><div style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, fontSize: 15, fontWeight: 800 }}>{tv(c.pinned, "text")}</div></div>;
     if ((k === "bureau" || k === "officers") && officers.length > 0) {
       if (k === "officers") return <div style={secStyle}><h3 style={h3}>{tr(L("Officers", "Dirigeants"))}</h3>{officers.map((m) => <div key={m.member_id} style={{ display: "flex", gap: 8, padding: "8px 0", borderTop: `1px solid ${C.line}`, fontSize: 13.5 }}><b>{m.name}</b> — <span style={{ color: C.ink2 }}>{m.title}</span></div>)}</div>;
-      return <div style={secStyle}><h3 style={h3}>{tr(L("The bureau", "Le bureau"))}</h3><div style={{ display: "grid", gridTemplateColumns: `repeat(${mobile ? 2 : 4},1fr)`, gap: 12 }}>{officers.slice(0, 8).map((m) => <div key={m.member_id} style={{ textAlign: "center" }}><div style={{ ...av(m.color, 48), margin: "0 auto 6px" }}>{initials(m.name)}</div><div style={{ fontWeight: 800, fontSize: 12.5 }}>{m.name}</div><div style={{ fontSize: 11, color: C.faint }}>{m.title}</div></div>)}</div></div>;
+      return <div style={secStyle}><h3 style={h3}>{tr(L("The bureau", "Le bureau"))}</h3><div style={{ display: "grid", gridTemplateColumns: `repeat(${mobile ? 2 : 4},1fr)`, gap: 12 }}>{officers.slice(0, 8).map((m) => <div key={m.member_id} style={{ textAlign: "center" }}><div style={{ ...av(oc[m.member_id], 48), margin: "0 auto 6px" }}>{initials(m.name)}</div><div style={{ fontWeight: 800, fontSize: 12.5 }}>{m.name}</div><div style={{ fontSize: 11, color: C.faint }}>{m.title}</div></div>)}</div></div>;
     }
     if (k === "announcements") return null; // now a live dated feed rendered once below the hero
     if (k === "meeting" && (tv(c.meeting || {}, "when") || tv(c.meeting || {}, "where"))) return <div style={secStyle}><h3 style={h3}>📅 {tr(L("Meetings", "Réunions"))}</h3><div style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: 13 }}><div style={{ fontWeight: 800, fontSize: 14.5 }}>{tv(c.meeting, "when")}</div><div style={{ fontSize: 12.5, color: C.faint, marginTop: 3 }}>{tv(c.meeting, "where")}</div></div></div>;

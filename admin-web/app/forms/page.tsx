@@ -7,6 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { quorly as supabase } from "@/lib/quorly";
 import { useLang } from "@/lib/i18n";
 import { cf, planLimitMsg, type CfFormBrief, type CfFormFull, type CfEntry, type CfFile, type CfFileRequest, type CfFolder, type CfShare, type CfFileActivity, type LostGuide, type CfDocComment, type CfDocDecision, type CfDownloadReq, type CfReceipt, type CfOrg, type CfOrgTree } from "@/lib/cf";
+import { memberColors } from "@/lib/colors";
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
 import { buildFormPdf, pdfFilename } from "@/lib/pdf";
 import ElectionPanel from "./ElectionPanel";
@@ -2085,6 +2086,9 @@ function FormEdit({ form, tr, isSpace, onSaved, onDeleted }: any) {
 }
 
 function MembersRail({ form, tr, lang, sel, loadForm }: any) {
+  // Distinct dot per member — stored colours are only unique within one form, so
+  // a rail can otherwise show the same hue twice.
+  const mc = useMemo(() => memberColors((form?.members ?? []).map((m: any) => ({ key: String(m.id ?? m.contact), color: m.color }))), [form?.members]);
   const remove = async (m: any) => {
     if (!confirm(tr(L(`Remove ${m.name ?? m.contact} — they'll lose access.`, `Retirer ${m.name ?? m.contact} — l'accès sera révoqué.`)))) return;
     try { await cf.removeMember(m.id); sel && loadForm(sel); } catch (e: any) { alert(e.message); }
@@ -2094,7 +2098,7 @@ function MembersRail({ form, tr, lang, sel, loadForm }: any) {
       <div style={railLbl}>{tr(L("Members", "Membres"))} · {form?.members.length ?? 0}</div>
       {(form?.members ?? []).map((m: any) => (
         <div key={(m.id ?? m.contact) as string} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 4px", opacity: m.status === "invited" ? 0.55 : 1 }}>
-          <span style={{ width: 18, height: 18, borderRadius: 5, background: m.color ?? "#CCC", flex: "0 0 auto" }} />
+          <span style={{ width: 18, height: 18, borderRadius: 5, background: mc[String(m.id ?? m.contact)] ?? "#CCC", flex: "0 0 auto" }} />
           <div style={{ minWidth: 0, flex: 1 }}><div style={{ fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name ?? m.contact}</div><div style={{ fontSize: 10, color: C.faint }}>{m.status === "invited" ? tr(L("invited", "invité")) : (m.joined_at ? tr(L("joined", "rejoint")) + " " + fmtDate(m.joined_at, lang) : m.contact)}</div></div>
           {m.role === "admin" && <span style={{ fontSize: 8.5, fontWeight: 800, color: C.accent, background: C.accentSoft, padding: "2px 7px", borderRadius: 9 }}>ADMIN</span>}
           {m.status === "invited" && form?.is_admin && <ResendLink form={form.id} contact={m.contact} tr={tr} />}

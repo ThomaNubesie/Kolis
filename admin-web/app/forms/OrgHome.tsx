@@ -7,8 +7,9 @@
 //
 // "Office" here means the POST a person holds — President, Trésorier — not a
 // container. The containers are departments.
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { cf, planLimitMsg, type CfOrgTree, type CfOrgMember, type CfDept } from "@/lib/cf";
+import { memberColors } from "@/lib/colors";
 import { QUICK_ADD, deptPayload } from "@/lib/presets";
 import OrgHomePage from "./OrgHomePage";
 import {
@@ -152,6 +153,8 @@ function HomeTab({ tree, tr, mobile, onOpen, onChanged, lang }: { tree: CfOrgTre
 /* ============================= MEMBERS ================================== */
 function MembersTab({ tree, tr, lang, mobile, onChanged }: { tree: CfOrgTree; tr: TR; lang: "en" | "fr"; mobile: boolean; onChanged: () => void }) {
   const [rows, setRows] = useState<CfOrgMember[] | null>(null);
+  // One colour per person across the whole roster — no two dots alike.
+  const rc = useMemo(() => memberColors((rows ?? []).map((m) => ({ key: m.member_id, color: m.color }))), [rows]);
   const [contact, setContact] = useState("");
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
@@ -210,7 +213,7 @@ function MembersTab({ tree, tr, lang, mobile, onChanged }: { tree: CfOrgTree; tr
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {(rows ?? []).map((m) => (
             <div key={m.member_id} style={{ display: "flex", alignItems: "center", gap: 11, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "10px 13px" }}>
-              <span style={{ width: 32, height: 32, borderRadius: "50%", background: m.color || C.line, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, flex: "0 0 auto" }}>
+              <span style={{ width: 32, height: 32, borderRadius: "50%", background: rc[m.member_id] || C.line, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 13, flex: "0 0 auto" }}>
                 {(m.name || "?").trim()[0]?.toUpperCase()}
               </span>
               <div style={{ minWidth: 0, flex: 1 }}>

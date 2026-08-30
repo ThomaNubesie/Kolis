@@ -91,8 +91,9 @@ export default function ElectionPanel({ form, tr, lang, mobile }: { form: CfForm
       {err && <div style={{ background: C.redSoft, color: C.red, border: `1px solid #F3C6C0`, borderRadius: 10, padding: "9px 13px", fontSize: 12.5, fontWeight: 700 }}>{err}</div>}
       {closeNote && <div style={{ background: C.greenSoft, color: "#166B3D", border: `1px solid #C6E9D3`, borderRadius: 10, padding: "9px 13px", fontSize: 12.5, fontWeight: 700 }}>{closeNote}</div>}
 
-      {/* Admin: positions + close */}
+      {/* Admin: positions + who administers this election + close */}
       {isAdmin && !closed && <PositionsEditor form={form} el={el} tr={tr} onSaved={load} />}
+      {isAdmin && !closed && <DeptAdmins form={form} tr={tr} />}
       {isAdmin && !closed && (
         <div style={{ ...card, padding: "13px 15px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: 12.5, color: C.ink2, flex: 1, minWidth: 180 }}>
@@ -141,6 +142,71 @@ export default function ElectionPanel({ form, tr, lang, mobile }: { form: CfForm
         </div>
       )}
       <style>{`.spin{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+    </div>
+  );
+}
+
+// Admin rights live on the form, so an organization admin appoints who else may
+// run this election. An appointee is an admin HERE only — nowhere else in the org,
+// and they cannot appoint anyone themselves.
+function DeptAdmins({ form, tr }: { form: CfFormFull; tr: (o: any) => string }) {
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState<{ user_id: string; name: string; title: string | null; is_admin: boolean }[] | null>(null);
+  const [canAppoint, setCanAppoint] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const load = useCallback(() => {
+    cf.deptAdmins(form.id).then((r) => { setRows(r?.members ?? []); setCanAppoint(!!r?.can_appoint); }).catch(() => setRows([]));
+  }, [form.id]);
+  useEffect(() => { load(); }, [load]);
+  const toggle = async (m: { user_id: string; name: string; is_admin: boolean }) => {
+    const on = !m.is_admin;
+    if (on && !confirm(tr(L(`Let ${m.name} run this election? They'll be able to add and remove positions, invite people to it, and close it — here only, not anywhere else in the organization.`,
+                            `Confier cette élection à ${m.name} ? Cette personne pourra ajouter et retirer des postes, y inviter des personnes et la clôturer — ici seulement, nulle part ailleurs dans l'organisation.`)))) return;
+    setBusy(m.user_id);
+    try {
+      const r = await cf.setDeptAdmin(form.id, m.user_id, on);
+      if (r?.ok === false) alert(r.error === "cannot_change_self" ? tr(L("You can't change your own rights here.", "Vous ne pouvez pas modifier vos propres droits ici."))
+                               : r.error === "not_admin" ? tr(L("Only an organization admin can appoint.", "Seul un admin de l'organisation peut nommer."))
+                               : failed(tr));
+      load();
+    } catch { alert(failed(tr)); }
+    setBusy(null);
+  };
+  const admins = (rows ?? []).filter((m) => m.is_admin);
+  if (rows !== null && rows.length === 0) return null;
+  return (
+    <div style={{ ...card, padding: "12px 15px" }}>
+      <div onClick={() => setOpen((o) => !o)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", gap: 10 }}>
+        <div style={{ fontSize: 13, fontWeight: 800 }}>
+          {tr(L("Who runs this election", "Qui gère cette élection"))}
+          <span style={{ color: C.faint, fontWeight: 600 }}> · {admins.length}</span>
+        </div>
+        <span style={{ fontSize: 12, fontWeight: 800, color: C.accent }}>{open ? tr(L("Done", "Terminé")) : tr(L("Manage", "Gérer"))}</span>
+      </div>
+      {!open && admins.length > 0 && (
+        <div style={{ fontSize: 12.5, color: C.ink2, marginTop: 7 }}>{admins.map((m) => m.name).join(" · ")}</div>
+      )}
+      {open && (
+        <>
+          {!canAppoint && <div style={{ fontSize: 12, color: C.faint, marginTop: 8 }}>{tr(L("Only an organization admin can change this.", "Seul un admin de l'organisation peut modifier ceci."))}</div>}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 9 }}>
+            {(rows ?? []).map((m) => (
+              <div key={m.user_id} style={{ display: "flex", alignItems: "center", gap: 10, border: `1px solid ${C.line}`, borderRadius: 10, padding: "8px 11px" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name}</div>
+                  {m.title && <div style={{ fontSize: 11, color: C.faint }}>{m.title}</div>}
+                </div>
+                <span onClick={canAppoint && !busy ? () => toggle(m) : undefined} style={{
+                  flex: "0 0 auto", fontSize: 11.5, fontWeight: 800, borderRadius: 999, padding: "4px 10px",
+                  cursor: canAppoint ? "pointer" : "default", opacity: busy === m.user_id ? .5 : 1,
+                  background: m.is_admin ? C.accentSoft : "transparent", color: m.is_admin ? C.accent : C.faint,
+                  border: m.is_admin ? "1px solid transparent" : `1px dashed ${C.line}`,
+                }}>{m.is_admin ? tr(L("✓ runs it", "✓ gère")) : tr(L("+ let them run it", "+ confier"))}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }

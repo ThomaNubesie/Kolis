@@ -179,6 +179,11 @@ export const cf = {
   // ===== Elections (multi-position vote sub-forms) =====
   electionEnsureMember: (form: string): Promise<{ ok: boolean; joined?: boolean; already?: boolean; error?: string }> => rpc("cf_election_ensure_member", { p_form: form }),
   electionResults: (form: string): Promise<CfElection> => rpc("cf_election_results", { p_form: form }),
+  // Co-admins on a department. Admin rights are per-form, so an org admin appoints
+  // (say) the election's steward here; inside that department they are a full admin.
+  deptAdmins: (form: string): Promise<{ ok: boolean; error?: string; can_appoint?: boolean; members?: { user_id: string; name: string; title: string | null; is_admin: boolean }[] }> =>
+    rpc("cf_dept_admins", { p_form: form }),
+  setDeptAdmin: (form: string, user: string, on: boolean) => rpc("cf_set_dept_admin", { p_form: form, p_user: user, p_on: on }),
   setPositions: async (form: string, positions: string[]) => {
     const res = await rpc("cf_set_positions", { p_form: form, p_positions: positions });
     if (res && res.ok === false) throw new Error(res.error || "Failed");

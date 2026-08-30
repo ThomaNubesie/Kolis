@@ -55,7 +55,7 @@ export function planLimitMsg(x: any, lang: "en" | "fr"): string | null {
   return (lang === "fr" ? fr : en) + (lang === "fr" ? " Voir les forfaits sur /pricing." : " See plans at /pricing.");
 }
 export type CfDept = { id: string; name: string; description: string; group_name: string; kind: string; features: Record<string, boolean>; election_status: string | null; is_admin: boolean; members: number; entries: number; im_member: boolean };
-export type CfOrgTree = CfOrg & { description: string; departments: CfDept[]; error?: string };
+export type CfOrgTree = CfOrg & { description: string; departments: CfDept[]; error?: string; home_template?: string | null; home_content?: any };
 export type CfOrgMember = { member_id: string; id: string | null; name: string; contact: string | null; color: string | null; role: string; title: string | null; status: string; joined_at: string | null; departments: number };
 
 export type CfCandidate = { entry_id: string; author_id: string; name: string; position: string; running: string; plan: string; declared_at: string; for: number; against: number; net: number; my_vote: "for" | "against" | null; my_reason: string | null; winner: boolean };
@@ -86,6 +86,7 @@ export const cf = {
   // own branding. Returns { error: "not_found" } for an unknown handle.
   orgBySlug: (slug: string): Promise<{ id: string; name: string; slug: string; color: string; org_type: string | null } | { error: string }> => rpc("cf_org_by_slug", { p_slug: slug }),
   orgTree: (org: string): Promise<CfOrgTree> => rpc("cf_org_tree", { p_org: org }),
+  orgSetHome: (org: string, template: string | null, content: any) => rpc("cf_org_set_home", { p_org: org, p_template: template, p_content: content ?? {} }),
   orgMembers: (org: string): Promise<CfOrgMember[]> => rpc("cf_org_members", { p_org: org }),
   departments: (org: string): Promise<{ id: string; name: string; group_name: string; kind: string; is_admin: boolean; members: number; im_member: boolean }[]> => rpc("cf_departments", { p_org: org }),
   // Take your seat in a department your organization already vouches for. Called

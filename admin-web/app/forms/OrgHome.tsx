@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { cf, planLimitMsg, type CfOrgTree, type CfOrgMember, type CfDept } from "@/lib/cf";
 import { QUICK_ADD, deptPayload } from "@/lib/presets";
+import OrgHomePage from "./OrgHomePage";
 import {
   NotebookPen, Gavel, Vote, Wallet, Receipt, FolderOpen, Users, CalendarDays,
   ChevronRight, X, Check, Mail, Shield,
@@ -34,7 +35,7 @@ export default function OrgHome({ tree, tab, setTab, tr, lang, mobile, onOpen, o
   if (!tree) return <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("Loading…", "Chargement…"))}</div>;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {tab === "home" && <HomeTab tree={tree} tr={tr} mobile={mobile} onOpen={onOpen} onChanged={onChanged} lang={lang} />}
+      {tab === "home" && <OrgHomePage tree={tree} tr={tr} lang={lang} mobile={mobile} onOpen={onOpen} setTab={setTab} onChanged={onChanged} />}
       {tab === "members" && <MembersTab tree={tree} tr={tr} lang={lang} mobile={mobile} onChanged={onChanged} />}
       {tab === "settings" && <SettingsTab tree={tree} tr={tr} onChanged={onChanged} />}
     </div>

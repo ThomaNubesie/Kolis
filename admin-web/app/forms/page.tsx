@@ -60,6 +60,9 @@ const CF_ERR: Record<string, { en: string; fr: string }> = {
   comments_off: L("Comments are turned off on this form.", "Les commentaires sont désactivés sur ce formulaire."),
   election_closed: L("This election is closed.", "Cette élection est terminée."),
   entries_not_allowed: L("The admin hasn't allowed members to add entries.", "L'admin n'a pas autorisé les membres à ajouter des entrées."),
+  suspended: L("You're suspended — you can read here, but not post.", "Vous êtes suspendu — vous pouvez lire ici, mais pas publier."),
+  suspended_only: L("Only suspended members may post here right now.", "Seuls les membres suspendus peuvent publier ici pour l'instant."),
+  cannot_change_self: L("You can't change your own rights here.", "Vous ne pouvez pas modifier vos propres droits ici."),
   forbidden: L("You don't have access to that.", "Vous n'avez pas accès à cet élément."),
   invalid_contact: L("Enter a valid email or phone.", "Entrez un courriel ou téléphone valide."),
   invalid_or_used: L("That invite link is invalid or has already been used.", "Ce lien d'invitation est invalide ou déjà utilisé."),
@@ -109,7 +112,7 @@ function FormsInner() {
   const [canCreate, setCanCreate] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [tab, setTab] = useState<"entries" | "folders" | "files" | "subforms" | "receipts">("entries");
-  const [meta, setMeta] = useState<{ parent_id: string | null; parent_name: string | null; group_name: string | null; subform_count: number } | null>(null);
+  const [meta, setMeta] = useState<{ kind?: string; parent_id: string | null; parent_name: string | null; group_name: string | null; subform_count: number } | null>(null);
   const [vaultId, setVaultId] = useState<string | null>(null);
   const [vaultBusy, setVaultBusy] = useState(false);
   const [show2fa, setShow2fa] = useState(false);
@@ -120,7 +123,7 @@ function FormsInner() {
   const [activeOrg, setActiveOrg] = useState<string | null>(null);
   const [tree, setTree] = useState<CfOrgTree | null>(null);
   const [orgSwitch, setOrgSwitch] = useState(false);
-  const [orgTab, setOrgTab] = useState<"home" | "members" | "documents" | "townhall" | "settings">("home");
+  const [orgTab, setOrgTab] = useState<"home" | "members" | "documents" | "settings">("home");
   const [qoAdmin, setQoAdmin] = useState(false); // outreach/prospecting operator → sees the GROWTH rail group
   const [newSpace, setNewSpace] = useState(false);
   const isVault = !!sel && sel === vaultId;
@@ -131,7 +134,12 @@ function FormsInner() {
     cf.myOrgs().then((o) => { setOrgs(o); setActiveOrg((a) => (a && o.some((x) => x.id === a) ? a : o[0]?.id ?? null)); }).catch(() => {});
   }, []);
   const loadTree = useCallback((id: string) => {
-    cf.orgTree(id).then((t) => setTree(t && !(t as any).error ? t : null)).catch(() => setTree(null));
+    // Idempotent: creates the Town Hall department once, and re-syncs its roster with
+    // the organization's, so a member who joined since lands in the hall.
+    cf.ensureTownHall(id).catch(() => {})
+      .then(() => cf.orgTree(id))
+      .then((t) => setTree(t && !(t as any).error ? t : null))
+      .catch(() => setTree(null));
   }, []);
   const openVault = async () => {
     setVaultBusy(true);
@@ -249,8 +257,8 @@ function FormsInner() {
                   {([["home", tr(L("Home", "Accueil")), <Home key="h" size={14} />],
                      ["members", tr(L("Members", "Membres")), <Users key="m" size={14} />],
                      ["documents", tr(L("Documents", "Documents")), <Folder key="d" size={14} />],
-                     ["townhall", tr(L("Town Hall", "Assemblée")), <MessageSquare key="t" size={14} />],
                      ["settings", tr(L("Settings", "Paramètres")), <Settings key="s" size={14} />]] as const).map(([k, label, icon]) => (
+                    // Town Hall used to sit here; it is a department now, listed with the rest.
                     <div key={k} onClick={() => { setOrgTab(k as any); setSel(activeOrg); }} style={sItem(sel === activeOrg && orgTab === k)}>
                       <span style={{ color: sel === activeOrg && orgTab === k ? C.accent : C.faint, display: "inline-flex" }}>{icon}</span>{label}
                     </div>
@@ -269,8 +277,8 @@ function FormsInner() {
                       {g && <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint, padding: "7px 8px 3px" }}>{g}</div>}
                       {items.map((d) => (
                         <div key={d.id} onClick={() => setSel(d.id)} style={{ ...sItem(d.id === sel), opacity: d.im_member || d.kind === "election" ? 1 : .72 }}>
-                          <span style={{ color: d.id === sel ? C.accent : C.faint, display: "inline-flex" }}>
-                            {d.kind === "election" ? <ThumbsUp size={14} /> : <FileText size={14} />}
+                          <span style={{ color: d.id === sel ? C.accent : C.faint, display: "inline-flex", fontSize: d.emoji ? 14 : undefined }}>
+                            {d.emoji || (d.kind === "election" ? <ThumbsUp size={14} /> : <FileText size={14} />)}
                           </span>
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{d.name}</span>
                           {d.kind === "election" && d.election_status === "open" && <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, flex: "0 0 auto" }} />}
@@ -383,8 +391,6 @@ function FormsInner() {
                 // this is where a documents-only group (a shared family folder,
                 // a bylaws archive) does all of its work.
                 <FilesPanel form={form} tr={tr} lang={lang} mobile={mobile} entries={entries} memberOf={memberOf} isVault={false} flat={false} />
-              ) : isOrg && orgTab === "townhall" ? (
-                <TownHall org={form.id} tr={tr} lang={lang} />
               ) : isOrg ? (
                 <OrgHome tree={tree} tab={orgTab as "home" | "members" | "settings"} setTab={setOrgTab} tr={tr} lang={lang} mobile={mobile}
                   onOpen={(id: string) => setSel(id)}
@@ -392,6 +398,10 @@ function FormsInner() {
               ) : (!isVault && tab === "entries") ? (
                 <>
                   <Announcements form={form.id} orgId={meta?.parent_id ?? null} tr={tr} lang={lang} mobile={mobile} />
+                  {/* The hall's board lives on the ORG (cf_th_* is keyed there), so it
+                      keeps every topic it already had; folders, files and receipts are
+                      this department's own, on the tabs above. */}
+                  {meta?.kind === "townhall" && meta.parent_id && <TownHall org={meta.parent_id} tr={tr} lang={lang} />}
                   {(form.features as any)?.election ? (
                     <ElectionPanel form={form} tr={tr} lang={lang} mobile={mobile} />
                   ) : (
@@ -2086,6 +2096,14 @@ function FormEdit({ form, tr, isSpace, onSaved, onDeleted }: any) {
 }
 
 function MembersRail({ form, tr, lang, sel, loadForm }: any) {
+  // Suspension keeps the seat and takes the floor — so it is a toggle here, not a removal.
+  const suspend = async (m: any) => {
+    const on = !m.suspended;
+    if (on && !confirm(tr(L(`Suspend ${m.name ?? m.contact}? They keep access and can still read, but cannot post while boards are set to exclude suspended members.`,
+                            `Suspendre ${m.name ?? m.contact} ? La personne garde l'accès et peut lire, mais ne pourra pas publier là où les suspendus sont exclus.`)))) return;
+    try { const r = await cf.setMemberSuspended(m.member_id, on); if (r?.ok === false) alert(cfErr(r.error, tr)); else sel && loadForm(sel); }
+    catch (e: any) { alert(e.message); }
+  };
   // Distinct dot per member — stored colours are only unique within one form, so
   // a rail can otherwise show the same hue twice.
   const mc = useMemo(() => memberColors((form?.members ?? []).map((m: any) => ({ key: String(m.id ?? m.contact), color: m.color }))), [form?.members]);
@@ -2101,6 +2119,13 @@ function MembersRail({ form, tr, lang, sel, loadForm }: any) {
           <span style={{ width: 18, height: 18, borderRadius: 5, background: mc[String(m.id ?? m.contact)] ?? "#CCC", flex: "0 0 auto" }} />
           <div style={{ minWidth: 0, flex: 1 }}><div style={{ fontSize: 12.5, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.name ?? m.contact}</div><div style={{ fontSize: 10, color: C.faint }}>{m.status === "invited" ? tr(L("invited", "invité")) : (m.joined_at ? tr(L("joined", "rejoint")) + " " + fmtDate(m.joined_at, lang) : m.contact)}</div></div>
           {m.role === "admin" && <span style={{ fontSize: 8.5, fontWeight: 800, color: C.accent, background: C.accentSoft, padding: "2px 7px", borderRadius: 9 }}>ADMIN</span>}
+          {m.suspended && <span style={{ fontSize: 8.5, fontWeight: 800, color: "#B4531F", background: "#FBEFE7", padding: "2px 7px", borderRadius: 9 }}>{tr(L("SUSPENDED", "SUSPENDU"))}</span>}
+          {form?.is_admin && m.role !== "admin" && m.member_id && (
+            <span onClick={() => suspend(m)} title={m.suspended ? tr(L("Lift the suspension", "Lever la suspension")) : tr(L("Suspend — they keep reading, but lose the floor", "Suspendre — la personne peut lire, mais perd la parole"))}
+              style={{ fontSize: 9.5, fontWeight: 800, color: m.suspended ? C.accent : C.faint, cursor: "pointer", flex: "0 0 auto" }}>
+              {m.suspended ? tr(L("unsuspend", "réintégrer")) : tr(L("suspend", "suspendre"))}
+            </span>
+          )}
           {m.status === "invited" && form?.is_admin && <ResendLink form={form.id} contact={m.contact} tr={tr} />}
           {form?.is_admin && m.role !== "admin" && m.id && <span onClick={() => remove(m)} title={tr(L("Remove", "Retirer"))} style={{ color: C.faint, cursor: "pointer", display: "flex", flex: "0 0 auto" }}><X size={15} /></span>}
         </div>
@@ -2191,6 +2216,23 @@ function Invite({ form, tr, lang, onDone }: any) {
 
 function NewEntry({ form, tr, lang, onDone }: any) {
   const canPost = form.is_admin || form.features?.member_entries;
+  // Who holds the floor here. Admins set it; everyone else just sees the rule, and
+  // the server enforces it in cf_add_entry regardless of what the screen shows.
+  const [aud, setAud] = useState<string>(form.post_audience || "all");
+  const [audBusy, setAudBusy] = useState(false);
+  const setAudience = async (a: string) => {
+    const prev = aud; setAud(a); setAudBusy(true);
+    try { const r = await cf.setPostAudience(form.id, a as any); if (r?.ok === false) { setAud(prev); alert(cfErr(r.error, tr)); } }
+    catch (e: any) { setAud(prev); alert(e.message); }
+    setAudBusy(false);
+  };
+  const AUD: [string, string, string][] = [
+    ["all", "Everyone", "Tout le monde"],
+    ["active", "Everyone but suspended", "Sauf les suspendus"],
+    ["suspended", "Only suspended", "Seulement les suspendus"],
+  ];
+  // A member the rule shuts out is told so, instead of failing at submit.
+  const blocked = !form.is_admin && ((aud === "active" && form.im_suspended) || (aud === "suspended" && !form.im_suspended));
   // When the form defines no structured fields, give a single free-text "Note" area.
   const fields = (form.features?.fields && (form.fields?.length ?? 0) > 0) ? form.fields : [{ id: "__note", label: "Note", type: "longtext", label_i18n: { en: "Note", fr: "Note" } }];
   const [open, setOpen] = useState(false);
@@ -2207,9 +2249,29 @@ function NewEntry({ form, tr, lang, onDone }: any) {
     setBusy(false);
   };
   if (!canPost) return null;
-  if (!open) return <div onClick={() => setOpen(true)} style={{ border: `1px dashed ${C.line}`, borderRadius: 11, padding: 12, textAlign: "center", fontWeight: 700, fontSize: 13, color: C.accent, cursor: "pointer" }}>{tr(L("+ New entry", "+ Nouvelle entrée"))}</div>;
+  const audienceBar = form.is_admin ? (
+    <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", marginBottom: 9 }}>
+      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint }}>{tr(L("Who may post", "Qui peut publier"))}</span>
+      {AUD.map(([k, en, fr]) => (
+        <span key={k} onClick={audBusy ? undefined : () => setAudience(k)} style={{
+          fontSize: 11.5, fontWeight: 800, borderRadius: 999, padding: "4px 10px", cursor: "pointer",
+          background: aud === k ? C.accentSoft : "transparent", color: aud === k ? C.accent : C.faint,
+          border: aud === k ? "1px solid transparent" : `1px dashed ${C.line}`, opacity: audBusy ? .6 : 1,
+        }}>{tr(L(en, fr))}</span>
+      ))}
+    </div>
+  ) : null;
+  if (blocked) return (
+    <div style={{ border: `1px dashed ${C.line}`, borderRadius: 11, padding: 12, textAlign: "center", fontSize: 12.5, color: C.faint }}>
+      {aud === "active"
+        ? tr(L("You're suspended — you can read, but not post here.", "Vous êtes suspendu — vous pouvez lire, mais pas publier ici."))
+        : tr(L("Only suspended members may post in this thread.", "Seuls les membres suspendus peuvent publier ici."))}
+    </div>
+  );
+  if (!open) return <>{audienceBar}<div onClick={() => setOpen(true)} style={{ border: `1px dashed ${C.line}`, borderRadius: 11, padding: 12, textAlign: "center", fontWeight: 700, fontSize: 13, color: C.accent, cursor: "pointer" }}>{tr(L("+ New entry", "+ Nouvelle entrée"))}</div></>;
   return (
     <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
+      {audienceBar}
       {fields.map((f: any) => (
         <div key={f.id} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
           <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint }}>{flabel(f, lang)}</span>

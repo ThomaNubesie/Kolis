@@ -10,10 +10,10 @@ const rpc = async (fn: string, args?: any) => {
 // `label` is the canonical key answers are stored under; `label_i18n` / `options_i18n` are
 // display-only translations seeded by a built-in template (null on admin-typed fields).
 export type CfField = { id?: string; label: string; type: string; options?: string[]; required?: boolean; label_i18n?: { en: string; fr: string } | null; options_i18n?: Record<string, { en: string; fr: string }> | null };
-export type CfMember = { id: string | null; name: string | null; color: string | null; role: string; status: string; contact: string | null; joined_at?: string | null };
+export type CfMember = { id: string | null; member_id?: string; name: string | null; color: string | null; role: string; status: string; suspended?: boolean; contact: string | null; joined_at?: string | null };
 export type CfComment = { id: string; author: string; body: string; created_at: string };
 export type CfEntry = { id: string; seq: number; author: string; values: Record<string, any>; status: string | null; created_at: string; approvals: number; my_vote: string | null; comments: CfComment[] };
-export type CfFormFull = { id: string; name: string; description: string; features: Record<string, boolean>; approval_count: number; is_admin: boolean; nda?: string | null; fields: CfField[]; members: CfMember[]; error?: string; require_2fa?: boolean; needs_2fa?: boolean; require_download_approval?: boolean };
+export type CfFormFull = { id: string; name: string; description: string; features: Record<string, boolean>; approval_count: number; is_admin: boolean; nda?: string | null; fields: CfField[]; members: CfMember[]; error?: string; require_2fa?: boolean; needs_2fa?: boolean; require_download_approval?: boolean; post_audience?: "all" | "active" | "suspended"; im_suspended?: boolean };
 export type CfDownloadReq = { id: string; file_id: string; file_name: string; created_at: string; requester_name: string; requester_color: string | null };
 export type CfReceipt = { id: string; merchant: string | null; purchase_date: string | null; category: string | null; subtotal: number | null; tax: number | null; total: number | null; currency: string | null; image_path: string | null; aligns_with: string | null; status: "review" | "confirmed"; created_at: string; uploader_name: string; mine: boolean };
 export type ReceiptFields = { merchant?: string; date?: string; category?: string; subtotal?: number | null; tax?: number | null; total?: number | null; currency?: string };
@@ -54,9 +54,9 @@ export function planLimitMsg(x: any, lang: "en" | "fr"): string | null {
   const [en, fr] = names[feature] || names.feature;
   return (lang === "fr" ? fr : en) + (lang === "fr" ? " Voir les forfaits sur /pricing." : " See plans at /pricing.");
 }
-export type CfDept = { id: string; name: string; description: string; group_name: string; kind: string; features: Record<string, boolean>; election_status: string | null; is_admin: boolean; members: number; entries: number; im_member: boolean };
+export type CfDept = { id: string; name: string; description: string; group_name: string; kind: string; emoji?: string | null; features: Record<string, boolean>; election_status: string | null; is_admin: boolean; members: number; entries: number; im_member: boolean };
 export type CfOrgTree = CfOrg & { description: string; departments: CfDept[]; error?: string; home_template?: string | null; home_content?: any };
-export type CfOrgMember = { member_id: string; id: string | null; name: string; contact: string | null; color: string | null; role: string; title: string | null; status: string; joined_at: string | null; departments: number };
+export type CfOrgMember = { member_id: string; id: string | null; name: string; contact: string | null; color: string | null; role: string; title: string | null; status: string; suspended?: boolean; joined_at: string | null; departments: number };
 
 export type CfCandidate = { entry_id: string; author_id: string; name: string; position: string; running: string; plan: string; declared_at: string; for: number; against: number; net: number; my_vote: "for" | "against" | null; my_reason: string | null; winner: boolean };
 export type CfVoteReason = { entry_id: string; candidate: string; position: string; value: "for" | "against"; reason: string; voter: string; created_at: string };
@@ -105,6 +105,15 @@ export const cf = {
     if (up.error) throw new Error(up.error.message);
     return path;
   },
+  // Town Hall is the department every member belongs to. Creating it is idempotent,
+  // and each call re-syncs its roster with the organization's, so calling it when the
+  // org loads is how a newly joined member lands in the hall.
+  ensureTownHall: (org: string): Promise<string | null> => rpc("cf_ensure_townhall", { p_org: org }),
+  setDeptEmoji: (form: string, emoji: string | null) => rpc("cf_set_dept_emoji", { p_form: form, p_emoji: emoji }),
+  // Suspension is a flag, not a status: the member keeps their seat and can still
+  // read — what they lose is the floor. Who may post is set per board.
+  setMemberSuspended: (member: string, on: boolean) => rpc("cf_set_member_suspended", { p_member: member, p_on: on }),
+  setPostAudience: (form: string, audience: "all" | "active" | "suspended") => rpc("cf_set_post_audience", { p_form: form, p_audience: audience }),
   orgMembers: (org: string): Promise<CfOrgMember[]> => rpc("cf_org_members", { p_org: org }),
   departments: (org: string): Promise<{ id: string; name: string; group_name: string; kind: string; is_admin: boolean; members: number; im_member: boolean }[]> => rpc("cf_departments", { p_org: org }),
   // Take your seat in a department your organization already vouches for. Called

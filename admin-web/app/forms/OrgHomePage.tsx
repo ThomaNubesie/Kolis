@@ -8,6 +8,7 @@ import { cf, type CfOrgTree, type CfOrgMember } from "@/lib/cf";
 import { memberColors } from "@/lib/colors";
 import { Users, Folder, MessageSquare, ChevronRight, Pencil, Plus, X, LayoutGrid, FileText, ImagePlus } from "lucide-react";
 import Announcements from "./Announcements";
+import EmojiPicker from "./EmojiPicker";
 
 const C = { paper: "#F1EEE7", panel: "#FFFFFF", ink: "#14131A", ink2: "#4A4A46", faint: "#8a8790", line: "#ECE9E2", accent: "#2F3AA3", cream: "#FBF8F2" };
 const L = (en: string, fr: string) => ({ en, fr });
@@ -111,11 +112,19 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
     );
   };
 
+  // An admin retags a department by clicking its face in this list.
+  const [emojiFor, setEmojiFor] = useState<any>(null);
+  const setEmoji = async (d: any, e: string | null) => {
+    try { const r = await cf.setDeptEmoji(d.id, e); if (r?.ok === false) alert(r.error); else onChanged(); }
+    catch (err: any) { alert(err.message); }
+  };
+
   const Explore = () => (
     <div style={{ ...secStyle, marginTop: 6 }}>
       <h3 style={h3}>{tr(L("Explore", "Explorer"))}</h3>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: (tree.departments?.length ?? 0) ? 12 : 0 }}>
-        {[["townhall", tr(L("Town Hall", "Assemblée")), <MessageSquare key="t" size={15} />], ["members", tr(L("Members", "Membres")), <Users key="m" size={15} />], ["documents", tr(L("Documents", "Documents")), <Folder key="d" size={15} />]].map(([k, label, icon]: any) => (
+        {/* Town Hall is no longer a chip here — it is the first department below. */}
+        {[["members", tr(L("Members", "Membres")), <Users key="m" size={15} />], ["documents", tr(L("Documents", "Documents")), <Folder key="d" size={15} />]].map(([k, label, icon]: any) => (
           <span key={k} onClick={() => setTab(k)} style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 11, padding: "9px 13px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}><span style={{ color: C.accent, display: "inline-flex" }}>{icon}</span>{label}</span>
         ))}
       </div>
@@ -124,7 +133,12 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {tree.departments.map((d) => (
             <div key={d.id} onClick={() => d.im_member || d.kind === "election" ? onOpen(d.id) : null} style={{ display: "flex", alignItems: "center", gap: 11, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 11, padding: "10px 12px", cursor: "pointer", opacity: d.im_member || d.kind === "election" ? 1 : .6 }}>
-              <span style={{ width: 30, height: 30, borderRadius: 8, background: "#EEEBFA", color: C.accent, display: "flex", alignItems: "center", justifyContent: "center", flex: "none" }}>{d.kind === "election" ? "🗳️" : <FileText size={15} />}</span>
+              <span
+                onClick={tree.is_admin ? (ev) => { ev.stopPropagation(); setEmojiFor(d); } : undefined}
+                title={tree.is_admin ? tr(L("Change this department's emoji", "Changer l'emoji de ce département")) : undefined}
+                style={{ width: 30, height: 30, borderRadius: 8, background: "#EEEBFA", color: C.accent, display: "flex", alignItems: "center", justifyContent: "center", flex: "none", fontSize: d.emoji ? 16 : undefined, cursor: tree.is_admin ? "pointer" : "inherit" }}>
+                {d.emoji || <FileText size={15} />}
+              </span>
               <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{d.name}</div><div style={{ fontSize: 11, color: C.faint }}>{d.members} {tr(L("members", "membres"))} · {d.entries} {tr(L("entries", "entrées"))}</div></div>
               <ChevronRight size={16} style={{ color: C.faint }} />
             </div>
@@ -148,6 +162,7 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
       {tmpl && <Announcements form={tree.id} tr={tr} lang={lang} welcome mobile={mobile} />}
       {tmpl && tmpl.blocks.map((k) => <Block key={k} k={k} />)}
       <Explore />
+      {emojiFor && <EmojiPicker value={emojiFor.emoji} tr={tr} lang={lang} onPick={(e) => setEmoji(emojiFor, e)} onClose={() => setEmojiFor(null)} />}
     </div>
   );
 }

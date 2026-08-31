@@ -72,10 +72,10 @@ export default function Pricing() {
           <div className="qp-tier qp-pop">
             <span className="qp-flag"><span data-en>Most boards</span><span data-fr>Populaire</span></span>
             <div className="qp-nm">Board</div>
-            <div className="qp-pr qp-m">$79<small> CAD/<span data-en>mo</span><span data-fr>mois</span></small></div>
-            <div className="qp-pr qp-a">$790<small> CAD/<span data-en>yr</span><span data-fr>an</span></small></div>
+            <div className="qp-pr qp-m">$129<small> CAD/<span data-en>mo</span><span data-fr>mois</span></small></div>
+            <div className="qp-pr qp-a">$1,290<small> CAD/<span data-en>yr</span><span data-fr>an</span></small></div>
             <div className="qp-per qp-m"><span data-en>per organization, billed monthly</span><span data-fr>par organisation, mensuel</span></div>
-            <div className="qp-per qp-a"><span data-en>= $65.83/mo · 2 months free</span><span data-fr>= 65,83 $/mois · 2 mois gratuits</span></div>
+            <div className="qp-per qp-a"><span data-en>= $107.50/mo · 2 months free</span><span data-fr>= 107,50 $/mois · 2 mois gratuits</span></div>
             <div className="qp-u"><span data-en>Everything a working board needs</span><span data-fr>Tout pour un conseil actif</span></div>
             <ul>
               <li><span className="qp-c">✓</span> <span><b><span data-en>Up to 100 members</span><span data-fr>Jusqu’à 100 membres</span></b> · <span data-en>up to 3 departments</span><span data-fr>jusqu’à 3 départements</span></span></li>
@@ -89,10 +89,10 @@ export default function Pricing() {
           {/* BUSINESS */}
           <div className="qp-tier">
             <div className="qp-nm">Business</div>
-            <div className="qp-pr qp-m">$129<small> CAD/<span data-en>mo</span><span data-fr>mois</span></small></div>
-            <div className="qp-pr qp-a">$1,290<small> CAD/<span data-en>yr</span><span data-fr>an</span></small></div>
+            <div className="qp-pr qp-m">$299<small> CAD/<span data-en>mo</span><span data-fr>mois</span></small></div>
+            <div className="qp-pr qp-a">$2,990<small> CAD/<span data-en>yr</span><span data-fr>an</span></small></div>
             <div className="qp-per qp-m"><span data-en>per organization, billed monthly</span><span data-fr>par organisation, mensuel</span></div>
-            <div className="qp-per qp-a"><span data-en>= $107.50/mo · 2 months free</span><span data-fr>= 107,50 $/mois · 2 mois gratuits</span></div>
+            <div className="qp-per qp-a"><span data-en>= $249.17/mo · 2 months free</span><span data-fr>= 249,17 $/mois · 2 mois gratuits</span></div>
             <div className="qp-u"><span data-en>Associations with staff &amp; several boards</span><span data-fr>Associations avec personnel</span></div>
             <ul>
               <li><span className="qp-c">✓</span> <span><span data-en>Everything in Board</span><span data-fr>Tout de Board</span></span></li>

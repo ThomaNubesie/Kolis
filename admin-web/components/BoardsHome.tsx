@@ -233,7 +233,7 @@ export default function BoardsHome() {
             <div className="qb-tier qb-pop">
               <span className="qb-flag"><span data-en>Most boards</span><span data-fr>Populaire</span></span>
               <div className="qb-nm">Board</div>
-              <div className="qb-pr">$39<small>/<span data-en>mo</span><span data-fr>mois</span></small></div>
+              <div className="qb-pr">$129<small>/<span data-en>mo</span><span data-fr>mois</span></small></div>
               <div className="qb-u"><span data-en>Everything a working board needs</span><span data-fr>Tout pour un conseil actif</span></div>
               <ul className="qb-tul">
                 <li>✓ <span><span data-en>Unlimited members</span><span data-fr>Membres illimités</span></span></li>
@@ -246,7 +246,7 @@ export default function BoardsHome() {
             </div>
             <div className="qb-tier">
               <div className="qb-nm">Business</div>
-              <div className="qb-pr">$129<small>/<span data-en>mo</span><span data-fr>mois</span></small></div>
+              <div className="qb-pr">$299<small>/<span data-en>mo</span><span data-fr>mois</span></small></div>
               <div className="qb-u"><span data-en>For associations with staff &amp; several boards</span><span data-fr>Associations avec personnel</span></div>
               <ul className="qb-tul">
                 <li>✓ <span><span data-en>Everything in Board</span><span data-fr>Tout de Board</span></span></li>

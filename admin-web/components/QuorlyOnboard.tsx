@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { quorly as supabase } from "@/lib/quorly";
 import { cf } from "@/lib/cf";
 import { useLang } from "@/lib/i18n";
+import { useLoginBackdrop } from "@/lib/loginBackdrop";
 
 const C = { paper: "#FAF8F4", ink: "#1C1B19", ink2: "#6B6863", faint: "#A8A29A", line: "#EAE4DA", accent: "#2F3AA3", accentSoft: "#EEEFF9", green: "#1F9D6B" };
 const L = (en: string, fr: string) => ({ en, fr });
@@ -16,6 +17,7 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, onDone }: { 
   const tr = (o: { en: string; fr: string }) => o[lang];
   const [ready, setReady] = useState(false);
   const [narrow, setNarrow] = useState(false);
+  const backdrop = useLoginBackdrop();
   useEffect(() => { const f = () => setNarrow(window.innerWidth < 720); f(); window.addEventListener("resize", f); return () => window.removeEventListener("resize", f); }, []);
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState(invitedEmail || "");
@@ -108,8 +110,21 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, onDone }: { 
   if (step === "done") return null;
 
   return (
-    <div style={{ background: "#2A2824", minHeight: "100vh", padding: 24, display: "flex", alignItems: "flex-start", justifyContent: "center", fontFamily: "-apple-system,Inter,Segoe UI,Roboto,sans-serif" }}>
-      <div style={{ width: "100%", maxWidth: narrow ? 420 : 760, margin: "40px auto 0", background: C.paper, borderRadius: 16, boxShadow: "0 24px 60px rgba(0,0,0,.4)", overflow: "hidden", display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr" }}>
+    <div style={{ position: "relative", background: "#2A2824", minHeight: "100vh", padding: 24, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "-apple-system,Inter,Segoe UI,Roboto,sans-serif" }}>
+      {/* A Canadian landmark, from the database, changing every two hours. The scrim is
+          symmetric — darkest down the middle where the card sits, clearing toward both
+          edges — so the landmark stays a photograph at the margins instead of wallpaper. */}
+      {backdrop && <>
+        <div style={{ position: "absolute", inset: 0, backgroundImage: `url("${backdrop.url}")`, backgroundSize: "cover", backgroundPosition: "center" }} />
+        <div style={{ position: "absolute", inset: 0, background: narrow
+          ? "linear-gradient(180deg,rgba(20,19,26,.62),rgba(20,19,26,.76))"
+          : "linear-gradient(180deg,rgba(20,19,26,.16),rgba(20,19,26,.30))" }} />
+        {!narrow && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(20,19,26,0) 0%,rgba(20,19,26,.10) 24%,rgba(20,19,26,.30) 42%,rgba(20,19,26,.30) 58%,rgba(20,19,26,.10) 76%,rgba(20,19,26,0) 100%)" }} />}
+        <div style={{ position: "absolute", left: 18, bottom: 13, color: "rgba(255,255,255,.78)", fontSize: 11.5, fontWeight: 600, letterSpacing: .2, textShadow: "0 1px 3px rgba(0,0,0,.55)" }}>
+          {lang === "fr" ? backdrop.label_fr : backdrop.label_en}
+        </div>
+      </>}
+      <div style={{ position: "relative", width: "100%", maxWidth: narrow ? 420 : 760, margin: "auto", background: C.paper, borderRadius: 16, boxShadow: "0 24px 60px rgba(0,0,0,.4)", overflow: "hidden", display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr" }}>
         {/* Brand panel */}
         <div style={{ background: "linear-gradient(160deg,#2F3AA3,#20245e)", color: "#fff", padding: narrow ? "20px 20px 18px" : "26px 24px", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>

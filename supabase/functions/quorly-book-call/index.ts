@@ -7,7 +7,7 @@
 // A hidden honeypot field blocks bots.
 const RESEND = Deno.env.get("RESEND_API_KEY");
 const FROM = Deno.env.get("QUORLY_FROM_EMAIL") || "Quorly <hello@quorly.ca>";
-const REPLY_TO_US = Deno.env.get("QUORLY_REPLY_EMAIL") || "shaloderick@gmail.com";
+const REPLY_TO_US = Deno.env.get("QUORLY_REPLY_EMAIL") || "shaloderick@concordexpress.ca";
 const TO = [REPLY_TO_US];
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;

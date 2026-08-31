@@ -23,7 +23,11 @@ const INBOUND_TOKEN = Deno.env.get("QUORLY_INBOUND_TOKEN") || "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const FROM = Deno.env.get("QUORLY_FROM_EMAIL") || "Quorly <hello@quorly.ca>";
-const REPLY = Deno.env.get("QUORLY_REPLY_EMAIL") || "shaloderick@gmail.com";
+// The address a prospect sees and replies to. A business domain, not a personal
+// gmail: this is a cold email to a board, and the signature has to look like the
+// company it comes from. Drives the signature, the footer, reply_to, and the
+// List-Unsubscribe mailto — change it here and it changes everywhere at once.
+const REPLY = Deno.env.get("QUORLY_REPLY_EMAIL") || "shaloderick@concordexpress.ca";
 const SITE = "https://quorly.ca";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, content-type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" };

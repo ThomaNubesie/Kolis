@@ -30,7 +30,12 @@ const FROM = Deno.env.get("QUORLY_FROM_EMAIL") || "Quorly <hello@quorly.ca>";
 const REPLY = Deno.env.get("QUORLY_REPLY_EMAIL") || "shaloderick@concordexpress.ca";
 const SITE = "https://quorly.ca";
 
-const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, content-type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" };
+// supabase-js functions.invoke() sends x-client-info and apikey alongside the auth
+// header. Omitting them here does not cause a 4xx you can read — the browser fails the
+// PREFLIGHT and never sends the request at all, surfacing in the console as the opaque
+// "Failed to send a request to the Edge Function". Keep this list in step with the
+// other Quorly functions.
+const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-api-version", "Access-Control-Allow-Methods": "GET, POST, OPTIONS" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
 async function resend(path: string, init?: RequestInit) {

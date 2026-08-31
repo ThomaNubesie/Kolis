@@ -1,0 +1,20 @@
+-- Quorly — the finder runs every morning; 7 prospects waiting to be reviewed.
+--
+-- Applied to production 2026-08-31. 11:10 UTC = 07:10 in Ottawa/Montréal (EDT), so a
+-- morning's candidates are already in the "To review" queue at the start of the day.
+-- Nothing is sent by this job: the finder writes status 'new', and only a human
+-- pressing Approve queues an actual email.
+--
+-- Built by rewriting the existing follow-up job's command so the outreach key stays
+-- inside the database and is never read out or pasted into a migration:
+--
+--   select cron.schedule(
+--     'quorly-prospect-finder-daily', '10 11 * * *',
+--     replace(
+--       replace(command, 'functions/v1/quorly-outreach', 'functions/v1/quorly-prospect-finder'),
+--       E'jsonb_build_object(''action'',''followup'')',
+--       E'jsonb_build_object(''limit'',7)'
+--     ))
+--   from cron.job where jobname = 'quorly-outreach-followup';
+--
+-- Re-running that statement is safe: cron.schedule upserts by job name.

@@ -12,6 +12,8 @@
 //   POST {action:"suggest", items:[{org_name,email,category,region,fit,contact_name}]} → bulk-add finder suggestions (status 'new')
 //   POST {action:"inbound", from}                 → auto-stop a prospect who replied
 //   POST {action:"stop"|"resume"|"preview", id}   → cadence controls / self-preview
+//   POST {action:"render", id|org_name, touch?}  → the exact email HTML, WITHOUT sending
+//        (the only action a signed-in outreach operator may call; everything else is master-key)
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
@@ -84,15 +86,29 @@ Deno.serve(async (req) => {
   const tok = url.searchParams.get("key") || req.headers.get("Authorization")?.replace(/^Bearer\s+/i, "").trim() || "";
   const isMaster = tok === KEY;
   const isInboundOnly = !!INBOUND_TOKEN && tok === INBOUND_TOKEN;
-  if (!isMaster && !isInboundOnly) return json({ error: "unauthorized" }, 401);
   const admin = createClient(SUPABASE_URL, SERVICE);
 
-  if (req.method === "GET" && url.searchParams.get("action") === "domains") {
+  // A signed-in outreach operator may RENDER the email — read-only, sends nothing —
+  // so the console can show what a prospect would receive before anyone approves it.
+  // Everything that sends or mutates still demands the master key, which must never
+  // reach a browser.
+  let isOperator = false;
+  if (!isMaster && !isInboundOnly && tok) {
+    const { data: u } = await admin.auth.getUser(tok);
+    if (u?.user) {
+      const { data: op } = await admin.from("quorly_outreach_admins").select("user_id").eq("user_id", u.user.id).maybeSingle();
+      isOperator = !!op;
+    }
+  }
+  if (!isMaster && !isInboundOnly && !isOperator) return json({ error: "unauthorized" }, 401);
+
+  if (isMaster && req.method === "GET" && url.searchParams.get("action") === "domains") {
     const { status, body } = await resend("/domains"); return json(body, status);
   }
 
   const b = await req.json().catch(() => ({}));
   if (isInboundOnly && b.action !== "inbound") return json({ error: "forbidden" }, 403);
+  if (isOperator && b.action !== "render") return json({ error: "forbidden" }, 403);
 
   if (b.action === "add_domain") {
     const { status, body } = await resend("/domains", { method: "POST", body: JSON.stringify({ name: b.name }) });
@@ -152,6 +168,18 @@ Deno.serve(async (req) => {
 
   if (b.action === "stop") { await admin.from("quorly_outreach").update({ status: "stopped", next_due_at: null }).eq("id", b.id); return json({ ok: true, stopped: b.id }); }
   if (b.action === "resume") { await admin.from("quorly_outreach").update({ status: "active", next_due_at: new Date(Date.now() + 7 * 86400000).toISOString() }).eq("id", b.id); return json({ ok: true, resumed: b.id }); }
+
+  // Show the exact message without sending it. The console calls this before an
+  // operator approves a prospect: approving queues a real cold email to a real
+  // organization, so "what does it say" must be answerable without sending one.
+  if (b.action === "render") {
+    const touch = Math.min(Math.max(Number(b.touch) || 1, 1), 3);
+    const name = String(b.org_name || "").trim();
+    if (name) return json({ ok: true, subject: SUBJECT, from: FROM, reply_to: REPLY, touch, html: emailHtml(name, touch) });
+    const { data: pr } = await admin.from("quorly_outreach").select("org_name").eq("id", b.id).maybeSingle();
+    if (!pr) return json({ error: "prospect_not_found" }, 404);
+    return json({ ok: true, subject: SUBJECT, from: FROM, reply_to: REPLY, touch, html: emailHtml(pr.org_name, touch), org_name: pr.org_name });
+  }
 
   if (b.action === "preview") {
     const { data: pr } = await admin.from("quorly_outreach").select("*").eq("id", b.id).maybeSingle();

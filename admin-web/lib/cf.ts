@@ -188,6 +188,13 @@ export const cf = {
     if (error) throw new Error(error.message);
     return data as any;
   },
+  // The exact email a prospect would receive, WITHOUT sending it. Approving queues a
+  // real cold email, so the copy has to be answerable before anyone approves.
+  async outreachRenderEmail(id: string, touch = 1): Promise<{ ok?: boolean; subject?: string; from?: string; reply_to?: string; html?: string; org_name?: string; touch?: number; error?: string }> {
+    const { data, error } = await supabase.functions.invoke("quorly-outreach", { body: { action: "render", id, touch } });
+    if (error) throw new Error(error.message);
+    return data as any;
+  },
   outreachApprove: (id: string) => rpc("qo_approve", { p_id: id }),
   outreachStage: (id: string, stage: string) => rpc("qo_set_stage", { p_id: id, p_stage: stage }),
   outreachStop: (id: string) => rpc("qo_stop", { p_id: id }),

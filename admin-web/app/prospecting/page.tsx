@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
 import { cf } from "@/lib/cf";
 import { useLang } from "@/lib/i18n";
-import { Sparkles, Check, Ban, Play, Flag, Plus, Loader2 } from "lucide-react";
+import { Sparkles, Check, Ban, Play, Flag, Plus, Loader2, Mail, X } from "lucide-react";
 
 const C = { paper: "#F1EEE7", panel: "#FFFFFF", ink: "#14131A", ink2: "#6B6863", faint: "#9a97a4", line: "#ECE9E2", accent: "#2F3AA3", accentSoft: "#EEEBFA", green: "#178A4E", greenSoft: "#E7F6EE", red: "#C0392B", redSoft: "#FBE9E7", amber: "#A86A12", amberSoft: "#FDF3E0", blue: "#2b62c9", blueSoft: "#E7EEFB" };
 const inp: any = { border: `1.5px solid #E3E0D8`, borderRadius: 10, padding: "9px 11px", fontSize: 13.5, background: "#FBFAF7", color: C.ink, outline: "none", fontFamily: "inherit", width: "100%" };
@@ -67,6 +67,19 @@ function Inner() {
       }
     } catch (e: any) { setFindNote(e?.message || tr(L("Something went wrong. Please try again.", "Une erreur est survenue. Veuillez réessayer."))); }
     setFinding(false);
+  };
+
+  // The email itself, on demand. Nothing is sent to open this.
+  const [preview, setPreview] = useState<{ org: string; subject: string; from: string; reply_to: string; html: string; touch: number; id: string } | null>(null);
+  const [previewing, setPreviewing] = useState("");
+  const openPreview = async (id: string, org: string, touch = 1) => {
+    setPreviewing(id);
+    try {
+      const r = await cf.outreachRenderEmail(id, touch);
+      if (r?.html) setPreview({ org: r.org_name || org, subject: r.subject || "", from: r.from || "", reply_to: r.reply_to || "", html: r.html, touch: r.touch ?? touch, id });
+      else alert(r?.error || tr(L("Could not load the email.", "Impossible de charger le courriel.")));
+    } catch (e: any) { alert(e?.message || tr(L("Could not load the email.", "Impossible de charger le courriel."))); }
+    setPreviewing("");
   };
 
   const addProspect = async () => {
@@ -138,6 +151,34 @@ function Inner() {
           </div>
         </div>
 
+        {preview && (
+          <div onClick={() => setPreview(null)} style={{ position: "fixed", inset: 0, background: "rgba(20,19,26,.45)", zIndex: 70, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+            <div onClick={(e) => e.stopPropagation()} style={{ background: "#fff", borderRadius: 16, width: 720, maxWidth: "100%", maxHeight: "88vh", display: "flex", flexDirection: "column", overflow: "hidden", boxShadow: "0 24px 60px rgba(0,0,0,.3)" }}>
+              <div style={{ padding: "13px 16px", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 14.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{preview.org}</div>
+                  <div style={{ fontSize: 11.5, color: C.faint, marginTop: 1 }}>{tr(L("Nothing has been sent — this is the message itself.", "Rien n'a été envoyé — voici le message lui-même."))}</div>
+                </div>
+                <span onClick={() => setPreview(null)} style={{ marginLeft: "auto", color: C.faint, cursor: "pointer", display: "flex" }}><X size={18} /></span>
+              </div>
+              <div style={{ padding: "10px 16px", borderBottom: `1px solid ${C.line}`, fontSize: 12, color: C.ink2, display: "flex", flexDirection: "column", gap: 3 }}>
+                <div><b style={{ color: C.faint, fontWeight: 800 }}>{tr(L("From", "De"))}:</b> {preview.from}</div>
+                <div><b style={{ color: C.faint, fontWeight: 800 }}>{tr(L("Reply-to", "Répondre à"))}:</b> {preview.reply_to}</div>
+                <div><b style={{ color: C.faint, fontWeight: 800 }}>{tr(L("Subject", "Objet"))}:</b> {preview.subject}</div>
+              </div>
+              {/* Each touch is a different message; the follow-ups go out on their own. */}
+              <div style={{ display: "flex", gap: 6, padding: "9px 16px", borderBottom: `1px solid ${C.line}` }}>
+                {[1, 2, 3].map((t) => (
+                  <span key={t} onClick={() => openPreview(preview.id, preview.org, t)} style={{ fontSize: 11.5, fontWeight: 800, padding: "5px 11px", borderRadius: 999, cursor: "pointer", background: preview.touch === t ? C.accentSoft : "transparent", color: preview.touch === t ? C.accent : C.ink2, border: preview.touch === t ? "1px solid transparent" : `1px dashed ${C.line}` }}>
+                    {t === 1 ? tr(L("Intro", "Intro")) : tr(L(`Follow-up ${t - 1}`, `Relance ${t - 1}`))}
+                  </span>
+                ))}
+              </div>
+              <iframe title="email" srcDoc={preview.html} style={{ flex: 1, minHeight: 380, border: 0, background: "#F1EEE7" }} />
+            </div>
+          </div>
+        )}
+
         {findNote && (
           <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 14px", fontSize: 12.5, color: C.ink2, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
             <Sparkles size={14} style={{ color: C.accent, flex: "0 0 auto" }} /> {findNote}
@@ -182,7 +223,8 @@ function Inner() {
                       <td style={{ padding: "12px 16px", borderTop: `1px solid #F3F1EB`, whiteSpace: "nowrap" }}>
                         {busy === r.id ? <Loader2 size={14} className="spin" /> : (
                           <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                            {r.status === "new" && r.email && <IconBtn title={tr(L("Approve → send", "Approuver → envoyer"))} color={C.green} onClick={() => act(r.id, () => cf.outreachApprove(r.id))}><Check size={14} /></IconBtn>}
+                            {r.email && <IconBtn title={tr(L("See the email — sends nothing", "Voir le courriel — n'envoie rien"))} color={C.accent} onClick={() => openPreview(r.id, r.org_name)}>{previewing === r.id ? <Loader2 size={14} className="spin" /> : <Mail size={14} />}</IconBtn>}
+                            {r.status === "new" && r.email && <IconBtn title={tr(L("Approve → queues a real email to this address", "Approuver → met en file un vrai courriel à cette adresse"))} color={C.green} onClick={() => act(r.id, () => cf.outreachApprove(r.id))}><Check size={14} /></IconBtn>}
                             {r.status === "active" && <IconBtn title={tr(L("Stop", "Arrêter"))} color={C.red} onClick={() => act(r.id, () => cf.outreachStop(r.id))}><Ban size={14} /></IconBtn>}
                             {r.status === "stopped" && <IconBtn title={tr(L("Resume", "Reprendre"))} color={C.accent} onClick={() => act(r.id, () => cf.outreachResume(r.id))}><Play size={14} /></IconBtn>}
                             {(r.status === "engaged" || r.status === "clicked" || r.status === "replied") && <IconBtn title={tr(L("Mark met", "Marquer rencontré"))} color={C.accent} onClick={() => act(r.id, () => cf.outreachStage(r.id, "met"))}><Flag size={14} /></IconBtn>}

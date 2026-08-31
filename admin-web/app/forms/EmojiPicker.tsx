@@ -13,8 +13,8 @@ const L = (en: string, fr: string) => ({ en, fr });
 export const EMOJI_GROUPS: { nm: [string, string]; items: string[] }[] = [
   { nm: ["Assembly & halls", "Assemblée & salles"], items: ["🕍", "🏯", "🏰", "⛩️", "🗼", "🏟️", "🎪", "🛖", "🗽", "🏛"] },
   { nm: ["Records & the pen", "Archives & plume"], items: ["🪶", "📜", "✒️", "🖋️", "📔", "🗞️", "🪪", "🧷", "📯", "🪧"] },
-  { nm: ["Authority & vote", "Autorité & vote"], items: ["⚜️", "🛡️", "🔱", "⚔️", "🗝️", "♟️", "🎖️", "🏅", "🧿", "🪬"] },
-  { nm: ["Treasury & trade", "Trésorerie & commerce"], items: ["🏺", "💎", "🪙", "🧮", "🛒", "🧺", "⚱️", "🪝", "🎟️", "🧾"] },
+  { nm: ["Authority & vote", "Autorité & vote"], items: ["⚜️", "🛡️", "🔱", "⚔️", "🗝️", "♟️", "🎖️", "🏅", "🧿", "🧮"] },
+  { nm: ["Treasury & trade", "Trésorerie & commerce"], items: ["🏺", "💎", "🪙", "⚖️", "🛒", "🧺", "⚱️", "🪝", "🎟️", "🧾"] },
   { nm: ["Craft & the road", "Métier & route"], items: ["🔩", "⚙️", "🪛", "🧰", "⛏️", "⚒️", "🚜", "🛺", "🛤️", "⚓"] },
   { nm: ["Time & watch", "Temps & veille"], items: ["🕰️", "⏳", "🧭", "🛎️", "🔭", "🕯️", "📡", "🛰️", "🌡️", "🪞"] },
   { nm: ["Living things", "Le vivant"], items: ["🦉", "🐝", "🌿", "🪵", "🌾", "🪷", "🦬", "🪸", "🍂", "🐎"] },

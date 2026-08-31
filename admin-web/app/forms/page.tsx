@@ -122,7 +122,7 @@ function FormsInner() {
   const [canCreate, setCanCreate] = useState(false);
   const [profileName, setProfileName] = useState("");
   const [tab, setTab] = useState<"entries" | "folders" | "files" | "subforms" | "receipts">("entries");
-  const [meta, setMeta] = useState<{ kind?: string; parent_id: string | null; parent_name: string | null; group_name: string | null; subform_count: number } | null>(null);
+  const [meta, setMeta] = useState<{ kind?: string; parent_id: string | null; parent_name: string | null; org_id?: string | null; group_name: string | null; subform_count: number } | null>(null);
   const [vaultId, setVaultId] = useState<string | null>(null);
   const [vaultBusy, setVaultBusy] = useState(false);
   const [show2fa, setShow2fa] = useState(false);
@@ -188,7 +188,9 @@ function FormsInner() {
     cf.formMeta(sel).then((m) => {
       setMeta(m);
       if (m?.org_id) setActiveOrg(m.org_id);
-      setTab((m?.subform_count ?? 0) > 0 ? "subforms" : "entries");
+      // A department that holds offices opens on them — but an ELECTION opens on its
+      // ballot, whatever offices hang off it: while a vote is running, that is the work.
+      setTab(m?.kind !== "election" && (m?.subform_count ?? 0) > 0 ? "subforms" : "entries");
     }).catch(() => setMeta(null));
   }, [sel]);
 
@@ -268,7 +270,7 @@ function FormsInner() {
             {/* ===== ORGANIZATION ===== */}
             {activeOrg && (
               <>
-                <div style={railHead}>{tr(L("Organization", "Organisation"))}</div>
+                <div style={railSection}>{tr(L("Organization", "Organisation"))}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   {([["home", tr(L("Home", "Accueil")), <Home key="h" size={14} />],
                      ["members", tr(L("Members", "Membres")), <Users key="m" size={14} />],
@@ -312,7 +314,7 @@ function FormsInner() {
               if (loose.length === 0 && orgs.length > 0) return null;
               return (
                 <>
-                  <div style={railHead}>{orgs.length ? tr(L("Personal", "Personnel")) : tr(L("Your forms", "Vos formulaires"))}</div>
+                  <div style={railSection}>{orgs.length ? tr(L("Personal", "Personnel")) : tr(L("Your forms", "Vos formulaires"))}</div>
                   {loose.length === 0 && <div style={{ fontSize: 12.5, color: C.faint, padding: "6px" }}>{tr(L("No forms yet.", "Aucun formulaire."))}</div>}
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     {loose.map((f) => (
@@ -343,7 +345,7 @@ function FormsInner() {
             {/* ===== GROWTH (operator-only: prospecting / outreach) ===== */}
             {qoAdmin && (
               <>
-                <div style={railHead}>{tr(L("Growth", "Croissance"))}</div>
+                <div style={railSection}>{tr(L("Growth", "Croissance"))}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                   <div onClick={() => router.push("/prospecting")} style={sItem(false)}>
                     <span style={{ color: C.faint, display: "inline-flex" }}><TrendingUp size={14} /></span>
@@ -388,7 +390,12 @@ function FormsInner() {
               </div>
             </div>
             {!isVault && !isSpace && <div style={{ display: "flex", gap: 2, borderBottom: `1px solid ${C.line}`, padding: mobile ? "0 12px" : "0 22px", overflowX: "auto" }}>
-              {(["entries", "folders", "files", "subforms", "receipts"] as const).map((k) => (
+              {((["entries", "folders", "files", "subforms", "receipts"] as const)
+                 // An OFFICE is already the leaf of the tree — organization ▸ department ▸
+                 // office — so it offers no offices of its own. It is an office exactly when
+                 // its parent is not the organization.
+                 .filter((k) => k !== "subforms" || !(meta?.parent_id && meta.parent_id !== meta.org_id))
+               ).map((k) => (
                 <div key={k} onClick={() => setTab(k)} style={{ padding: "10px 14px", fontSize: 13.5, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", color: tab === k ? C.accent : C.ink2, borderBottom: `2px solid ${tab === k ? C.accent : "transparent"}`, marginBottom: -1 }}>
                   {k === "entries" ? tr(L("Entries", "Entrées")) : k === "folders" ? tr(L("Folders", "Dossiers")) : k === "files" ? tr(L("Files", "Fichiers")) : k === "receipts" ? tr(L("Receipts", "Reçus")) : <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>{tr(L("Offices", "Bureaux"))}{meta?.subform_count ? <span style={{ fontSize: 10.5, color: C.faint }}>{meta.subform_count}</span> : null}</span>}
                 </div>
@@ -1395,7 +1402,7 @@ function SubformsPanel({ form, tr, lang, onOpen }: any) {
             {groups[g].map((s) => (
               <div key={s.id} onClick={async () => { if (s.im_member) return onOpen(s.id); if (s.kind === "election") { try { const r = await cf.electionEnsureMember(s.id); if (r?.ok) return onOpen(s.id); } catch { /* fall through */ } } alert(tr(L("You're not a member of this office. Ask its admin to invite you.", "Vous n'êtes pas membre de ce bureau. Demandez à son admin de vous inviter."))); }} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "11px 13px", cursor: "pointer", opacity: s.im_member || s.kind === "election" ? 1 : .6 }}>
                 <span style={{ width: 32, height: 32, borderRadius: 8, background: s.im_member || s.kind === "election" ? C.accentSoft : "#F0EEE9", color: s.im_member || s.kind === "election" ? C.accent : C.faint, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>{s.kind === "election" ? <ThumbsUp size={15} /> : s.im_member ? <FileText size={16} /> : <Lock size={15} />}</span>
-                <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}{s.kind === "election" ? <span style={{ fontSize: 10.5, fontWeight: 800, color: C.accent, background: C.accentSoft, borderRadius: 6, padding: "1px 6px", marginLeft: 6 }}>{tr(L("Election", "Élection"))}</span> : ""}</div><div style={{ fontSize: 11.5, color: C.faint }}>{s.members} {tr(L("members", "membres"))}{s.is_admin ? " · " + tr(L("admin", "admin")) : s.kind === "election" ? " · " + tr(L("open to all members", "ouvert à tous les membres")) : s.im_member ? "" : " · " + tr(L("not a member", "non membre"))}</div></div>
+                <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}{s.kind === "election" ? <span style={{ fontSize: 10.5, fontWeight: 800, color: C.accent, background: C.accentSoft, borderRadius: 6, padding: "1px 6px", marginLeft: 6 }}>{tr(L("Returning Office", "Bureau du scrutin"))}</span> : ""}</div><div style={{ fontSize: 11.5, color: C.faint }}>{s.members} {tr(L("members", "membres"))}{s.is_admin ? " · " + tr(L("admin", "admin")) : s.kind === "election" ? " · " + tr(L("open to all members", "ouvert à tous les membres")) : s.im_member ? "" : " · " + tr(L("not a member", "non membre"))}</div></div>
                 <ChevronRight size={16} style={{ color: C.faint }} />
               </div>
             ))}
@@ -2378,6 +2385,10 @@ function EntryCard({ e, form, lang, tr, mobile, memberOf, reload }: any) {
 
 const sItem = (on: boolean): any => ({ padding: "9px 10px", borderRadius: 8, fontSize: 13, color: on ? C.ink : C.ink2, fontWeight: on ? 700 : 400, display: "flex", alignItems: "center", gap: 8, background: on ? "#fff" : "transparent", cursor: "pointer" });
 const railHead: any = { fontSize: 10, fontWeight: 800, letterSpacing: .9, textTransform: "uppercase", color: C.faint, padding: "10px 6px 2px" };
+// The rail's TOP-LEVEL sections — Organization, Personal, Growth. Bigger and darker
+// than the sub-heads nested under them (Departments), and ruled off from each other so
+// the eye can tell where one part of the app ends and the next begins.
+const railSection: any = { fontSize: 12.5, fontWeight: 900, letterSpacing: .3, textTransform: "uppercase", color: C.ink, padding: "13px 6px 7px", marginTop: 11, borderTop: `1px solid ${C.line}` };
 // Stable grouping that keeps the server's ordering and floats the ungrouped first.
 function groupBy<T>(rows: T[], key: (r: T) => string): [string, T[]][] {
   const out: [string, T[]][] = [];

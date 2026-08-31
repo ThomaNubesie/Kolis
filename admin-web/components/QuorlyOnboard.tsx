@@ -102,7 +102,13 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, onDone }: { 
   function toSignin() { setMode("signin"); setSent(false); setCode(""); setMsg(""); }
   function toOnboard() { setMode("onboard"); setSent(false); setCode(""); setMsg(""); setStep("email"); }
 
-  const inp: any = { border: `1px solid ${C.line}`, borderRadius: 9, padding: "11px", fontSize: 14, background: "#fff", color: C.ink, width: "100%", outline: "none" };
+  // With a landmark behind it the card is glass: fills at 40% opacity, so the photo
+  // reads strongly through it. Only when there IS a photo — over the plain dark field,
+  // translucency would just look muddy. At this level the blur and the darker centre
+  // band behind the card are what keep the text legible; fields stay near-opaque,
+  // because what you are typing has to stay readable whatever is behind it.
+  const glass = !!backdrop;
+  const inp: any = { border: `1px solid ${glass ? "rgba(255,255,255,.5)" : C.line}`, borderRadius: 9, padding: "11px", fontSize: 14, background: glass ? "rgba(255,255,255,.80)" : "#fff", color: C.ink, width: "100%", outline: "none" };
   const btn: any = { background: C.accent, color: "#fff", borderRadius: 9, padding: 12, textAlign: "center", fontWeight: 800, fontSize: 14, cursor: "pointer", opacity: busy ? .6 : 1 };
   const stepNo = step === "email" ? 1 : step === "phone" ? 2 : 3;
 
@@ -119,14 +125,14 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, onDone }: { 
         <div style={{ position: "absolute", inset: 0, background: narrow
           ? "linear-gradient(180deg,rgba(20,19,26,.62),rgba(20,19,26,.76))"
           : "linear-gradient(180deg,rgba(20,19,26,.16),rgba(20,19,26,.30))" }} />
-        {!narrow && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(20,19,26,0) 0%,rgba(20,19,26,.10) 24%,rgba(20,19,26,.30) 42%,rgba(20,19,26,.30) 58%,rgba(20,19,26,.10) 76%,rgba(20,19,26,0) 100%)" }} />}
+        {!narrow && <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg,rgba(20,19,26,0) 0%,rgba(20,19,26,.10) 24%,rgba(20,19,26,.46) 42%,rgba(20,19,26,.46) 58%,rgba(20,19,26,.10) 76%,rgba(20,19,26,0) 100%)" }} />}
         <div style={{ position: "absolute", left: 18, bottom: 13, color: "rgba(255,255,255,.78)", fontSize: 11.5, fontWeight: 600, letterSpacing: .2, textShadow: "0 1px 3px rgba(0,0,0,.55)" }}>
           {lang === "fr" ? backdrop.label_fr : backdrop.label_en}
         </div>
       </>}
-      <div style={{ position: "relative", width: "100%", maxWidth: narrow ? 420 : 760, margin: "auto", background: C.paper, borderRadius: 16, boxShadow: "0 24px 60px rgba(0,0,0,.4)", overflow: "hidden", display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr" }}>
+      <div style={{ position: "relative", width: "100%", maxWidth: narrow ? 420 : 760, margin: "auto", background: glass ? "transparent" : C.paper, backdropFilter: glass ? "blur(18px)" : undefined, WebkitBackdropFilter: glass ? "blur(18px)" : undefined, border: glass ? "1px solid rgba(255,255,255,.22)" : undefined, borderRadius: 16, boxShadow: "0 24px 60px rgba(0,0,0,.4)", overflow: "hidden", display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr" }}>
         {/* Brand panel */}
-        <div style={{ background: "linear-gradient(160deg,#2F3AA3,#20245e)", color: "#fff", padding: narrow ? "20px 20px 18px" : "26px 24px", display: "flex", flexDirection: "column" }}>
+        <div style={{ background: glass ? "linear-gradient(160deg,rgba(47,58,163,.40),rgba(32,36,94,.40))" : "linear-gradient(160deg,#2F3AA3,#20245e)", color: "#fff", padding: narrow ? "20px 20px 18px" : "26px 24px", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
             <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -146,7 +152,7 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, onDone }: { 
           </div>}
         </div>
         {/* Form panel */}
-        <div style={{ background: "#fff", display: "flex", flexDirection: "column" }}>
+        <div style={{ background: glass ? "rgba(255,255,255,.40)" : "#fff", display: "flex", flexDirection: "column" }}>
           {mode === "onboard" && <div style={{ display: "flex", gap: 5, padding: "16px 20px 0", justifyContent: "flex-end" }}>{[1, 2, 3].map((n) => <span key={n} style={{ width: 7, height: 7, borderRadius: "50%", background: n <= stepNo ? C.accent : C.line }} />)}</div>}
         <div style={{ padding: 20, display: "flex", flexDirection: "column", gap: 13 }}>
           {mode === "signin" ? (

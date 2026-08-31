@@ -1,6 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import { useLang } from "@/lib/i18n";
+import BookCallQuorly from "./BookCallQuorly";
 
 // Quorly-for-boards marketing homepage. Rendered at "/" ONLY on the Quorly
 // domain (app/page.tsx branches on the Host header, SSR). Dropbox-style: clean
@@ -266,13 +267,15 @@ export default function BoardsHome() {
                 <li>✓ <span><span data-en>Dedicated onboarding</span><span data-fr>Intégration dédiée</span></span></li>
                 <li>✓ <span><span data-en>Custom storage</span><span data-fr>Stockage sur mesure</span></span></li>
               </ul>
-              <a className="qb-btn qb-btn-ghost" href="#contact"><span data-en>Contact us</span><span data-fr>Nous joindre</span></a>
+              <a className="qb-btn qb-btn-ghost" href="#book"><span data-en>Book a call</span><span data-fr>Réserver un appel</span></a>
             </div>
           </div>
         </div>
       </section>
 
       {/* FINAL CTA */}
+      <BookCallQuorly />
+
       <section className="qb-final" id="contact">
         <div className="qb-wrap">
           <h2 className="qb-h2 qb-cen"><span data-en>Run your next meeting on Quorly.</span><span data-fr>Tenez votre prochaine réunion sur Quorly.</span></h2>

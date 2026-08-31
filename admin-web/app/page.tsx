@@ -27,8 +27,14 @@ export function generateMetadata(): Metadata {
   return {};
 }
 
-export default function Home() {
+export default function Home({ searchParams }: { searchParams?: { site?: string } }) {
   const host = headers().get("host") || "";
-  if (isQuorly(host)) return <BoardsHome />;
+  // Locally the host is "localhost:4321", which is not the Quorly domain, so the
+  // Quorly surface was only reachable by faking a hostname (quorly.localhost) —
+  // which then trips Next's cross-origin warning on /_next/* assets. In DEVELOPMENT
+  // ONLY, ?site=quorly picks the surface directly. Production still branches purely
+  // on the Host header, so this can never change what a real visitor sees.
+  const devOverride = process.env.NODE_ENV === "development" && searchParams?.site === "quorly";
+  if (devOverride || isQuorly(host)) return <BoardsHome />;
   return <KolisHome />;
 }

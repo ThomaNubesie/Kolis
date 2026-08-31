@@ -36,8 +36,26 @@ async function resend(path: string, init?: RequestInit) {
   return { status: r.status, body: await r.json().catch(() => ({})) };
 }
 
+// The letterhead. Table-based on purpose: flexbox and CSS gradients are unreliable
+// in Outlook and parts of Gmail, so the masthead, the colour bar and the brand dots
+// are all real table cells that degrade to squares rather than collapsing.
+//
+// Three styles exist. 'b' (banded, indigo masthead) is what we send; 'c' (colour
+// spine) and 'd' (cream stationery) are kept live as backups so switching is a
+// one-word change here and the console can preview all three side by side.
+type Sheet = "b" | "c" | "d";
+const DOTS = ["#2F3AA3", "#1F9D6B", "#E4632A", "#C99A1E"];
+
+function dotsRow(size: number) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>${DOTS.map((c) =>
+    `<td width="${size}" height="${size}" bgcolor="${c}" style="width:${size}px;height:${size}px;background:${c};border-radius:50%;font-size:0;line-height:0">&nbsp;</td><td width="5" style="width:5px;font-size:0;line-height:0">&nbsp;</td>`).join("")}</tr></table>`;
+}
+
+const colourBar = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${DOTS.map((c) =>
+  `<td width="25%" height="4" bgcolor="${c}" style="height:4px;background:${c};font-size:0;line-height:0">&nbsp;</td>`).join("")}</tr></table>`;
+
 // Quorly-branded bilingual email. touch 1 = intro; 2/3+ = gentle recurring nudges.
-function emailHtml(name: string, touch: number) {
+function emailHtml(name: string, touch: number, sheet: Sheet = "b") {
   const intro: Record<number, [string, string]> = {
     1: [`Je vous écris parce que Quorly aide les organisations comme ${name} à gérer le travail du conseil et des comités dans un seul espace partagé : formulaires remplis ensemble, votes et élections des membres, salle de documents sécurisée et suivi des reçus — sans tableurs ni fils de courriels perdus.`,
         `I'm reaching out because Quorly helps organizations like ${name} run their board & committee work in one shared space — forms filled in together, member voting & elections, a secure document room, and receipt tracking — no spreadsheets, no lost email threads.`],
@@ -47,26 +65,70 @@ function emailHtml(name: string, touch: number) {
         `I'm still here whenever Quorly could help your organization — a quick 15-minute call is all it takes to show how your board would use it.`],
   };
   const [fr, en] = intro[touch] || intro[3];
+  const bullets: [string, string][] = [
+    ["Formulaires partagés & colorés", "Shared colour-coded forms"],
+    ["Élections & votes des membres", "Member elections & voting"],
+    ["Salle de documents sécurisée", "Secure document room"],
+    ["Suivi des reçus & dépenses", "Receipt & expense tracking"],
+  ];
+  const list = bullets.map(([f, e]) =>
+    `<tr><td style="padding:9px 0;border-top:1px solid #ECE9E2;font-size:13.5px;color:#3a3744">${f}<span style="color:#6B6675"> / ${e}</span></td></tr>`).join("");
+
+  const letter = `
+    <p style="margin:0 0 12px;font-size:15px"><b>Bonjour,</b></p>
+    <p style="margin:0 0 10px;font-size:14.5px;line-height:1.65;color:#3a3744">${fr}</p>
+    <p style="margin:0 0 16px;font-size:13px;line-height:1.65;color:#6B6675;font-style:italic">${en}</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 18px">${list}</table>
+    <div style="margin:0 0 4px">
+      <a href="${SITE}/?ref=email" style="display:inline-block;background:#2F3AA3;color:#fff;font-weight:700;font-size:14.5px;padding:12px 22px;border-radius:10px;text-decoration:none;margin:0 6px 8px 0">Voir Quorly / See Quorly</a>
+      <a href="${SITE}/?book=1" style="display:inline-block;background:#fff;color:#2F3AA3;border:1.5px solid #2F3AA3;font-weight:700;font-size:14.5px;padding:10px 22px;border-radius:10px;text-decoration:none;margin:0 0 8px">Réserver 15 min / Book a call</a>
+    </div>
+    <div style="border-top:1px solid #ECE9E2;padding-top:14px;margin-top:20px;font-size:13px;color:#3a3744;line-height:1.6">
+      <b>Thomas Derick Shalo</b><br><span style="color:#6B6675">Quorly · ${REPLY}</span>
+    </div>`;
+
+  const optout = `<tr><td style="padding:16px 30px 24px"><p style="margin:0;font-size:11px;color:#9b97a6;line-height:1.6">Pour ne plus recevoir ces messages, répondez « STOP ». / Reply “STOP” to opt out.</p></td></tr>`;
+
+  let inner: string;
+  if (sheet === "c") {
+    // Colour spine down the left edge; the body carries the page.
+    inner = `<tr><td>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td width="7" bgcolor="#2F3AA3" style="width:7px;background:#2F3AA3;font-size:0;line-height:0">&nbsp;</td>
+        <td style="padding:32px 32px 30px 28px">
+          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td style="font-size:21px;font-weight:900;color:#2F3AA3;letter-spacing:-0.5px">Quorly</td>
+            <td style="padding-left:10px;font-size:11px;color:#6B6675">quorly.ca</td>
+          </tr></table>
+          <div style="border-top:1px solid #ECE9E2;margin:14px 0 22px"></div>
+          ${letter}
+        </td></tr></table></td></tr>${optout}`;
+  } else if (sheet === "d") {
+    // Cream stationery: reads as correspondence rather than a campaign.
+    inner = `<tr><td bgcolor="#FBF8F2" style="background:#FBF8F2;padding:38px 42px 32px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td valign="top"><div style="font-size:22px;font-weight:900;color:#2F3AA3;letter-spacing:-0.5px">Quorly</div>
+          <div style="font-size:11px;color:#6B6675;margin-top:3px">Un seul espace pour votre conseil</div></td>
+        <td valign="top" align="right" style="font-size:11px;color:#6B6675;line-height:1.7">Thomas Derick Shalo<br>${REPLY}<br>quorly.ca</td>
+      </tr></table>
+      <div style="border-top:1px solid #E3DCCB;margin:20px 0 24px"></div>
+      ${letter}
+    </td></tr>${optout}`;
+  } else {
+    // 'b' — banded masthead with the four brand dots and a colour bar under it.
+    inner = `<tr><td bgcolor="#2F3AA3" style="background:#2F3AA3;padding:20px 30px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+        <td style="color:#ffffff;font-size:20px;font-weight:900;letter-spacing:-0.5px">Quorly</td>
+        <td align="right">${dotsRow(7)}</td>
+      </tr></table></td></tr>
+      <tr><td style="font-size:0;line-height:0">${colourBar}</td></tr>
+      <tr><td style="padding:30px 34px 30px">${letter}</td></tr>${optout}`;
+  }
+
   return `<!doctype html><html><body style="margin:0;background:#F1EEE7;font-family:-apple-system,'Segoe UI',Roboto,Arial,sans-serif;color:#14131A">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:24px 0"><tr><td align="center">
-  <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:94%;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #ECE9E2">
-  <tr><td style="background:#2F3AA3;padding:18px 26px;font-size:19px;font-weight:800;color:#fff">◑ Quorly</td></tr>
-  <tr><td style="padding:28px 30px 6px"><p style="margin:0 0 10px;font-size:15px"><b>Bonjour ${name},</b></p>
-    <p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:#3a3744">${fr}</p>
-    <p style="margin:0 0 14px;font-size:13.5px;line-height:1.6;color:#6B6675;font-style:italic">${en}</p></td></tr>
-  <tr><td style="padding:0 30px 6px">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>
-      <td style="padding:6px 0;font-size:13.5px;color:#3a3744">✔ Formulaires partagés & colorés / Shared colour-coded forms</td></tr>
-      <tr><td style="padding:6px 0;font-size:13.5px;color:#3a3744">✔ Élections & votes des membres / Member elections & voting</td></tr>
-      <tr><td style="padding:6px 0;font-size:13.5px;color:#3a3744">✔ Salle de documents sécurisée / Secure document room</td></tr>
-      <tr><td style="padding:6px 0;font-size:13.5px;color:#3a3744">✔ Suivi des reçus & dépenses / Receipt & expense tracking</td></tr>
-    </table></td></tr>
-  <tr><td align="center" style="padding:18px 30px 6px">
-    <a href="${SITE}/?ref=email" style="display:inline-block;background:#2F3AA3;color:#fff;font-weight:700;font-size:15px;padding:13px 24px;border-radius:11px;text-decoration:none;margin:0 4px 8px">Voir Quorly / See Quorly</a>
-    <a href="${SITE}/?book=1" style="display:inline-block;background:#fff;color:#2F3AA3;border:1.5px solid #2F3AA3;font-weight:700;font-size:15px;padding:11px 24px;border-radius:11px;text-decoration:none;margin:0 4px 8px">Réserver 15 min / Book a call</a></td></tr>
-  <tr><td style="padding:16px 30px 0"><hr style="border:none;border-top:1px solid #ECE9E2;margin:0 0 12px">
-    <p style="margin:0;font-size:13px;color:#3a3744"><b>Thomas Derick Shalo</b> · Quorly<br>${REPLY}</p></td></tr>
-  <tr><td style="padding:18px 30px 24px"><p style="margin:0;font-size:11px;color:#9b97a6;line-height:1.6">Pour ne plus recevoir ces messages, répondez « STOP ». / Reply “STOP” to opt out.</p></td></tr>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="padding:24px 0"><tr><td align="center">
+  <table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="width:600px;max-width:94%;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #ECE9E2">
+  ${inner}
   </table></td></tr></table></body></html>`;
 }
 
@@ -174,11 +236,12 @@ Deno.serve(async (req) => {
   // organization, so "what does it say" must be answerable without sending one.
   if (b.action === "render") {
     const touch = Math.min(Math.max(Number(b.touch) || 1, 1), 3);
+    const sheet: Sheet = b.sheet === "c" || b.sheet === "d" ? b.sheet : "b";
     const name = String(b.org_name || "").trim();
-    if (name) return json({ ok: true, subject: SUBJECT, from: FROM, reply_to: REPLY, touch, html: emailHtml(name, touch) });
+    if (name) return json({ ok: true, subject: SUBJECT, from: FROM, reply_to: REPLY, touch, sheet, html: emailHtml(name, touch, sheet) });
     const { data: pr } = await admin.from("quorly_outreach").select("org_name").eq("id", b.id).maybeSingle();
     if (!pr) return json({ error: "prospect_not_found" }, 404);
-    return json({ ok: true, subject: SUBJECT, from: FROM, reply_to: REPLY, touch, html: emailHtml(pr.org_name, touch), org_name: pr.org_name });
+    return json({ ok: true, subject: SUBJECT, from: FROM, reply_to: REPLY, touch, sheet, html: emailHtml(pr.org_name, touch, sheet), org_name: pr.org_name });
   }
 
   if (b.action === "preview") {

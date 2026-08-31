@@ -44,6 +44,31 @@ function Inner() {
   useEffect(() => { cf.outreachAdmin().then((a) => { setAdmin(a); if (a) reload(); }).catch(() => setAdmin(false)); }, [reload]);
 
   const act = async (id: string, fn: () => Promise<any>) => { setBusy(id); try { await fn(); await reload(); } catch (e: any) { alert(e?.message || tr(L("Something went wrong. Please try again.", "Une erreur est survenue. Veuillez réessayer."))); } finally { setBusy(""); } };
+  // Grounded discovery. It writes into the same 'new' queue as the manual form, so
+  // nothing it finds can be emailed until it is approved below.
+  const [finding, setFinding] = useState(false);
+  const [findNote, setFindNote] = useState("");
+  const findProspects = async () => {
+    if (finding) return;
+    setFinding(true); setFindNote(tr(L("Searching the web — this takes a minute…", "Recherche sur le web — cela prend une minute…")));
+    try {
+      const r = await cf.outreachFind({ regions: ["Ottawa, Ontario", "Montréal, Québec"], limit: 12 });
+      if (r?.error) setFindNote(tr(L(`Search failed: ${r.error}`, `Échec de la recherche : ${r.error}`)));
+      else {
+        const added = r?.added ?? 0;
+        const skipped = r?.dropped?.length ?? 0;
+        setFindNote(added === 0
+          ? tr(L(`No new prospects with a verifiable public address this time${skipped ? ` — ${skipped} candidate(s) discarded for having none.` : "."}`,
+                 `Aucun nouveau prospect avec une adresse publique vérifiable cette fois${skipped ? ` — ${skipped} candidat(s) écarté(s) faute d'adresse.` : "."}`))
+          : tr(L(`${added} prospect${added === 1 ? "" : "s"} added for review${skipped ? `, ${skipped} discarded without a verifiable address` : ""}.`,
+                 `${added} prospect${added === 1 ? "" : "s"} ajouté${added === 1 ? "" : "s"} à revoir${skipped ? `, ${skipped} écarté(s) faute d'adresse vérifiable` : ""}.`)));
+        await reload();
+        if (added > 0) setFilter("new");
+      }
+    } catch (e: any) { setFindNote(e?.message || tr(L("Something went wrong. Please try again.", "Une erreur est survenue. Veuillez réessayer."))); }
+    setFinding(false);
+  };
+
   const addProspect = async () => {
     if (!form.name.trim()) return;
     setBusy("add");
@@ -104,10 +129,21 @@ function Inner() {
           {TABS.map(([k, lbl]) => (
             <div key={k} onClick={() => setFilter(k)} style={{ fontSize: 12.5, fontWeight: 700, padding: "7px 13px", borderRadius: 8, cursor: "pointer", background: filter === k ? C.accentSoft : "transparent", color: filter === k ? C.accent : C.ink2 }}>{tr(lbl)}</div>
           ))}
-          <div style={{ marginLeft: "auto" }}>
+          <div style={{ marginLeft: "auto", display: "inline-flex", gap: 8 }}>
+            <div onClick={findProspects} title={tr(L("Search the web for boards, associations and condo syndicates in Ottawa and Montréal", "Chercher sur le web des conseils, associations et syndicats de copropriété à Ottawa et Montréal"))}
+              style={{ display: "inline-flex", alignItems: "center", gap: 5, background: finding ? C.accentSoft : C.accent, border: `1px solid ${C.accent}`, borderRadius: 9, padding: "8px 13px", fontSize: 12.5, fontWeight: 800, color: finding ? C.accent : "#fff", cursor: finding ? "default" : "pointer" }}>
+              {finding ? <Loader2 size={14} className="spin" /> : <Sparkles size={14} />} {finding ? tr(L("Searching…", "Recherche…")) : tr(L("Find prospects", "Trouver des prospects"))}
+            </div>
             <div onClick={() => setAdding((a) => !a)} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 9, padding: "8px 13px", fontSize: 12.5, fontWeight: 800, color: C.accent, cursor: "pointer" }}><Plus size={14} /> {tr(L("Add prospect", "Ajouter un prospect"))}</div>
           </div>
         </div>
+
+        {findNote && (
+          <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 10, padding: "10px 14px", fontSize: 12.5, color: C.ink2, marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
+            <Sparkles size={14} style={{ color: C.accent, flex: "0 0 auto" }} /> {findNote}
+            <span onClick={() => setFindNote("")} style={{ marginLeft: "auto", color: C.faint, cursor: "pointer", fontWeight: 800 }}>×</span>
+          </div>
+        )}
 
         {adding && (
           <div style={{ background: "#fff", border: `1px solid ${C.line}`, borderRadius: 14, padding: 16, marginBottom: 16, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>

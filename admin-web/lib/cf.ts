@@ -181,6 +181,13 @@ export const cf = {
     if (res && res.ok === false) throw new Error(res.error || "Failed");
     return res as { ok: boolean; id: string };
   },
+  // The grounded finder: searches the web for real organizations and posts what it
+  // verified into the same 'new' queue a human types into. Never sends anything.
+  async outreachFind(opts?: { regions?: string[]; kinds?: string[]; limit?: number }): Promise<{ ok?: boolean; added?: number; found?: number; error?: string; dropped?: { org: string; why: string }[]; prospects?: { org_name: string; email: string; region?: string }[] }> {
+    const { data, error } = await supabase.functions.invoke("quorly-prospect-finder", { body: opts ?? {} });
+    if (error) throw new Error(error.message);
+    return data as any;
+  },
   outreachApprove: (id: string) => rpc("qo_approve", { p_id: id }),
   outreachStage: (id: string, stage: string) => rpc("qo_set_stage", { p_id: id, p_stage: stage }),
   outreachStop: (id: string) => rpc("qo_stop", { p_id: id }),

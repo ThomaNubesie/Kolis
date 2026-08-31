@@ -2,7 +2,7 @@
 // Quorly — the organization's customizable Home PAGE. Admin picks one of 10
 // templates (cf_forms.home_template) and edits content blocks (home_content);
 // members/visitors land here. Every template ends with an "Explore" hub linking
-// to Departments · Town Hall · Members · Documents so Home is the org's front door.
+// to Departments · Parliament · Members · Documents so Home is the org's front door.
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { cf, type CfOrgTree, type CfOrgMember } from "@/lib/cf";
 import { memberColors } from "@/lib/colors";
@@ -41,6 +41,8 @@ const ORG_COLORS = ["#2F3AA3", "#1F9D6B", "#E4632A", "#8A4FD0", "#C99A1E", "#D14
 
 export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, onChanged }: { tree: CfOrgTree; tr: TR; lang: "en" | "fr"; mobile: boolean; onOpen: (id: string) => void; setTab: (t: any) => void; onChanged: () => void }) {
   const at = useAutoT();   // names and text the group wrote, in the reader's language
+  // The hero's one call to action opens the chamber every member belongs to.
+  const hall = (tree.departments ?? []).find((d) => d.kind === "townhall");
   const dlabel = useDeptLabel();
   const color = tree.color || "#2F3AA3";
   const c: any = tree.home_content || {};
@@ -91,7 +93,7 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
     const logo = <div style={{ width: 56, height: 56, borderRadius: 15, background: "rgba(255,255,255,.2)", border: "1px solid rgba(255,255,255,.4)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 22, ...(align === "center" ? { margin: "0 auto" } : {}) }}>{badge}</div>;
     const cta = (
       <div style={{ display: "flex", gap: 10, marginTop: 15, flexWrap: "wrap", ...(align === "center" ? { justifyContent: "center" } : {}) }}>
-        <span onClick={() => setTab("townhall")} style={{ background: "rgba(255,255,255,.18)", border: "1px solid rgba(255,255,255,.4)", color: "#fff", fontWeight: 800, fontSize: 13, padding: "9px 15px", borderRadius: 10, cursor: "pointer" }}>{tr(L("Town Hall", "Assemblée"))}</span>
+        {hall && <span onClick={() => onOpen(hall.id)} style={{ background: "rgba(255,255,255,.18)", border: "1px solid rgba(255,255,255,.4)", color: "#fff", fontWeight: 800, fontSize: 13, padding: "9px 15px", borderRadius: 10, cursor: "pointer" }}>{hall.emoji ? hall.emoji + " " : ""}{tr(L("Parliament", "Parlement"))}</span>}
       </div>
     );
     return (

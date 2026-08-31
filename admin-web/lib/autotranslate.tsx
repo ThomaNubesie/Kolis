@@ -124,7 +124,10 @@ export function useDeptLabel() {
   const { at, lang } = useContext(AutoTrCtx);
   return (d: { kind?: string | null; name?: string | null } | null | undefined) => {
     const nm = d?.name ?? "";
-    if (d?.kind === "townhall" && nm === "Town Hall") return lang === "fr" ? "Assemblée" : "Town Hall";
+    // "Parliament" is the name we give it; a machine would render the French as
+    // "Hôtel de ville" (a building) rather than the chamber of the members. The older
+    // "Town Hall" is still matched so a hall created before the rename still reads right.
+    if (d?.kind === "townhall" && (nm === "Parliament" || nm === "Town Hall")) return lang === "fr" ? "Parlement" : "Parliament";
     return at(nm);
   };
 }

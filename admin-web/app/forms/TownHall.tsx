@@ -143,7 +143,7 @@ function InviteBar({ org, tr, lang }: { org: string; tr: TR; lang: "en" | "fr" }
   };
   return (
     <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, padding: "12px 14px", marginTop: 14 }}>
-      <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint, marginBottom: 7 }}>{tr(L("Invite to the assembly", "Inviter à l'assemblée"))}</div>
+      <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase", color: C.faint, marginBottom: 7 }}>{tr(L("Invite to the parliament", "Inviter au parlement"))}</div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
         <input value={contact} onChange={(e) => setContact(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
           placeholder={tr(L("Email or phone", "Courriel ou téléphone"))} style={{ ...inp, flex: 1, minWidth: 180 }} />
@@ -194,7 +194,7 @@ export default function TownHall({ org, tr, lang }: { org: string; tr: TR; lang:
       const b64 = await buildTownHallPdf(topic.title, fresh.entries ?? [], lang);
       const members = await cf.orgMembers(org);
       const emails = Array.from(new Set((members ?? []).map((m: any) => String(m.contact || "").trim().toLowerCase()).filter((c: string) => c.includes("@"))));
-      if (b64 && emails.length) await cf.sendPdf(org, { filename: `townhall-${topic.title.replace(/[^a-z0-9]+/gi, "-").slice(0, 40)}.pdf`, pdf_base64: b64, recipients: emails, message: tr(L(`Published summary of the Town Hall topic "${topic.title}".`, `Synthèse publiée du sujet d'assemblée « ${topic.title} ».`)) });
+      if (b64 && emails.length) await cf.sendPdf(org, { filename: `parliament-${topic.title.replace(/[^a-z0-9]+/gi, "-").slice(0, 40)}.pdf`, pdf_base64: b64, recipients: emails, message: tr(L(`Published summary of the parliament topic "${topic.title}".`, `Synthèse publiée du sujet du parlement « ${topic.title} ».`)) });
       alert(tr(L(`Topic closed. Summary PDF emailed to ${emails.length} participant(s).`, `Sujet clos. PDF de synthèse envoyé à ${emails.length} participant(s).`)));
     } catch (e: any) { alert(tr(L("Closed, but the summary email failed: ", "Clos, mais l'envoi de la synthèse a échoué : ")) + (e?.message || "")); }
     load();
@@ -210,7 +210,7 @@ export default function TownHall({ org, tr, lang }: { org: string; tr: TR; lang:
     setBusy(false);
   };
 
-  if (!feed) return <div style={{ color: C.faint, fontSize: 13, padding: 16 }}><Loader2 size={14} style={{ verticalAlign: -2 }} className="spin" /> {tr(L("Loading Town Hall…", "Chargement de l'assemblée…"))}</div>;
+  if (!feed) return <div style={{ color: C.faint, fontSize: 13, padding: 16 }}><Loader2 size={14} style={{ verticalAlign: -2 }} className="spin" /> {tr(L("Loading the parliament…", "Chargement du parlement…"))}</div>;
   if (feed.error) return <div style={{ color: C.faint, fontSize: 13, padding: 16 }}>{tr(L("You're not a member of this organization.", "Vous n'êtes pas membre de cette organisation."))}</div>;
 
   return (

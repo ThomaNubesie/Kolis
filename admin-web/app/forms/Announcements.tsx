@@ -41,7 +41,7 @@ export default function Announcements({ form, orgId, tr, lang, welcome, mobile }
       if (r?.ok === false) alert(r.error === "not_admin" ? tr(L("You can't post here.", "Vous ne pouvez pas publier ici.")) : r.error);
       else {
         setBody(""); setDeadline(""); setOpen(false); setTarget("local");
-        let note = tgt === form ? "" : tr(L("Posted to the assembly.", "Publié à l'assemblée."));
+        let note = tgt === form ? "" : tr(L("Posted to the whole group.", "Publié à tout le groupe."));
         if (notify && r?.id) {
           const n = await cf.annNotify(r.id);
           if (n?.ok) note = (note ? note + " " : "") + tr(L(`Notified ${n.emailed} by email, ${n.texted} by text.`, `${n.emailed} notifiés par courriel, ${n.texted} par texto.`));
@@ -71,7 +71,7 @@ export default function Announcements({ form, orgId, tr, lang, welcome, mobile }
               <input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.target.value)} style={{ ...inp, width: "auto", padding: "6px 8px" }} /></label>
             {orgId && orgId !== form && (
               <div style={{ display: "flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
-                {(["local", "assembly"] as const).map((t) => <span key={t} onClick={() => setTarget(t)} style={{ padding: "6px 10px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", background: target === t ? C.accent : "#fff", color: target === t ? "#fff" : C.ink2 }}>{t === "local" ? tr(L("This department", "Ce département")) : tr(L("Assembly", "Assemblée"))}</span>)}
+                {(["local", "assembly"] as const).map((t) => <span key={t} onClick={() => setTarget(t)} style={{ padding: "6px 10px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", background: target === t ? C.accent : "#fff", color: target === t ? "#fff" : C.ink2 }}>{t === "local" ? tr(L("This department", "Ce département")) : tr(L("Whole group", "Tout le groupe"))}</span>)}
               </div>
             )}
             <span onClick={post} style={{ marginLeft: "auto", background: C.accent, color: "#fff", borderRadius: 9, padding: "8px 14px", fontSize: 12.5, fontWeight: 800, cursor: "pointer", opacity: body.trim() && !busy ? 1 : .6 }}>{busy ? "…" : tr(L("Post", "Publier"))}</span>

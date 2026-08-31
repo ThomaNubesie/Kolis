@@ -2285,7 +2285,7 @@ function NewEntry({ form, tr, lang, onDone }: any) {
         : tr(L("Only suspended members may post in this thread.", "Seuls les membres suspendus peuvent publier ici."))}
     </div>
   );
-  if (!open) return <>{audienceBar}<div onClick={() => setOpen(true)} style={{ border: `1px dashed ${C.line}`, borderRadius: 11, padding: 12, textAlign: "center", fontWeight: 700, fontSize: 13, color: C.accent, cursor: "pointer" }}>{tr(L("+ New entry", "+ Nouvelle entrée"))}</div></>;
+  if (!open) return <>{audienceBar}<div onClick={() => setOpen(true)} style={{ border: `1px dashed ${C.line}`, borderRadius: 11, padding: 12, textAlign: "center", fontWeight: 700, fontSize: 13, color: C.accent, cursor: "pointer" }}>{form.adopt_rule === "majority" ? tr(L("+ New motion", "+ Nouvelle motion")) : tr(L("+ New entry", "+ Nouvelle entrée"))}</div></>;
   return (
     <div style={{ background: C.panel, border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 10 }}>
       {audienceBar}
@@ -2298,7 +2298,7 @@ function NewEntry({ form, tr, lang, onDone }: any) {
         </div>
       ))}
       <div style={{ display: "flex", gap: 8 }}>
-        <div onClick={submit} style={{ background: C.accent, color: "#fff", borderRadius: 9, padding: "10px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer", opacity: busy ? .6 : 1 }}>{tr(L("Post entry", "Publier"))}</div>
+        <div onClick={submit} style={{ background: C.accent, color: "#fff", borderRadius: 9, padding: "10px 16px", fontWeight: 800, fontSize: 13, cursor: "pointer", opacity: busy ? .6 : 1 }}>{form.adopt_rule === "majority" ? tr(L("Put the motion", "Déposer la motion")) : tr(L("Post entry", "Publier"))}</div>
         <div onClick={() => setOpen(false)} style={{ border: `1px solid ${C.line}`, borderRadius: 9, padding: "10px 16px", fontWeight: 800, fontSize: 13, color: C.ink2, cursor: "pointer" }}>{tr(L("Cancel", "Annuler"))}</div>
       </div>
     </div>
@@ -2341,14 +2341,24 @@ function EntryCard({ e, form, lang, tr, mobile, memberOf, reload }: any) {
           {trx && <div style={{ borderLeft: `3px solid ${C.accent}`, background: C.accentSoft, borderRadius: "0 8px 8px 0", padding: "9px 11px", fontSize: 12.5, marginTop: 8 }}>{trx}</div>}
         </div>
       )}
-      {form.features?.voting && e.status && (
-        <div style={{ borderTop: `1px solid ${C.line2}`, background: "#FCFBF8", padding: "11px 16px", display: "flex", alignItems: "center", gap: 10 }}>
+      {form.features?.voting && e.status && (() => {
+        // A motion carries when it reaches the bar. Where the bar is a MAJORITY it is
+        // computed from the live membership (cf_form.adopt_needed), so it rises as the
+        // group grows instead of resting on a number someone typed once.
+        const needed = form.adopt_needed ?? form.approval_count ?? 1;
+        const motion = form.adopt_rule === "majority";
+        return (
+        <div style={{ borderTop: `1px solid ${C.line2}`, background: "#FCFBF8", padding: "11px 16px", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           {e.status === "approved"
-            ? <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 20, background: "#E7F3EC", color: "#1F7A4D" }}>{tr(L("Approved", "Approuvé"))} · {e.approvals}/{form.approval_count}</span>
-            : <><span onClick={vote} style={{ background: C.green, color: "#fff", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>✓ {tr(L("Approve", "Approuver"))}{e.my_vote === "approve" ? " ✓" : ""}</span>
-                <span style={{ marginLeft: "auto", fontSize: 11.5, color: C.ink2, fontWeight: 700 }}>{e.approvals} / {form.approval_count}</span></>}
+            ? <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 9px", borderRadius: 20, background: "#E7F3EC", color: "#1F7A4D" }}>{motion ? tr(L("Adopted", "Adoptée")) : tr(L("Approved", "Approuvé"))} · {e.approvals}/{needed}</span>
+            : <><span onClick={vote} style={{ background: C.green, color: "#fff", borderRadius: 8, padding: "8px 12px", fontSize: 12, fontWeight: 800, cursor: "pointer" }}>✓ {motion ? tr(L("Vote to adopt", "Voter l'adoption")) : tr(L("Approve", "Approuver"))}{e.my_vote === "approve" ? " ✓" : ""}</span>
+                <span style={{ marginLeft: "auto", fontSize: 11.5, color: C.ink2, fontWeight: 700 }}>
+                  {e.approvals} / {needed}
+                  {motion && <span style={{ color: C.faint, fontWeight: 600 }}> · {tr(L("majority of members", "majorité des membres"))}</span>}
+                </span></>}
         </div>
-      )}
+        );
+      })()}
       {form.features?.comments && (
         <div style={{ borderTop: `1px solid ${C.line2}`, background: "#FCFBF8", padding: "11px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
           {e.comments.map((c: any) => { const ca = memberOf[c.author]; return (

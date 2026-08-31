@@ -331,7 +331,7 @@ export async function buildTownHallPdf(topicTitle: string, entries: CfThEntry[],
   doc.setFillColor(accent[0], accent[1], accent[2]); doc.roundedRect(M, y, 20, 20, 4, 4, "F");
   doc.setTextColor(255, 255, 255); doc.setFont("helvetica", "bold"); doc.setFontSize(12); doc.text("Q", M + 6, y + 14);
   doc.setTextColor(ink[0], ink[1], ink[2]); doc.setFontSize(13); doc.text("Quorly", M + 28, y + 14); y += 34;
-  text(tr(L("Town Hall — published summary", "Assemblée — synthèse publiée")), M, 9, "normal", faint);
+  text(tr(L("Parliament — published summary", "Parlement — synthèse publiée")), M, 9, "normal", faint);
   text(topicTitle, M, 17, "bold");
   let tf = 0, ta = 0; entries.forEach((e) => { tf += e.for; ta += e.against; });
   text(`${tr(L("Overall", "Total"))}: ${tf} ${tr(L("for", "pour"))} · ${ta} ${tr(L("against", "contre"))} · ${entries.length} ${tr(L("concerns", "préoccupations"))}`, M, 10, "bold", accent);

@@ -13,7 +13,10 @@ import { quorly } from "@/lib/quorly";
 // Returns null until the image has actually decoded. The caller keeps its solid
 // background until then, so the card never sits on a half-painted photo, and a failed
 // or slow fetch simply leaves the old plain background in place.
-export type Backdrop = { url: string; label_en: string; label_fr: string };
+// `glass` is per-photo: transparency belongs to the picture, not the card. It reads
+// well over a calm frame and turns to mud over a busy one, so each row decides, and
+// the default is false — opaque is the safe result on a photo nobody has looked at.
+export type Backdrop = { url: string; label_en: string; label_fr: string; glass: boolean };
 
 export function useLoginBackdrop(): Backdrop | null {
   const [bd, setBd] = useState<Backdrop | null>(null);

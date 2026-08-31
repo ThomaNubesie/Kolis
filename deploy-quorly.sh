@@ -33,17 +33,32 @@ if [ -z "$NETLIFY_AUTH_TOKEN" ]; then
 fi
 export NETLIFY_AUTH_TOKEN
 
-# netlify-cli@latest, NOT @17: the pinned v17 bundles the current
-# @netlify/plugin-nextjs into a function that returns nothing at runtime
-# ("error decoding lambda response: invalid status code returned from lambda: 0",
-# every SSR route 502). Verified on 2026-08-28 — v17 broke, latest worked.
+# PIN the CLI. Do not change this to @latest without testing the live site.
+#
+# 27.4.2 (published 2026-08-31) INLINES the Next runtime's modules into a single
+# /var/task/___netlify-server-handler.mjs instead of leaving them under
+# .netlify/dist/run/. The runtime computes its config path as
+# resolve(MODULE_DIR, "../../..") — correct when the module sits three levels deep,
+# but when it is inlined at the task root that resolves to "/", so every SSR route
+# 502s with: ENOENT: no such file or directory, open '/run-config.json'.
+# 27.4.1 packages it correctly (46-line handler + a separate .netlify/dist tree).
+#
+# Earlier note, still true: NOT @17 either — v17 bundled a function that returned
+# nothing at runtime ("invalid status code returned from lambda: 0").
 #
 # --skip-functions-cache: every page here, static ones included, is served by the
 # Next runtime FUNCTION. Netlify reuses that function from cache by default,
 # which silently ships a build with no new routes: existing pages keep working
 # while anything added since the cached build 404s.
-echo "Building + deploying admin-web to production (quorly.ca)…"
-npx --yes netlify-cli@latest deploy --prod --build --skip-functions-cache --site "$SITE_ID"
+NETLIFY_CLI_VERSION="${NETLIFY_CLI_VERSION:-27.4.1}"
+
+# A stale .netlify tree is how a bad bundle survives a "fix": the CLI hashes what is
+# already on disk, the CDN answers "I have that", and the broken function is quietly
+# reused. Build the function bundle from scratch every time.
+rm -rf admin-web/.netlify/functions admin-web/.netlify/functions-internal
+
+echo "Building + deploying admin-web to production (quorly.ca) with netlify-cli@${NETLIFY_CLI_VERSION}…"
+npx --yes "netlify-cli@${NETLIFY_CLI_VERSION}" deploy --prod --build --skip-functions-cache --site "$SITE_ID"
 
 # The CLI exits 0 even when the publish shipped zero functions and every route
 # 502s, so its success is not evidence. Check the live site, and roll back to the

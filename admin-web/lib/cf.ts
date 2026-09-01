@@ -160,6 +160,13 @@ export const cf = {
   },
 
   setMemberTitle: (member: string, title: string | null) => rpc("cf_set_member_title", { p_member: member, p_title: title ?? null }),
+  // Announce a position to the person who received it — email + MMS, both languages.
+  // Call AFTER setMemberTitle succeeds; it reads the title back off the member row.
+  notifyPosition: async (member: string): Promise<{ ok: boolean; title?: string; where?: string; email?: { ok: boolean }; sms?: { ok: boolean }; error?: string }> => {
+    const { data, error } = await supabase.functions.invoke("cf-position-notify", { body: { member_id: member } });
+    if (error) throw new Error(error.message);
+    return data as any;
+  },
   orgUpdate: (org: string, p: { name?: string; description?: string; color?: string; orgType?: string; legalName?: string; titles?: string[] }) =>
     rpc("cf_org_update", { p_org: org, p_name: p.name ?? null, p_description: p.description ?? null, p_color: p.color ?? null, p_org_type: p.orgType ?? null, p_legal_name: p.legalName ?? null, p_titles: p.titles ?? null }),
   createSubform: async (parent: string, group: string, name: string) => {
@@ -300,6 +307,9 @@ export const cf = {
   thSummarize: async (org: string, entry: string) => { try { const { data } = await supabase.functions.invoke("cf-th-summarize", { body: { org_id: org, entry_id: entry } }); return data; } catch (e: any) { return { ok: false, error: e?.message }; } },
   thPublish: async (topic: string) => { try { const { data } = await supabase.functions.invoke("cf-th-publish", { body: { topic_id: topic } }); return data; } catch (e: any) { return { ok: false, error: e?.message }; } },
   form: (id: string): Promise<CfFormFull> => rpc("cf_form", { p_form: id }),
+  // Asked once, before anything renders. A suspended member is outside the room: the
+  // server already withholds every read, and the app shows them only that word.
+  amSuspended: (org?: string): Promise<boolean> => rpc("cf_am_suspended", { p_org: org ?? null }),
   entries: (id: string): Promise<CfEntry[]> => rpc("cf_entries", { p_form: id }),
   createForm: async (p: { name: string; description?: string; features: any; approval: number; color: string; adminName?: string; fields?: any[]; invites?: { contact: string }[]; parent?: string | null; group?: string | null }) => {
     const res = await rpc("cf_create_form", { p_name: p.name, p_description: p.description ?? "", p_features: p.features, p_approval: p.approval, p_color: p.color, p_admin_name: p.adminName ?? "", p_fields: p.fields ?? [], p_invites: p.invites ?? [], p_parent: p.parent ?? null, p_group: p.group ?? null });

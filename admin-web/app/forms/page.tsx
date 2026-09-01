@@ -124,6 +124,8 @@ function FormsInner() {
   const [tab, setTab] = useState<"entries" | "folders" | "files" | "subforms" | "receipts">("entries");
   const [meta, setMeta] = useState<{ kind?: string; parent_id: string | null; parent_name: string | null; org_id?: string | null; group_name: string | null; subform_count: number } | null>(null);
   const [vaultId, setVaultId] = useState<string | null>(null);
+  const [suspended, setSuspended] = useState(false);
+  useEffect(() => { cf.amSuspended().then(setSuspended).catch(() => setSuspended(false)); }, []);
   const [vaultBusy, setVaultBusy] = useState(false);
   const [show2fa, setShow2fa] = useState(false);
   // An ORGANIZATION is the container the group's whole life lives in; its
@@ -206,6 +208,24 @@ function FormsInner() {
   const langToggle = (
     <div style={{ display: "inline-flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
       {(["en", "fr"] as const).map((l) => <span key={l} onClick={() => { setLang(l); cf.setLang(l).catch(() => {}); }} style={{ padding: "5px 11px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", background: lang === l ? C.accent : "transparent", color: lang === l ? "#fff" : C.ink2 }}>{l.toUpperCase()}</span>)}
+    </div>
+  );
+
+  // A suspended member is outside the room. The server already refuses every read, so
+  // this is not the lock — it is the explanation, shown in both languages at once
+  // because a suspended member has no settings screen left to choose one in.
+  if (suspended) return (
+    <div style={{ background: "#2A2824", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "-apple-system,Inter,Segoe UI,Roboto,sans-serif" }}>
+      <div style={{ textAlign: "center", maxWidth: 420 }}>
+        <div style={{ display: "inline-flex", gap: 6, marginBottom: 20 }}>
+          {["#E0574A", "#2F8F6B", "#6B4FA3", "#E0A83B"].map((c) => <span key={c} style={{ width: 9, height: 9, borderRadius: "50%", background: c }} />)}
+        </div>
+        <div style={{ color: "#fff", fontSize: 38, fontWeight: 900, letterSpacing: 2, lineHeight: 1.15 }}>SUSPENDED</div>
+        <div style={{ color: "#E0A83B", fontSize: 38, fontWeight: 900, letterSpacing: 2, lineHeight: 1.15, marginTop: 2 }}>SUSPENDU</div>
+        <div style={{ marginTop: 26 }}>
+          <span onClick={() => supabase.auth.signOut()} style={{ color: "rgba(255,255,255,.5)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Sign out · Se déconnecter</span>
+        </div>
+      </div>
     </div>
   );
 

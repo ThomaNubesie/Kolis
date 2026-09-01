@@ -181,7 +181,22 @@ function MembersTab({ tree, tr, lang, mobile, onChanged }: { tree: CfOrgTree; tr
   const setOffice = async (m: CfOrgMember) => {
     const next = window.prompt(tr(L("Office held (leave blank for none)", "Fonction occupée (vide pour aucune)")), m.title ?? "");
     if (next === null) return;
-    try { await cf.setMemberTitle(m.member_id, next.trim() || null); load(); onChanged(); } catch (e: any) { alert(e.message); }
+    const title = next.trim();
+    try {
+      await cf.setMemberTitle(m.member_id, title || null);
+      // A position is a responsibility to accept, so the person is told — by email and
+      // MMS. Only on being GIVEN one: clearing a title is not an announcement. The
+      // notice must never block the change itself, so a failure to send is reported
+      // and the appointment still stands.
+      if (title) {
+        const r = await cf.notifyPosition(m.member_id).catch(() => null);
+        if (!r || (!r.email?.ok && !r.sms?.ok)) {
+          alert(tr(L(`${m.name} is now ${title}, but we couldn't reach them — tell them directly.`,
+                     `${m.name} est maintenant ${title}, mais nous n'avons pas pu le/la joindre — prévenez-le/la directement.`)));
+        }
+      }
+      load(); onChanged();
+    } catch (e: any) { alert(e.message); }
   };
 
   return (

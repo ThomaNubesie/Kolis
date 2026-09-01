@@ -10,6 +10,9 @@ const rpc = async (fn: string, args?: any) => {
 // `label` is the canonical key answers are stored under; `label_i18n` / `options_i18n` are
 // display-only translations seeded by a built-in template (null on admin-typed fields).
 export type CfField = { id?: string; label: string; type: string; options?: string[]; required?: boolean; label_i18n?: { en: string; fr: string } | null; options_i18n?: Record<string, { en: string; fr: string }> | null };
+// One person as offered to an office picker — always a row from the PARENT's roster,
+// carrying the member_id the office RPCs validate against that parent.
+export type CfOfficePerson = { member_id: string; user_id: string | null; name: string; contact: string | null; color: string | null; title: string | null };
 export type CfMember = { id: string | null; member_id?: string; name: string | null; color: string | null; role: string; status: string; suspended?: boolean; contact: string | null; joined_at?: string | null };
 export type CfComment = { id: string; author: string; body: string; created_at: string };
 export type CfEntry = { id: string; seq: number; author: string; values: Record<string, any>; status: string | null; created_at: string; approvals: number; my_vote: string | null; comments: CfComment[] };
@@ -161,6 +164,22 @@ export const cf = {
     rpc("cf_org_update", { p_org: org, p_name: p.name ?? null, p_description: p.description ?? null, p_color: p.color ?? null, p_org_type: p.orgType ?? null, p_legal_name: p.legalName ?? null, p_titles: p.titles ?? null }),
   createSubform: async (parent: string, group: string, name: string) => {
     const res = await rpc("cf_create_subform", { p_parent: parent, p_group: group, p_name: name });
+    if (res && res.ok === false) throw new Error(res.error || "Failed");
+    return res as { ok: boolean; form_id: string };
+  },
+  // ===== Offices are staffed FROM the parent, never by outside invitation =====
+  // An office is a subdivision of its department: the Speaker's Office is staffed by
+  // members of Parliament. Inviting an outsider directly into an office would put
+  // someone inside the department's work without ever having joined the department.
+  officeRoster: (parent: string): Promise<CfOfficePerson[]> => rpc("cf_office_roster", { p_parent: parent }),
+  officeCandidates: (form: string): Promise<CfOfficePerson[]> => rpc("cf_office_candidates", { p_form: form }),
+  officeAdd: async (form: string, memberIds: string[]) => {
+    const res = await rpc("cf_office_add", { p_form: form, p_members: memberIds });
+    if (res && res.ok === false) throw new Error(res.error || "Failed");
+    return res as { ok: boolean; added: number };
+  },
+  createOffice: async (parent: string, group: string, name: string, adminMemberId: string, memberIds: string[]) => {
+    const res = await rpc("cf_create_office", { p_parent: parent, p_group: group, p_name: name, p_admin_member: adminMemberId, p_members: memberIds });
     if (res && res.ok === false) throw new Error(res.error || "Failed");
     return res as { ok: boolean; form_id: string };
   },

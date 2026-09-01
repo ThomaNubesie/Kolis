@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, Suspense } from "rea
 import { useRouter, useSearchParams } from "next/navigation";
 import { quorly as supabase } from "@/lib/quorly";
 import { useLang } from "@/lib/i18n";
-import { cf, planLimitMsg, type CfFormBrief, type CfFormFull, type CfEntry, type CfFile, type CfFileRequest, type CfFolder, type CfShare, type CfFileActivity, type LostGuide, type CfDocComment, type CfDocDecision, type CfDownloadReq, type CfReceipt, type CfOrg, type CfOrgTree } from "@/lib/cf";
+import { cf, planLimitMsg, type CfFormBrief, type CfFormFull, type CfEntry, type CfFile, type CfFileRequest, type CfFolder, type CfShare, type CfFileActivity, type LostGuide, type CfDocComment, type CfDocDecision, type CfDownloadReq, type CfReceipt, type CfOrg, type CfOrgTree, type CfOfficePerson } from "@/lib/cf";
 import { memberColors } from "@/lib/colors";
 import { AutoTranslateProvider, useAutoT, useDeptLabel } from "@/lib/autotranslate";
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
@@ -15,7 +15,7 @@ import ElectionPanel from "./ElectionPanel";
 import OrgHome from "./OrgHome";
 import TownHall from "./TownHall";
 import Announcements from "./Announcements";
-import { Folder, FolderPlus, Upload, Download, Eye, Link2, Clock, Pencil, FolderInput, Trash2, MoreVertical, ChevronRight, ChevronDown, X, Search, Home, Star, Share2, RotateCcw, List, LayoutGrid, Inbox, FileText, Lock, ShieldCheck, Send, CalendarClock, AlertTriangle, KeyRound, Users, LifeBuoy, ExternalLink, MapPin, MessageSquare, ThumbsUp, ThumbsDown, CheckCircle2, Receipt, Camera, Sparkles, Coins, Tag, Settings, PlusSquare, TrendingUp } from "lucide-react";
+import { Plus, Folder, FolderPlus, Upload, Download, Eye, Link2, Clock, Pencil, FolderInput, Trash2, MoreVertical, ChevronRight, ChevronDown, X, Search, Home, Star, Share2, RotateCcw, List, LayoutGrid, Inbox, FileText, Lock, ShieldCheck, Send, CalendarClock, AlertTriangle, KeyRound, Users, LifeBuoy, ExternalLink, MapPin, MessageSquare, ThumbsUp, ThumbsDown, CheckCircle2, Receipt, Camera, Sparkles, Coins, Tag, Settings, PlusSquare, TrendingUp } from "lucide-react";
 
 // Receipt categories. The English word is the STORED key (it lands in cf_receipts.category
 // and in the AI reader's output) — only the display label is translated.
@@ -464,7 +464,7 @@ function FormsInner() {
               )}
               {mobile && !isVault && (
                 <aside style={{ background: "#F7F4EE", border: `1px solid ${C.line}`, borderRadius: 12, padding: "14px 14px", marginTop: 4 }}>
-                  <MembersRail form={form} tr={tr} lang={lang} sel={sel} loadForm={loadForm} />
+                  <MembersRail form={form} meta={meta} tr={tr} lang={lang} sel={sel} loadForm={loadForm} />
                 </aside>
               )}
             </div>
@@ -474,7 +474,7 @@ function FormsInner() {
         {/* ===== MEMBERS RAIL (desktop) — hidden for the private vault ===== */}
         {showForm && form && !mobile && !isVault && (
           <aside style={{ background: "#F7F4EE", borderLeft: `1px solid ${C.line}`, padding: "18px 16px", overflow: "auto" }}>
-            <MembersRail form={form} tr={tr} lang={lang} sel={sel} loadForm={loadForm} />
+            <MembersRail form={form} meta={meta} tr={tr} lang={lang} sel={sel} loadForm={loadForm} />
           </aside>
         )}
         {/* Vault: security reassurance rail (desktop) */}
@@ -1347,7 +1347,6 @@ function Require2FAGate({ formName, tr, onPassed, onCancel }: any) {
 
 // Sub-forms grouped by type (e.g. Leaders, Financial, Board). Each sub-form is a full form.
 function SubformsPanel({ form, tr, lang, onOpen }: any) {
-  const router = useRouter();
   const [subs, setSubs] = useState<any[]>([]);
   const [adding, setAdding] = useState(false);
   const [addingVote, setAddingVote] = useState(false);
@@ -1364,7 +1363,28 @@ function SubformsPanel({ form, tr, lang, onOpen }: any) {
   const groups: Record<string, any[]> = {};
   subs.forEach((s) => { const g = s.group_name || tr(L("General", "Général")); (groups[g] = groups[g] || []).push(s); });
   const existing = Array.from(new Set(subs.map((s) => s.group_name).filter(Boolean)));
-  const startNew = () => { router.push(`/forms/new?parent=${form.id}${group.trim() ? `&group=${encodeURIComponent(group.trim())}` : ""}`); };
+  // An office is staffed from this department's own roster — never by inviting an
+  // outsider, who would land inside the department's work without having joined it.
+  const [roster, setRoster] = useState<CfOfficePerson[]>([]);
+  const [officeName, setOfficeName] = useState("");
+  const [officeAdmin, setOfficeAdmin] = useState("");
+  const [officeStaff, setOfficeStaff] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { if (adding) cf.officeRoster(form.id).then(setRoster).catch(() => setRoster([])); }, [adding, form.id]);
+  const toggleStaff = (id: string) => setOfficeStaff((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+  const createOffice = async () => {
+    const nm = officeName.trim();
+    if (!nm || !officeAdmin || saving) return;
+    setSaving(true);
+    try {
+      // The admin runs the office, so they are a member of it too — sending both keeps
+      // that true even if the picker and the checkbox list disagree.
+      const r = await cf.createOffice(form.id, group, nm, officeAdmin, officeStaff.filter((id) => id !== officeAdmin));
+      setAdding(false); setOfficeName(""); setOfficeAdmin(""); setOfficeStaff([]);
+      reload(); onOpen(r.form_id);
+    } catch (e: any) { alert(e?.message || cfErr(null, tr)); }
+    setSaving(false);
+  };
   const abtn: any = { border: `1px solid ${C.line}`, background: "#fff", borderRadius: 9, padding: "8px 12px", fontSize: 12.5, fontWeight: 800, color: C.ink, cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 6 };
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -1386,12 +1406,39 @@ function SubformsPanel({ form, tr, lang, onOpen }: any) {
         </div>
       </div>}
       {adding && <div style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: 14, display: "flex", flexDirection: "column", gap: 8, background: "#fff" }}>
+        <div style={railLbl}>{tr(L("Office name", "Nom du bureau"))}</div>
+        <input value={officeName} onChange={(e) => setOfficeName(e.target.value)} placeholder={tr(L("e.g. Speaker's Office", "ex. Bureau du président")) } style={inp} autoFocus />
+
         <div style={railLbl}>{tr(L("Group (optional)", "Groupe (optionnel)"))}</div>
-        <input list="subform-groups" value={group} onChange={(e) => setGroup(e.target.value)} onKeyDown={(e) => e.key === "Enter" && startNew()} placeholder={tr(L("e.g. Financial", "ex. Finances"))} style={inp} autoFocus />
+        <input list="subform-groups" value={group} onChange={(e) => setGroup(e.target.value)} placeholder={tr(L("e.g. Financial", "ex. Finances"))} style={inp} />
         <datalist id="subform-groups">{existing.map((g) => <option key={g as string} value={g as string} />)}</datalist>
+
+        <div style={railLbl}>{tr(L("Who runs it", "Qui le dirige"))}</div>
+        <select value={officeAdmin} onChange={(e) => setOfficeAdmin(e.target.value)} style={inp}>
+          <option value="">{tr(L("Choose an admin…", "Choisir un admin…"))}</option>
+          {roster.map((p) => <option key={p.member_id} value={p.member_id}>{p.name}{p.title ? ` — ${p.title}` : ""}</option>)}
+        </select>
+
+        <div style={railLbl}>{tr(L("Members", "Membres"))} {officeStaff.length ? `· ${officeStaff.length}` : ""}</div>
+        <div style={{ border: `1px solid ${C.line}`, borderRadius: 9, maxHeight: 190, overflowY: "auto" }}>
+          {roster.length === 0 && <div style={{ padding: 10, fontSize: 12.5, color: C.faint }}>{tr(L("No members in this department yet.", "Aucun membre dans ce département."))}</div>}
+          {roster.map((p) => {
+            const isAdmin = p.member_id === officeAdmin;
+            return (
+              <label key={p.member_id} style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", borderBottom: `1px solid ${C.line}`, cursor: isAdmin ? "default" : "pointer", opacity: isAdmin ? .65 : 1 }}>
+                <input type="checkbox" checked={isAdmin || officeStaff.includes(p.member_id)} disabled={isAdmin} onChange={() => toggleStaff(p.member_id)} />
+                <span style={{ width: 9, height: 9, borderRadius: "50%", background: p.color || C.faint, flex: "0 0 auto" }} />
+                <span style={{ fontSize: 13, fontWeight: 600, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</span>
+                {isAdmin && <span style={{ fontSize: 10.5, fontWeight: 800, color: C.accent }}>{tr(L("admin", "admin"))}</span>}
+              </label>
+            );
+          })}
+        </div>
+        <div style={{ fontSize: 11.5, color: C.faint }}>{tr(L("Only members of this department can be added — an office is part of it, not a separate group.", "Seuls les membres de ce département peuvent être ajoutés — un bureau en fait partie, ce n'est pas un groupe séparé."))}</div>
+
         <div style={{ display: "flex", gap: 8 }}>
           <div onClick={() => setAdding(false)} style={{ flex: 1, textAlign: "center", border: `1px solid ${C.line}`, borderRadius: 9, padding: 10, fontWeight: 800, fontSize: 13, color: C.ink2, cursor: "pointer" }}>{tr(L("Cancel", "Annuler"))}</div>
-          <div onClick={startNew} style={{ flex: 2, textAlign: "center", background: C.accent, color: "#fff", borderRadius: 9, padding: 10, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>{tr(L("Continue — choose template & invite", "Continuer — modèle & invitations"))}</div>
+          <div onClick={createOffice} style={{ flex: 2, textAlign: "center", background: officeName.trim() && officeAdmin ? C.accent : C.line, color: "#fff", borderRadius: 9, padding: 10, fontWeight: 800, fontSize: 13, cursor: officeName.trim() && officeAdmin ? "pointer" : "default" }}>{saving ? tr(L("Creating…", "Création…")) : tr(L("Create office", "Créer le bureau"))}</div>
         </div>
       </div>}
       {subs.length === 0 && !adding && <div style={{ color: C.faint, fontSize: 13 }}>{tr(L("No offices yet.", "Aucun bureau."))}</div>}
@@ -2119,7 +2166,11 @@ function FormEdit({ form, tr, isSpace, onSaved, onDeleted }: any) {
   );
 }
 
-function MembersRail({ form, tr, lang, sel, loadForm }: any) {
+function MembersRail({ form, meta, tr, lang, sel, loadForm }: any) {
+  // An office is a form whose parent is a department rather than the organisation.
+  // Its people come from that department's roster — so it gets the staff picker, and
+  // never the invite box, which would pull in someone from outside the department.
+  const isOffice = !!(meta?.parent_id && meta.parent_id !== meta.org_id);
   // Suspension keeps the seat and takes the floor — so it is a toggle here, not a removal.
   const suspend = async (m: any) => {
     const on = !m.suspended;
@@ -2154,8 +2205,53 @@ function MembersRail({ form, tr, lang, sel, loadForm }: any) {
           {form?.is_admin && m.role !== "admin" && m.id && <span onClick={() => remove(m)} title={tr(L("Remove", "Retirer"))} style={{ color: C.faint, cursor: "pointer", display: "flex", flex: "0 0 auto" }}><X size={15} /></span>}
         </div>
       ))}
-      {form?.is_admin && <Invite form={form.id} tr={tr} lang={lang} onDone={() => sel && loadForm(sel)} />}
+      {form?.is_admin && (isOffice
+        ? <AddFromParent form={form.id} parentName={meta?.parent_name} tr={tr} onDone={() => sel && loadForm(sel)} />
+        : <Invite form={form.id} tr={tr} lang={lang} onDone={() => sel && loadForm(sel)} />)}
     </>
+  );
+}
+
+// Staff an EXISTING office from its parent department. The counterpart of the picker
+// in the create form, so an office made before that existed is filled the same way.
+function AddFromParent({ form, parentName, tr, onDone }: any) {
+  const [open, setOpen] = useState(false);
+  const [people, setPeople] = useState<CfOfficePerson[]>([]);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (open) cf.officeCandidates(form).then(setPeople).catch(() => setPeople([])); }, [open, form]);
+  const add = async () => {
+    if (!picked.length || busy) return;
+    setBusy(true);
+    try { await cf.officeAdd(form, picked); setPicked([]); setOpen(false); onDone?.(); }
+    catch (e: any) { alert(e?.message || cfErr(null, tr)); }
+    setBusy(false);
+  };
+  if (!open) return (
+    <div onClick={() => setOpen(true)} style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 800, color: C.accent, cursor: "pointer" }}>
+      <Plus size={14} /> {tr(L("Add from", "Ajouter depuis"))} {parentName || tr(L("the department", "le département"))}
+    </div>
+  );
+  return (
+    <div style={{ marginTop: 12, borderTop: `1px solid ${C.line}`, paddingTop: 12 }}>
+      <div style={railLbl}>{tr(L("Add from", "Ajouter depuis"))} {parentName || tr(L("the department", "le département"))}</div>
+      <div style={{ border: `1px solid ${C.line}`, borderRadius: 9, background: "#fff", maxHeight: 210, overflowY: "auto" }}>
+        {people.length === 0 && <div style={{ padding: 10, fontSize: 12, color: C.faint }}>{tr(L("Everyone from the department is already here.", "Tout le département est déjà ici."))}</div>}
+        {people.map((p) => (
+          <label key={p.member_id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 9px", borderBottom: `1px solid ${C.line}`, cursor: "pointer" }}>
+            <input type="checkbox" checked={picked.includes(p.member_id)} onChange={() => setPicked((s) => s.includes(p.member_id) ? s.filter((x) => x !== p.member_id) : [...s, p.member_id])} />
+            <span style={{ width: 9, height: 9, borderRadius: "50%", background: p.color || C.faint, flex: "0 0 auto" }} />
+            <span style={{ fontSize: 12.5, fontWeight: 600, flex: 1, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</span>
+          </label>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 7, marginTop: 9 }}>
+        <div onClick={() => { setOpen(false); setPicked([]); }} style={{ flex: 1, textAlign: "center", border: `1px solid ${C.line}`, borderRadius: 8, padding: 8, fontSize: 12, fontWeight: 800, color: C.ink2, cursor: "pointer" }}>{tr(L("Cancel", "Annuler"))}</div>
+        <div onClick={add} style={{ flex: 2, textAlign: "center", background: picked.length ? C.accent : C.line, color: "#fff", borderRadius: 8, padding: 8, fontSize: 12, fontWeight: 800, cursor: picked.length ? "pointer" : "default" }}>
+          {busy ? tr(L("Adding…", "Ajout…")) : `${tr(L("Add", "Ajouter"))}${picked.length ? ` · ${picked.length}` : ""}`}
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -24,7 +24,8 @@
 // Every applied file is recorded in public.cf_migrations so a re-run is a no-op.
 
 import { readFile } from "node:fs/promises";
-import { basename } from "node:path";
+import { basename, join } from "node:path";
+import { homedir } from "node:os";
 import { createInterface } from "node:readline/promises";
 
 // Registered before any top-level await, so a failure in the run below prints
@@ -48,7 +49,8 @@ if (!files.length) {
   process.exit(1);
 }
 
-const token = process.env.SUPABASE_ACCESS_TOKEN;
+const token = process.env.SUPABASE_ACCESS_TOKEN
+  || (await readFile(join(homedir(), ".supabase-pat"), "utf8").catch(() => "")).trim();   // shared with loadq-post.mjs
 if (token && /^sbp_x+$/i.test(token)) {
   console.error("SUPABASE_ACCESS_TOKEN is still the placeholder 'sbp_xxxxxxxx'.\n" +
     "Replace it with your own token from https://supabase.com/dashboard/account/tokens");

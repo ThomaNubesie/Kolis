@@ -24,10 +24,18 @@ async function sendEmail(to: string, formName: string, link: string, code: strin
   if (r.ok) return { ok: true };
   return { ok: false, error: `resend_${r.status}: ${(await r.text().catch(() => "")).slice(0, 300)}` };
 }
-async function sendSms(phone: string, formName: string, link: string, code: string) {
+async function sendSms(phone: string, formName: string, link: string, code: string, lang: "en" | "fr" = "en") {
   if (!(TW_SID && TW_TOKEN && TW_FROM)) return { ok: false, error: "twilio_not_configured" };
   let to = String(phone).replace(/[^\d+]/g, ""); if (!to.startsWith("+")) to = to.length === 10 ? "+1" + to : "+" + to;
-  const line = `You've been invited to “${formName}” on Quorly.${code ? ` Member code: ${code}.` : ""} Join here: ${link}`;
+  // Wording matters here. The old text led with "Member code: XXXXXX", and the
+  // very next screen asks for a DIFFERENT 6-character code — the sign-in OTP,
+  // sent by email. On 2026-09-02 an invitee typed the board code into the
+  // sign-in box and got "expired or invalid", which reads like a broken invite.
+  // So: lead with the link, say the sign-in code comes BY EMAIL, and demote the
+  // board code to a clearly-labelled fallback at the end.
+  const line = lang === "fr"
+    ? `Quorly · ${formName}\nRejoignez ici : ${link}\nUn code à 6 chiffres vous sera ensuite envoyé PAR COURRIEL pour vous connecter.${code ? `\n(Code du groupe, si le lien ne marche pas : ${code})` : ""}`
+    : `Quorly · ${formName}\nJoin here: ${link}\nA 6-digit sign-in code will then be sent to you BY EMAIL.${code ? `\n(Group code, if the link doesn't work: ${code})` : ""}`;
   const b = new URLSearchParams({ To: to, Body: line }); TW_FROM.startsWith("MG") ? b.set("MessagingServiceSid", TW_FROM) : b.set("From", TW_FROM);
   const r = await fetchRetry(`https://api.twilio.com/2010-04-01/Accounts/${TW_SID}/Messages.json`, { method: "POST", headers: { Authorization: "Basic " + btoa(`${TW_SID}:${TW_TOKEN}`), "Content-Type": "application/x-www-form-urlencoded" }, body: b.toString() });
   if (r.ok) return { ok: true };
@@ -74,13 +82,20 @@ Deno.serve(async (req) => {
       const code = (m.invite_code as string) || "";
       const label = m.email || m.phone || "?";
       let res: { ok: boolean; error?: string };
-      if (channel === "sms") res = m.phone ? await sendSms(m.phone as string, formName, link, code) : { ok: false, error: "no_phone" };
+      // Their own recorded preference, then the invite's, then the admin's, then en.
+      let lang: "en" | "fr" = "en";
+      try {
+        const { data: lg } = await admin.rpc("cf_lang_for", { p_contact: (m.email || m.phone) as string, p_form: formId });
+        if (lg === "fr") lang = "fr";
+      } catch { /* default to en */ }
+      if (channel === "sms") res = m.phone ? await sendSms(m.phone as string, formName, link, code, lang) : { ok: false, error: "no_phone" };
       else if (channel === "email") res = m.email ? await sendEmail(m.email as string, formName, link, code) : { ok: false, error: "no_email" };
       else if (m.email) res = await sendEmail(m.email as string, formName, link, code);
-      else if (m.phone) res = await sendSms(m.phone as string, formName, link, code);
+      else if (m.phone) res = await sendSms(m.phone as string, formName, link, code, lang);
       else res = { ok: false, error: "no_contact" };
       if (!res.ok) console.error(`cf-invite-send failed for ${label}: ${res.error}`);
-      results.push({ contact: label, channel: m.email ? "email" : "sms", ok: res.ok, error: res.error });
+      const used = channel === "sms" ? "sms" : channel === "email" ? "email" : (m.email ? "email" : "sms");
+      results.push({ contact: label, channel: used, lang, ok: res.ok, error: res.error });
       await sleep(120);
     }
     const failed = results.filter((r) => !r.ok);

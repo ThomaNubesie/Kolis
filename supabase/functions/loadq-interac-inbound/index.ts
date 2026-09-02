@@ -3,8 +3,13 @@
 // that reads Interac "you received $X" emails. POST ?key=<LOADQ_INTERAC_TOKEN>
 // { reference|text, amount_cents?, amount? }
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
-const URL = Deno.env.get("SUPABASE_URL")!;
-const admin = createClient(URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+// NOT `URL`: naming it that shadows the global URL class for the whole module,
+// and `new URL(req.url)` in the handler then throws TypeError before the try
+// block — a 500 on every request, including the unauthorized ones. That is
+// exactly what v7 did on 24 August when the KF- branch introduced this line,
+// and no Interac payment has been matched since.
+const SB_URL = Deno.env.get("SUPABASE_URL")!;
+const admin = createClient(SB_URL, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
 const TOKEN = Deno.env.get("LOADQ_INTERAC_TOKEN") || "";
 const KOLIS_SECRET = "kolis_notify_9f3a2c7b1e6d4084";
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
@@ -27,7 +32,7 @@ Deno.serve(async (req) => {
     // Kolis Freight booking (KF- refs) → delegate to kolis-freight-book.
     if (reference.startsWith("KF-")) {
       try {
-        const r = await fetch(`${URL}/functions/v1/kolis-freight-book`, {
+        const r = await fetch(`${SB_URL}/functions/v1/kolis-freight-book`, {
           method: "POST", headers: { "Content-Type": "application/json", "x-kolis-secret": KOLIS_SECRET },
           body: JSON.stringify({ action: "interac_match", pay_ref: reference, amount_cents }),
         }).then((x) => x.json()).catch(() => ({}));

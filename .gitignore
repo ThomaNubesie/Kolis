@@ -17,3 +17,6 @@ google-play-key.json
 admin-web/.next/
 admin-web/.netlify/
 admin-web/tsconfig.tsbuildinfo
+
+# Netlify CLI writes machine-local absolute paths here — never track it
+.netlify/

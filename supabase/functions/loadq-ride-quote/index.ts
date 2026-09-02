@@ -1,0 +1,242 @@
+// loadq-ride-quote — route-pickup quote for LoadQ.
+// POST { request_id, chosen_pickup?: {label,lat,lng} }
+//  - geocodes the passenger origin + destination
+//  - routes each live departure-zone -> destination (Google Routes API)
+//  - measures the origin's distance to those routes
+//  - within the corridor off-route (route_pickup_max_off_route_m, default 2.5 mi)
+//    -> quote an on-route pickup at the address (finalized)
+//  - beyond it -> return gas stations within the corridor of the route (Places API New)
+//  - chosen_pickup      -> finalize a station pickup
+// Also persists departure_zone_id (the matched zone) so loadq-ride-cascade knows
+// which queued drivers to offer for the route pickup.
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+
+const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
+const GKEY = Deno.env.get("GOOGLE_MAPS_KEY")!;
+const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
+const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
+
+const REGION_CITY: Record<string, string> = {
+  montreal: "Montréal, QC, Canada", ottawa: "Ottawa, ON, Canada", quebec: "Québec City, QC, Canada",
+  gatineau: "Gatineau, QC, Canada", toronto: "Toronto, ON, Canada",
+};
+
+async function geocode(address: string): Promise<{ lat: number; lng: number } | null> {
+  const u = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(address)}&key=${GKEY}`;
+  const d = await (await fetch(u)).json();
+  if (d.status !== "OK" || !d.results?.length) return null;
+  const l = d.results[0].geometry.location; return { lat: l.lat, lng: l.lng };
+}
+
+async function computeRoute(o: { lat: number; lng: number }, d: { lat: number; lng: number }) {
+  const r = await fetch("https://routes.googleapis.com/directions/v2:computeRoutes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": GKEY,
+      "X-Goog-FieldMask": "routes.polyline.encodedPolyline,routes.distanceMeters,routes.duration" },
+    body: JSON.stringify({
+      origin: { location: { latLng: { latitude: o.lat, longitude: o.lng } } },
+      destination: { location: { latLng: { latitude: d.lat, longitude: d.lng } } },
+      travelMode: "DRIVE",
+    }),
+  });
+  const j = await r.json();
+  if (!j.routes?.length) return null;
+  return { poly: decodePolyline(j.routes[0].polyline.encodedPolyline), meters: j.routes[0].distanceMeters };
+}
+
+async function nearbyGas(c: { lat: number; lng: number }, radius: number) {
+  const r = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Goog-Api-Key": GKEY,
+      "X-Goog-FieldMask": "places.displayName,places.shortFormattedAddress,places.location" },
+    body: JSON.stringify({ includedTypes: ["gas_station"], maxResultCount: 20,
+      locationRestriction: { circle: { center: { latitude: c.lat, longitude: c.lng }, radius: Math.min(radius, 20000) } } }),
+  });
+  const j = await r.json();
+  return (j.places ?? []).map((p: any) => ({
+    label: p.displayName?.text ?? "Gas station", address: p.shortFormattedAddress ?? "",
+    lat: p.location.latitude, lng: p.location.longitude,
+  }));
+}
+
+function decodePolyline(str: string): [number, number][] {
+  let idx = 0, lat = 0, lng = 0; const out: [number, number][] = [];
+  while (idx < str.length) {
+    let b, shift = 0, result = 0;
+    do { b = str.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+    shift = 0; result = 0;
+    do { b = str.charCodeAt(idx++) - 63; result |= (b & 0x1f) << shift; shift += 5; } while (b >= 0x20);
+    lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+    out.push([lat / 1e5, lng / 1e5]);
+  }
+  return out;
+}
+
+// metres from a point to a polyline (min over segments, local equirectangular projection)
+function distToPolyline(pt: { lat: number; lng: number }, poly: [number, number][]): number {
+  const R = 6371000, rad = Math.PI / 180, coslat = Math.cos(pt.lat * rad);
+  const X = (lng: number) => lng * rad * R * coslat, Y = (lat: number) => lat * rad * R;
+  const px = X(pt.lng), py = Y(pt.lat); let best = Infinity;
+  for (let i = 0; i + 1 < poly.length; i++) {
+    const ax = X(poly[i][1]), ay = Y(poly[i][0]), bx = X(poly[i + 1][1]), by = Y(poly[i + 1][0]);
+    const dx = bx - ax, dy = by - ay, L2 = dx * dx + dy * dy;
+    let t = L2 ? ((px - ax) * dx + (py - ay) * dy) / L2 : 0; t = Math.max(0, Math.min(1, t));
+    const cx = ax + t * dx, cy = ay + t * dy, d = Math.hypot(px - cx, py - cy);
+    if (d < best) best = d;
+  }
+  return best;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  try {
+    const b = await req.json().catch(() => ({}));
+    if (!b.request_id) return json({ error: "request_id required" }, 400);
+
+    const { data: reqRow } = await admin.from("loadq_ride_requests").select("*").eq("id", b.request_id).maybeSingle();
+    if (!reqRow) return json({ error: "request not found" }, 404);
+    if (reqRow.kind !== "route_pickup") return json({ error: "quote is for route_pickup requests" }, 400);
+
+    // resolve coordinates
+    let origin = reqRow.origin_lat != null ? { lat: reqRow.origin_lat, lng: reqRow.origin_lng } : null;
+    if (!origin) { origin = await geocode(reqRow.origin_address ?? ""); if (!origin) return json({ error: "could not geocode origin address" }, 422); }
+    let dest = reqRow.dest_lat != null ? { lat: reqRow.dest_lat, lng: reqRow.dest_lng } : null;
+    if (!dest) {
+      const q = reqRow.dest_address || REGION_CITY[reqRow.dest_region ?? ""] || reqRow.dest_region;
+      dest = await geocode(q ?? ""); if (!dest) return json({ error: "could not geocode destination" }, 422);
+    }
+    await admin.from("loadq_ride_requests").update({
+      origin_lat: origin.lat, origin_lng: origin.lng, dest_lat: dest.lat, dest_lng: dest.lng,
+    }).eq("id", reqRow.id);
+
+    // Tunable settings (change without a redeploy):
+    //  - route_pickup_fee_cents        base pickup fee, covers the first free_km (default $12.99)
+    //  - route_pickup_free_km          off-route distance the base already covers (default 4)
+    //  - route_pickup_per_km_cents     charged per km beyond that (default $2.50)
+    //  - route_pickup_fee_max_cents    ceiling on the fee (default $35)
+    //  - route_pickup_max_off_route_m  the on-route corridor: how far off a driver's
+    //                                  route your address can be and still be quoted
+    // Fare is looked up per zone+destination, not destination alone, so a
+    // Toronto→Montréal pickup isn't priced like an Ottawa→Montréal one.
+    const { data: cfg } = await admin.from("loadq_settings").select("key,value")
+      .in("key", ["route_pickup_fee_cents", "route_pickup_max_off_route_m",
+                  "route_pickup_free_km", "route_pickup_per_km_cents", "route_pickup_fee_max_cents"]);
+    const cfgMap: Record<string, string> = Object.fromEntries((cfg ?? []).map((r: any) => [r.key, r.value]));
+    const num = (k: string, d: number) => (cfgMap[k] ? parseInt(cfgMap[k], 10) : d);
+    const PICKUP_FEE_CENTS = num("route_pickup_fee_cents", 1299);
+    const OFF_ROUTE_M = num("route_pickup_max_off_route_m", 4023);
+    const FREE_KM = num("route_pickup_free_km", 4);
+    const PER_KM_CENTS = num("route_pickup_per_km_cents", 250);
+    const FEE_MAX_CENTS = num("route_pickup_fee_max_cents", 3500);
+
+    // The fee pays for the detour, so it has to scale with the detour. A flat
+    // fee was fine while the corridor was 4 km; at 12 km the same $12.99 asks a
+    // driver to drive ~24 km round trip for the price of a 4 km one, and they
+    // will simply decline. The base covers the first FREE_KM, every km past
+    // that is charged, and the whole thing is capped so one long pickup can't
+    // run away from the seat fare.
+    //
+    // `km` is ONE-WAY off-route distance — the driver pays it twice, out and
+    // back — which is why PER_KM_CENTS sits above a plain per-km cost.
+    const feeForKm = (km: number | null | undefined) => {
+      const extra = Math.max(0, (km ?? 0) - FREE_KM);
+      return Math.min(FEE_MAX_CENTS, PICKUP_FEE_CENTS + Math.round(extra * PER_KM_CENTS));
+    };
+    const fareForZone = async (zid: string | null | undefined): Promise<number | null> => {
+      if (!zid) return null;
+      const { data } = await admin.from("loadq_route_fares").select("fare_cents")
+        .eq("zone_id", zid).eq("destination_region", reqRow.dest_region).maybeSingle();
+      return data?.fare_cents ?? null;
+    };
+
+    // finalize a station pickup chosen by the passenger (zone already matched)
+    if (b.chosen_pickup?.lat != null) {
+      const cp = b.chosen_pickup;
+      const base_fare_cents = await fareForZone(reqRow.departure_zone_id);
+      // The detour is to the station they picked, not to their address.
+      const fee_cents = feeForKm(cp.off_route_km);
+      const fare_cents = (base_fare_cents ?? 0) + fee_cents;
+      await admin.rpc("loadq_ride_set_quote", {
+        p_request_id: reqRow.id, p_pickup_type: "station", p_pickup_label: cp.label ?? "Meeting point",
+        p_pickup_lat: cp.lat, p_pickup_lng: cp.lng, p_off_route_km: cp.off_route_km ?? null,
+        p_fare_cents: fare_cents, p_matched_trip_id: null,
+      });
+      return json({ mode: "confirmed", pickup: cp, fare_cents, fee_cents, base_fare_cents });
+    }
+
+    // Availability gate — only quote (and let the rider pay) if a live queue driver
+    // is actually heading to this destination WITH a free seat. No driver on duty =>
+    // no quote, no charge. (Previously fell back to all active zones, which could
+    // price a route with nobody driving it.)
+    const { data: liveQ } = await admin.from("queue_entries").select("zone_id, vehicle_id, seats_locked")
+      .eq("destination_region", reqRow.dest_region).in("status", ["waiting", "loading", "standby"]);
+    const vids = [...new Set((liveQ ?? []).map((r: any) => r.vehicle_id).filter(Boolean))];
+    const seatMap: Record<string, number> = {};
+    if (vids.length) {
+      const { data: vs } = await admin.from("vehicles").select("id,seats").in("id", vids);
+      (vs ?? []).forEach((v: any) => seatMap[v.id] = v.seats ?? 0);
+    }
+    const zoneIds = [...new Set((liveQ ?? [])
+      .filter((r: any) => (seatMap[r.vehicle_id] ?? 0) - (r.seats_locked ?? 0) > 0)
+      .map((r: any) => r.zone_id))];
+    if (!zoneIds.length) return json({ error: "no_drivers" }, 200);
+    const { data: zones } = await admin.from("zones").select("id,name,latitude,longitude")
+      .not("latitude", "is", null).in("id", zoneIds);
+    if (!zones?.length) return json({ error: "no_drivers" }, 200);
+
+    // route each zone -> destination, keep the one the origin is closest to
+    let best: { km: number; poly: [number, number][]; zone: string } | null = null;
+    for (const z of zones) {
+      const rt = await computeRoute({ lat: z.latitude, lng: z.longitude }, dest);
+      if (!rt) continue;
+      const m = distToPolyline(origin, rt.poly);
+      if (!best || m < best.km) best = { km: m, poly: rt.poly, zone: z.id };
+    }
+    if (!best) return json({ error: "could not compute a route" }, 422);
+
+    // Persist the matched departure zone so loadq-ride-cascade knows which
+    // queued drivers to offer this route pickup to.
+    await admin.from("loadq_ride_requests").update({ departure_zone_id: best.zone }).eq("id", reqRow.id);
+
+    // Price from the matched zone's fare row. The pickup fee is added per
+    // branch below, because each one has a different detour to pay for.
+    const base_fare_cents = await fareForZone(best.zone);
+
+    if (best.km <= OFF_ROUTE_M) {
+      const off_km = Math.round((best.km / 1000) * 10) / 10;
+      const fee_cents = feeForKm(off_km);
+      const fare_cents = (base_fare_cents ?? 0) + fee_cents;
+      await admin.rpc("loadq_ride_set_quote", {
+        p_request_id: reqRow.id, p_pickup_type: "on_route", p_pickup_label: reqRow.origin_address,
+        p_pickup_lat: origin.lat, p_pickup_lng: origin.lng, p_off_route_km: off_km,
+        p_fare_cents: fare_cents, p_matched_trip_id: null,
+      });
+      return json({ mode: "on_route", pickup: { label: reqRow.origin_address, ...origin }, off_route_km: off_km, fare_cents, fee_cents, base_fare_cents });
+    }
+
+    // beyond the corridor: gas stations near origin that are within it of the route
+    const raw = await nearbyGas(origin, Math.min(best.km + 3000, 15000));
+    const R = 6371000, rad = Math.PI / 180;
+    const hav = (a: any, b: any) => { const dLa = (b.lat - a.lat) * rad, dLo = (b.lng - a.lng) * rad, la1 = a.lat * rad, la2 = b.lat * rad;
+      const h = Math.sin(dLa / 2) ** 2 + Math.cos(la1) * Math.cos(la2) * Math.sin(dLo / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(h)); };
+    // Each station is a different detour, so each carries its own price —
+    // one headline fare for a list of options at different distances would be
+    // wrong for every option but one.
+    const stations = raw
+      .map((s: any) => ({ ...s, off_route_km: Math.round((distToPolyline(s, best!.poly) / 1000) * 10) / 10,
+                          dist_to_you_km: Math.round((hav(origin, s) / 1000) * 10) / 10 }))
+      .filter((s: any) => s.off_route_km * 1000 <= OFF_ROUTE_M)
+      .sort((a: any, b: any) => a.dist_to_you_km - b.dist_to_you_km)
+      .slice(0, 3)
+      .map((s: any) => ({ ...s, fee_cents: feeForKm(s.off_route_km),
+                          fare_cents: (base_fare_cents ?? 0) + feeForKm(s.off_route_km) }));
+    return json({ mode: "stations", address_off_route_km: Math.round((best.km / 1000) * 10) / 10,
+                  stations, base_fare_cents,
+                  // cheapest of the options, so a caller showing one number shows a real one
+                  fare_cents: stations.length ? Math.min(...stations.map((s: any) => s.fare_cents)) : null,
+                  fee_cents: stations.length ? Math.min(...stations.map((s: any) => s.fee_cents)) : null });
+  } catch (e) {
+    return json({ error: String((e as Error)?.message ?? e) }, 500);
+  }
+});

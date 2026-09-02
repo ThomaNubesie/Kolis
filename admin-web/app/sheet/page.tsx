@@ -24,6 +24,7 @@ import { getVehicleImageUrl } from "@/lib/vehicleImage";
 import {
   Search, X, ArrowLeftRight, Undo2, LogOut, RefreshCw, KeyRound,
   UserPlus, ShieldAlert, WifiOff, Camera, Check, Sun, SunMoon, Moon,
+  UserRound, Phone,
 } from "lucide-react";
 
 // Three themes, chosen on the tablet and remembered there. A parking lot at
@@ -88,6 +89,18 @@ type Line = {
   zone_id: string; zone_name: string | null; destination: string;
   destination_name: string; cars: number; seats: number; trips_30d: number;
 };
+// A passenger who has asked for a seat on this line and is still waiting.
+// `stall` says why they have not moved; `blocks_dispatch` means nothing will
+// move them on its own — see loadq_sheet_requests.
+type Req = {
+  request_id: string; kind: string; status: string; name: string;
+  phone: string | null; email: string | null; pickup: string;
+  seats: number; off_route_km: number | null; fare_cents: number | null;
+  pay_ref: string | null; payment_method: string | null; payment_status: string | null;
+  scheduled_date: string | null; created_at: string; waiting_minutes: number;
+  unmatched: boolean; driver_name: string | null; stall: string;
+  blocks_dispatch: boolean; offers_made: number;
+};
 type Hit = {
   driver_id: string; name: string; car: string | null; make: string | null; model: string | null;
   color: string | null; seats: number | null; has_car: boolean; matched_alias: string | null;
@@ -111,6 +124,7 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
   const [lines, setLines] = useState<Line[]>([]);
   const [line, setLine] = useState<Line | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
+  const [reqs, setReqs] = useState<Req[]>([]);
   const [busy, setBusy] = useState(false);
   const [online, setOnline] = useState(true);
   const [toast, setToast] = useState<{ msg: string; undo?: () => void; bad?: boolean } | null>(null);
@@ -146,8 +160,12 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
 
   const load = useCallback(async () => {
     if (!line) return;
-    const { data } = await supabase.rpc("loadq_sheet", { p_zone: line.zone_id, p_dest: line.destination });
+    const [{ data }, { data: rq }] = await Promise.all([
+      supabase.rpc("loadq_sheet", { p_zone: line.zone_id, p_dest: line.destination }),
+      supabase.rpc("loadq_sheet_requests", { p_zone: line.zone_id, p_dest: line.destination }),
+    ]);
     setRows((data ?? []) as Row[]);
+    setReqs((rq ?? []) as Req[]);
   }, [line]);
 
   useEffect(() => { load(); }, [load]);
@@ -157,6 +175,8 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
     if (!line) return;
     const ch = supabase.channel(`sheet_${line.zone_id}_${line.destination}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "queue_entries" }, () => load())
+      // a passenger booking is the other thing that changes without us
+      .on("postgres_changes", { event: "*", schema: "public", table: "loadq_ride_requests" }, () => load())
       .subscribe();
     return () => { ch.unsubscribe(); };
   }, [line, load]);
@@ -254,6 +274,8 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
           </div>
         )}
 
+        <Waiting reqs={reqs} />
+
         <div>
           {rows.map((r) => {
             const img = getVehicleImageUrl(r.make, r.model, r.color);
@@ -312,6 +334,102 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
           {toast.undo && <span onClick={toast.undo} style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "#FFB27A", fontWeight: 800, cursor: "pointer" }}><Undo2 size={15} /> Annuler</span>}
         </div>
       )}
+    </div>
+  );
+}
+
+/* ------------------------ passengers waiting for a car ------------------- */
+// Bookings made in the app for this line. They have never appeared anywhere a
+// human looks — a customer booked on 1 September, nothing dispatched, and we
+// only found out because Thomas asked. The point of this panel is that a
+// request nobody can see is a request nobody answers.
+//
+// It says out loud when a request CANNOT move rather than implying someone is
+// working on it: `blocks_dispatch` requests are the ones sitting still.
+
+const STALL: Record<string, { fr: string; why: string; stuck: boolean }> = {
+  unmatched: { fr: "Aucune zone trouvée", stuck: true,
+    why: "Le prix n'a jamais trouvé de route : aucun chauffeur ne sera contacté." },
+  no_quote: { fr: "Jamais chiffré", stuck: true,
+    why: "On lui a proposé des points de rencontre au lieu d'un prix, et rien n'a été enregistré." },
+  awaiting_interac: { fr: "Interac non reçu", stuck: true,
+    why: "Rien n'est offert à un chauffeur tant que le virement n'est pas marqué reçu." },
+  awaiting_card: { fr: "Carte non autorisée", stuck: true,
+    why: "Le paiement n'a pas été autorisé, donc la course n'est pas distribuée." },
+  offered: { fr: "Offert à un chauffeur", stuck: false, why: "En attente de sa réponse." },
+  no_driver: { fr: "Payé — aucun chauffeur", stuck: false,
+    why: "Prêt à partir, en attente d'un chauffeur disponible." },
+};
+
+const waitedFor = (mins: number) =>
+  mins < 60 ? `${mins} min`
+  : mins < 60 * 24 ? `${Math.floor(mins / 60)} h`
+  : `${Math.floor(mins / 1440)} j`;
+
+function Waiting({ reqs }: { reqs: Req[] }) {
+  const C = useC();
+  const [open, setOpen] = useState(true);
+  if (!reqs.length) return null;
+  const stuck = reqs.filter((r) => r.blocks_dispatch).length;
+
+  return (
+    <div style={{ borderBottom: `1px solid ${C.ruleSoft}`, background: C.strip }}>
+      <div onClick={() => setOpen((v) => !v)}
+        style={{ padding: "10px 18px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 13.5 }}>
+        <UserRound size={16} style={{ color: C.amber }} />
+        <b style={{ color: C.ink }}>{reqs.length} passager{reqs.length > 1 ? "s" : ""} en attente</b>
+        {stuck > 0 && (
+          <span style={{ fontSize: 10.5, fontWeight: 800, color: "#fff", background: C.red, borderRadius: 5, padding: "2px 7px" }}>
+            {stuck} BLOQUÉ{stuck > 1 ? "S" : ""}
+          </span>
+        )}
+        <span style={{ marginLeft: "auto", color: C.faint }}>{open ? "masquer" : "afficher"}</span>
+      </div>
+
+      {open && reqs.map((r) => {
+        const s = STALL[r.stall] ?? { fr: r.stall, why: "", stuck: false };
+        return (
+          <div key={r.request_id} style={{
+            display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+            padding: "10px 18px", borderTop: `1px solid ${C.ruleSoft}`,
+            background: s.stuck ? (C.sheet === "#FFFFFF" ? "#FDF8EE" : C.sheet) : C.sheet,
+          }}>
+            <div style={{ minWidth: 0, flex: "1 1 260px" }}>
+              <div style={{ fontSize: 15, fontWeight: 700 }}>
+                {r.name}
+                <span style={{ fontSize: 10.5, fontWeight: 800, marginLeft: 8, padding: "2px 7px", borderRadius: 5,
+                  color: s.stuck ? "#fff" : C.green, background: s.stuck ? C.red : "transparent",
+                  border: s.stuck ? "none" : `1px solid ${C.green}` }}>
+                  {s.fr.toUpperCase()}
+                </span>
+              </div>
+              <div style={{ fontSize: 13, color: C.ink2, marginTop: 2 }}>
+                {r.pickup}
+                {r.off_route_km != null ? ` · ${r.off_route_km} km hors route` : ""}
+                {r.seats > 1 ? ` · ${r.seats} places` : ""}
+                {r.scheduled_date ? ` · pour le ${r.scheduled_date}` : ""}
+              </div>
+              <div style={{ fontSize: 12.5, color: s.stuck ? C.red : C.faint, marginTop: 3 }}>{s.why}</div>
+            </div>
+
+            <div style={{ textAlign: "right", fontSize: 13, color: C.ink2 }}>
+              <div style={{ fontWeight: 800, color: C.ink, fontSize: 15 }}>
+                {r.fare_cents != null ? `${(r.fare_cents / 100).toFixed(2)} $` : "—"}
+              </div>
+              <div>attend depuis <b style={{ color: r.waiting_minutes > 120 ? C.red : C.ink2 }}>{waitedFor(r.waiting_minutes)}</b></div>
+              {r.pay_ref && <div style={{ color: C.faint, fontSize: 12 }}>{r.pay_ref}</div>}
+            </div>
+
+            {r.phone && (
+              <a href={`tel:${r.phone}`} style={{
+                display: "inline-flex", alignItems: "center", gap: 7, textDecoration: "none",
+                background: C.green, color: "#fff", borderRadius: 10, padding: "10px 14px",
+                fontWeight: 800, fontSize: 14, whiteSpace: "nowrap",
+              }}><Phone size={15} /> Appeler</a>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

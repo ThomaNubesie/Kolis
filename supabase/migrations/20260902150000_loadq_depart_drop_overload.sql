@@ -1,0 +1,12 @@
+-- ============================================================================
+-- LoadQ: drop the 1-arg loadq_list_depart — 2026-09-02
+--
+-- 20260902140000 gave loadq_list_depart a defaulted `p_seats`. CREATE OR REPLACE
+-- with an extra argument makes a NEW function and leaves the old one, so BOTH
+-- existed and any 1-argument call — which is what the sheet page makes — fails
+-- with "function loadq_list_depart(uuid) is not unique".
+--
+-- Same trap that bit cf_invite when it gained p_lang. Adding a defaulted
+-- argument to a live function is a two-step change: create, then drop the old.
+-- ============================================================================
+drop function if exists public.loadq_list_depart(uuid);

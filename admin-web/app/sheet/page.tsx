@@ -129,6 +129,7 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
   const [online, setOnline] = useState(true);
   const [toast, setToast] = useState<{ msg: string; undo?: () => void; bad?: boolean } | null>(null);
   const [newFor, setNewFor] = useState<string | null>(null);   // prefilled name for onboarding
+  const [swapFrom, setSwapFrom] = useState<Row | null>(null);  // first half of a two-tap swap
 
   const say = (msg: string, opts: { undo?: () => void; bad?: boolean } = {}) => {
     setToast({ msg, ...opts });
@@ -213,6 +214,32 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
     });
   };
 
+  // Switching two drivers around is two taps, not a typed number: tap ⇄ on one
+  // row, tap ⇄ on the other. It SWAPS the two numbers and leaves every other
+  // row — and every deliberate gap, like the #11 held open on 3 September —
+  // exactly where it was. `loadq_admin_move` renumbers 1..N and would close
+  // those holes, which is why the button no longer calls it.
+  const swap = async (r: Row) => {
+    if (!swapFrom) { setSwapFrom(r); return; }
+    if (swapFrom.entry_id === r.entry_id) { setSwapFrom(null); return; }   // tapped again: cancel
+    const a = swapFrom;
+    setSwapFrom(null);
+    let code: string | null = null;
+    if (!me.is_admin) {
+      code = window.prompt(`Échanger #${a.position} ${a.name} et #${r.position} ${r.name}.\nCode d'autorisation :`);
+      if (!code) return;
+    }
+    setBusy(true);
+    const { data } = await supabase.rpc("loadq_list_swap", { p_a: a.entry_id, p_b: r.entry_id, p_code: code });
+    setBusy(false);
+    if (!data?.ok) {
+      return say(data?.error === "too_many_attempts"
+        ? `Trop de codes erronés. Réessayez dans ${data.retry_after_minutes} min.` : err(data?.error), { bad: true });
+    }
+    say(`${data.a.driver} #${data.a.from}→#${data.a.to} · ${data.b.driver} #${data.b.from}→#${data.b.to}`);
+    load();
+  };
+
   const move = async (r: Row) => {
     const to = window.prompt(`Déplacer ${r.name} du #${r.position} vers quel numéro ?`);
     if (!to || !/^\d+$/.test(to.trim())) return;
@@ -274,6 +301,14 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
           </div>
         )}
 
+        {swapFrom && (
+          <div style={{ background: "#FFF6EC", borderBottom: `1px solid ${C.ruleSoft}`, padding: "10px 18px", fontSize: 13.5, color: C.ink, display: "flex", alignItems: "center", gap: 9 }}>
+            <ArrowLeftRight size={16} style={{ color: C.rule }} />
+            <span><b>#{swapFrom.position} {swapFrom.name}</b> sélectionné — touchez ⇄ sur l'autre voiture pour les échanger.</span>
+            <span onClick={() => setSwapFrom(null)} style={{ marginLeft: "auto", color: C.ink2, cursor: "pointer", fontWeight: 700 }}>annuler</span>
+          </div>
+        )}
+
         <Waiting reqs={reqs} />
 
         <div>
@@ -283,7 +318,8 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
               <div key={r.entry_id} style={{
                 display: "grid", gridTemplateColumns: "54px 104px 1fr auto", alignItems: "center",
                 borderBottom: `1px solid ${C.ruleSoft}`, minHeight: 70,
-                background: r.status === "loading" ? C.loadRow : C.sheet,
+                background: swapFrom?.entry_id === r.entry_id ? "#FFF6EC"
+                  : r.status === "loading" ? C.loadRow : C.sheet,
               }}>
                 <div style={{ textAlign: "center", fontWeight: 800, fontSize: 17, color: C.rule, borderRight: `1px solid ${C.ruleSoft}`, alignSelf: "stretch", display: "flex", alignItems: "center", justifyContent: "center" }}>{r.position}</div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", padding: "4px 6px" }}>
@@ -306,7 +342,12 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 7, padding: "0 12px" }}>
-                  <IconBtn title="Déplacer" onClick={() => move(r)} disabled={!online}><ArrowLeftRight size={17} /></IconBtn>
+                  <IconBtn
+                    title={swapFrom ? (swapFrom.entry_id === r.entry_id ? "Annuler l'échange" : `Échanger avec #${swapFrom.position}`) : "Échanger avec…"}
+                    active={swapFrom?.entry_id === r.entry_id}
+                    onClick={() => swap(r)}
+                    onLongPress={() => move(r)}
+                    disabled={!online}><ArrowLeftRight size={17} /></IconBtn>
                   <IconBtn title="Rayer (parti)" danger onClick={() => depart(r)} disabled={!online}><X size={19} /></IconBtn>
                 </div>
               </div>
@@ -724,10 +765,31 @@ function Center({ children }: { children: React.ReactNode }) {
   const C = useC();
   return <div style={{ background: C.bg, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "-apple-system,Inter,Segoe UI,Roboto,sans-serif", color: C.ink }}>{children}</div>;
 }
-function IconBtn({ children, onClick, danger, title, disabled }: any) {
+// `active` marks the first half of a two-tap swap. `onLongPress` is the escape
+// hatch to the older type-a-number move — a press-and-hold, not a second button,
+// because a tablet row has room for two targets and no more.
+function IconBtn({ children, onClick, danger, title, disabled, active, onLongPress }: any) {
   const C = useC();
-  return <span title={title} onClick={disabled ? undefined : onClick}
-    style={{ width: 42, height: 42, borderRadius: 10, border: `1px solid ${danger ? "#F0D5CB" : C.line}`, background: danger ? "#FDF4F1" : C.sheet, color: danger ? C.red : C.ink2, display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1 }}>{children}</span>;
+  const held = useRef(false);
+  const timer = useRef<any>(null);
+  const start = () => {
+    if (disabled || !onLongPress) return;
+    held.current = false;
+    timer.current = setTimeout(() => { held.current = true; onLongPress(); }, 550);
+  };
+  const end = () => { if (timer.current) clearTimeout(timer.current); };
+  return <span title={title}
+    onPointerDown={start} onPointerUp={end} onPointerLeave={end}
+    onClick={disabled ? undefined : () => { if (held.current) { held.current = false; return; } onClick?.(); }}
+    style={{
+      width: 42, height: 42, borderRadius: 10,
+      border: `1px solid ${active ? C.rule : danger ? "#F0D5CB" : C.line}`,
+      background: active ? C.rule : danger ? "#FDF4F1" : C.sheet,
+      color: active ? "#fff" : danger ? C.red : C.ink2,
+      display: "inline-flex", alignItems: "center", justifyContent: "center",
+      cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1,
+      touchAction: "manipulation", userSelect: "none",
+    }}>{children}</span>;
 }
 
 // Backend errors are machine codes; never show them raw on a tablet.
@@ -738,6 +800,14 @@ function err(code?: string) {
     position_taken: "Ce numéro est déjà pris.",
     no_active_vehicle: "Ce chauffeur n'a pas de voiture enregistrée.",
     bad_code: "Code incorrect.",
+    // The code is minted the first time an admin opens the panel. Until then
+    // there is nothing to type, and saying "wrong code" blames the writer for
+    // something only an admin can fix.
+    no_code_issued: "Aucun code n'a encore été créé pour cette période. Demandez à Thomas d'ouvrir le code sur son téléphone.",
+    passengers_aboard: "Impossible : des passagers sont déjà montés dans cette voiture.",
+    different_line: "Les deux voitures ne sont pas sur la même ligne.",
+    already_departed: "Cette voiture est déjà partie.",
+    same_entry: "Choisissez deux voitures différentes.",
     not_found: "Introuvable.",
     rejected: "Refusé par le système.",
   };

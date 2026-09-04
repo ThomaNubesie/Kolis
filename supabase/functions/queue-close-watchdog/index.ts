@@ -94,6 +94,9 @@ interface ZoneRow {
   longitude: number | null;
   radius_meters: number | null;
   manual_queue: boolean | null;
+  // When true the line only advances when a person says so on the sheet: this
+  // watchdog must neither promote the next car nor release an overdue loader.
+  manual_promotion: boolean | null;
   last_purge_date: string | null;     // zone-local date of the last daily purge (purge-once guard)
   auto_pause_depart: boolean | null;  // off by default — gates the GPS pause/depart escalation
 }
@@ -231,7 +234,7 @@ Deno.serve(async () => {
   const pushQueue: PushMsg[] = [];
 
   const { data: zoneRows, error: zoneErr } = await supabase
-    .from("zones").select("id, timezone, name, latitude, longitude, radius_meters, manual_queue, last_purge_date, auto_pause_depart");
+    .from("zones").select("id, timezone, name, latitude, longitude, radius_meters, manual_queue, manual_promotion, last_purge_date, auto_pause_depart");
   if (zoneErr) {
     return new Response(JSON.stringify({ error: `zones lookup failed: ${zoneErr.message}` }), { status: 500 });
   }
@@ -430,6 +433,13 @@ Deno.serve(async () => {
       continue;
     }
 
+    // Manual-promotion zone: the clock does not get to end anyone. Keep
+    // nudging, but the spot is only freed when the sheet marks the car gone.
+    // Releasing here would take a driver off the list nobody agreed to remove,
+    // and leave a hole no automatic promotion is allowed to fill — the worst of
+    // both rules. (2 drivers were released this way at UG on 3 September.)
+    if (zoneById.get(e.zone_id)?.manual_promotion) continue;
+
     // stage === MAX_NUDGES and 10 min elapsed → release the spot.
     affectedRoutes.add(routeKey(e.zone_id, e.destination_region));
     await supabase.from("loading_history").insert({
@@ -561,6 +571,13 @@ Deno.serve(async () => {
     const destRegion = destRegionRaw === "" ? null : destRegionRaw;
     const zone = zoneById.get(zoneId);
     if (isWindowClosedInTz(now, tzFor(zoneId))) continue;
+    // The sheet is the point of truth here: an admin records the seats and
+    // marks the car gone, and THAT promotes the next one (loadq_list_depart
+    // forces loadq_sync_loader). Promoting from here overrides the person
+    // holding the tablet — at UG on 4 September it promoted #2 while #1 was
+    // still empty. Absent-driver standby is skipped for the same reason: it
+    // reorders who loads without anyone deciding it.
+    if (zone?.manual_promotion) continue;
 
     let stillLoadingQuery = supabase
       .from("queue_entries").select("id").eq("zone_id", zoneId).eq("status", "loading");

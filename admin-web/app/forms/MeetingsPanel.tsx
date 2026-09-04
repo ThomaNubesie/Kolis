@@ -62,9 +62,17 @@ export default function MeetingsPanel({ form, tr, lang }: { form: any; tr: (o: a
   };
 
   const cancel = async (m: CfMeeting) => {
-    if (!confirm(tr(L(`Cancel "${m.title}"? Everyone called will keep the entry in their agenda until they refresh.`,
-                      `Annuler « ${m.title} » ? La réunion disparaîtra de l'agenda de chacun.`)))) return;
-    try { await cf.meetingCancel(m.id); reload(); } catch (e: any) { alert(e.message); }
+    if (!confirm(tr(L(`Cancel "${m.title}"? Everyone called is told, and it is removed from their calendar.`,
+                      `Annuler « ${m.title} » ? Tous les convoqués sont prévenus et l'événement quitte leur calendrier.`)))) return;
+    try {
+      await cf.meetingCancel(m.id);
+      // Cancelling is only half the job: the people who put it in their calendar need
+      // it taken back out, which is what the METHOD:CANCEL invite does.
+      const n = await cf.meetingNotify("meeting", m.id, { cancelled: true });
+      reload();
+      if (!n?.ok) alert(tr(L("Cancelled, but we couldn't reach everyone — tell them directly.",
+                             "Annulée, mais nous n'avons pas pu joindre tout le monde — prévenez-les directement.")));
+    } catch (e: any) { alert(e.message); }
   };
 
   const inp: any = { width: "100%", border: `1.5px solid ${C.line}`, borderRadius: 9, padding: "9px 11px", fontSize: 13, fontFamily: "inherit", background: "#fff", color: C.ink };

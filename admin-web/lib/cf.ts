@@ -217,9 +217,9 @@ export const cf = {
   myAgenda: (): Promise<{ meetings: CfAgendaMeeting[]; bookings: CfAgendaBooking[] }> => rpc("cf_my_agenda"),
   bookingCancel: (id: string) => rpc("cf_booking_cancel", { p_booking: id }),
   // Tells everyone called — email + MMS. Never blocks the thing it is announcing.
-  meetingNotify: async (kind: "meeting" | "booking", id: string) => {
+  meetingNotify: async (kind: "meeting" | "booking", id: string, opts?: { cancelled?: boolean }) => {
     try {
-      const { data } = await supabase.functions.invoke("cf-meeting-notify", { body: { kind, id } });
+      const { data } = await supabase.functions.invoke("cf-meeting-notify", { body: { kind, id, cancelled: opts?.cancelled } });
       return data as { ok?: boolean; emailed?: number; texted?: number; error?: string };
     } catch (e: any) { return { ok: false, error: e?.message }; }
   },

@@ -12,6 +12,8 @@ import { AutoTranslateProvider, useAutoT, useDeptLabel } from "@/lib/autotransla
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
 import { buildFormPdf, pdfFilename } from "@/lib/pdf";
 import ElectionPanel from "./ElectionPanel";
+import MeetingsPanel from "./MeetingsPanel";
+import BookingPanel from "./BookingPanel";
 import OrgHome from "./OrgHome";
 import TownHall from "./TownHall";
 import Announcements from "./Announcements";
@@ -121,7 +123,7 @@ function FormsInner() {
   const [err, setErr] = useState<string | null>(null);
   const [canCreate, setCanCreate] = useState(false);
   const [profileName, setProfileName] = useState("");
-  const [tab, setTab] = useState<"entries" | "folders" | "files" | "subforms" | "receipts">("entries");
+  const [tab, setTab] = useState<"entries" | "folders" | "files" | "subforms" | "meetings" | "receipts">("entries");
   const [meta, setMeta] = useState<{ kind?: string; parent_id: string | null; parent_name: string | null; org_id?: string | null; group_name: string | null; subform_count: number } | null>(null);
   const [vaultId, setVaultId] = useState<string | null>(null);
   const [suspended, setSuspended] = useState(false);
@@ -135,7 +137,7 @@ function FormsInner() {
   const [activeOrg, setActiveOrg] = useState<string | null>(null);
   const [tree, setTree] = useState<CfOrgTree | null>(null);
   const [orgSwitch, setOrgSwitch] = useState(false);
-  const [orgTab, setOrgTab] = useState<"home" | "members" | "documents" | "settings">("home");
+  const [orgTab, setOrgTab] = useState<"home" | "members" | "documents" | "meet" | "settings">("home");
   const [qoAdmin, setQoAdmin] = useState(false); // outreach/prospecting operator → sees the GROWTH rail group
   const [newSpace, setNewSpace] = useState(false);
   const isVault = !!sel && sel === vaultId;
@@ -295,6 +297,7 @@ function FormsInner() {
                   {([["home", tr(L("Home", "Accueil")), <Home key="h" size={14} />],
                      ["members", tr(L("Members", "Membres")), <Users key="m" size={14} />],
                      ["documents", tr(L("Documents", "Documents")), <Folder key="d" size={14} />],
+                     ["meet", tr(L("Book a call", "Réserver un appel")), <CalendarClock key="bk" size={14} />],
                      ["settings", tr(L("Settings", "Paramètres")), <Settings key="s" size={14} />]] as const).map(([k, label, icon]) => (
                     // Town Hall used to sit here; it is a department now, listed with the rest.
                     <div key={k} onClick={() => { setOrgTab(k as any); setSel(activeOrg); }} style={sItem(sel === activeOrg && orgTab === k)}>
@@ -410,14 +413,14 @@ function FormsInner() {
               </div>
             </div>
             {!isVault && !isSpace && <div style={{ display: "flex", gap: 2, borderBottom: `1px solid ${C.line}`, padding: mobile ? "0 12px" : "0 22px", overflowX: "auto" }}>
-              {((["entries", "folders", "files", "subforms", "receipts"] as const)
+              {((["entries", "folders", "files", "subforms", "meetings", "receipts"] as const)
                  // An OFFICE is already the leaf of the tree — organization ▸ department ▸
                  // office — so it offers no offices of its own. It is an office exactly when
                  // its parent is not the organization.
                  .filter((k) => k !== "subforms" || !(meta?.parent_id && meta.parent_id !== meta.org_id))
                ).map((k) => (
                 <div key={k} onClick={() => setTab(k)} style={{ padding: "10px 14px", fontSize: 13.5, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap", color: tab === k ? C.accent : C.ink2, borderBottom: `2px solid ${tab === k ? C.accent : "transparent"}`, marginBottom: -1 }}>
-                  {k === "entries" ? tr(L("Entries", "Entrées")) : k === "folders" ? tr(L("Folders", "Dossiers")) : k === "files" ? tr(L("Files", "Fichiers")) : k === "receipts" ? tr(L("Receipts", "Reçus")) : <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>{tr(L("Offices", "Bureaux"))}{meta?.subform_count ? <span style={{ fontSize: 10.5, color: C.faint }}>{meta.subform_count}</span> : null}</span>}
+                  {k === "entries" ? tr(L("Entries", "Entrées")) : k === "folders" ? tr(L("Folders", "Dossiers")) : k === "files" ? tr(L("Files", "Fichiers")) : k === "meetings" ? tr(L("Meetings", "Réunions")) : k === "receipts" ? tr(L("Receipts", "Reçus")) : <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>{tr(L("Offices", "Bureaux"))}{meta?.subform_count ? <span style={{ fontSize: 10.5, color: C.faint }}>{meta.subform_count}</span> : null}</span>}
                 </div>
               ))}
             </div>}
@@ -429,7 +432,11 @@ function FormsInner() {
               ))}
             </div>}
             <div style={{ padding: mobile ? "14px 16px" : "18px 22px", display: "flex", flexDirection: "column", gap: 16, overflow: "auto" }}>
-              {isOrg && orgTab === "documents" ? (
+              {isOrg && orgTab === "meet" ? (
+                <div style={{ padding: mobile ? "14px 12px" : "16px 22px" }}>
+                  <BookingPanel orgId={activeOrg as string} tr={tr} lang={lang} me={profileName} />
+                </div>
+              ) : isOrg && orgTab === "documents" ? (
                 // The organization is itself a form, so its files live on it —
                 // this is where a documents-only group (a shared family folder,
                 // a bylaws archive) does all of its work.
@@ -458,6 +465,8 @@ function FormsInner() {
                 </>
               ) : tab === "subforms" ? (
                 <SubformsPanel form={form} tr={tr} lang={lang} onOpen={(id: string) => setSel(id)} />
+              ) : tab === "meetings" ? (
+                <MeetingsPanel form={form} tr={tr} lang={lang} />
               ) : tab === "receipts" ? (
                 <ReceiptsPanel form={form} tr={tr} lang={lang} mobile={mobile} />
               ) : (

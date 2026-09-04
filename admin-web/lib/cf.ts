@@ -10,6 +10,21 @@ const rpc = async (fn: string, args?: any) => {
 // `label` is the canonical key answers are stored under; `label_i18n` / `options_i18n` are
 // display-only translations seeded by a built-in template (null on admin-typed fields).
 export type CfField = { id?: string; label: string; type: string; options?: string[]; required?: boolean; label_i18n?: { en: string; fr: string } | null; options_i18n?: Record<string, { en: string; fr: string }> | null };
+export type CfMeeting = {
+  id: string; title: string; description: string | null;
+  starts_at: string; ends_at: string; duration_min: number;
+  status: "scheduled" | "cancelled" | "held";
+  room: string | null;          // only ever present for a member, while it stands
+  live: boolean; called_by: string | null;
+  yes: number; no: number; maybe: number; called: number;
+  my_rsvp: "yes" | "no" | "maybe" | null; mine: boolean;
+};
+export type CfRoom = { ok?: boolean; error?: string; room?: string; title?: string; where?: string; me?: string; starts_at?: string; duration_min?: number };
+export type CfOfficer = { user_id: string; name: string; title: string | null; color: string | null; bookable: boolean };
+export type CfAvailRule = { id?: string; weekday: number; start_min: number; end_min: number; slot_min: number; tz?: string };
+export type CfAgendaMeeting = { id: string; title: string; starts_at: string; duration_min: number; room: string; where: string; form_id: string; my_rsvp: string | null; live: boolean };
+export type CfAgendaBooking = { id: string; starts_at: string; duration_min: number; room: string; note: string | null; im_host: boolean; with: string; where: string; live: boolean };
+
 // One person as offered to an office picker — always a row from the PARENT's roster,
 // carrying the member_id the office RPCs validate against that parent.
 export type CfOfficePerson = { member_id: string; user_id: string | null; name: string; contact: string | null; color: string | null; title: string | null };
@@ -174,6 +189,41 @@ export const cf = {
     if (res && res.ok === false) throw new Error(res.error || "Failed");
     return res as { ok: boolean; form_id: string };
   },
+  // ===== Meetings (assembly) and one-to-one bookings =====
+  // Both end in the same place: a time, a room token, and people who must be told.
+  meetings: (form: string, past = false): Promise<CfMeeting[]> => rpc("cf_meetings", { p_form: form, p_past: past }),
+  meetingCreate: async (form: string, title: string, startsAt: string, durationMin: number, description?: string) => {
+    const res = await rpc("cf_meeting_create", { p_form: form, p_title: title, p_starts_at: startsAt, p_duration_min: durationMin, p_description: description ?? null });
+    if (res && res.ok === false) throw new Error(res.error || "Failed");
+    return res as { ok: boolean; meeting_id: string };
+  },
+  meetingRsvp: (id: string, response: "yes" | "no" | "maybe") => rpc("cf_meeting_rsvp", { p_meeting: id, p_response: response }),
+  meetingCancel: (id: string) => rpc("cf_meeting_cancel", { p_meeting: id }),
+  meetingRoom: (id: string): Promise<CfRoom> => rpc("cf_meeting_room", { p_meeting: id }),
+  bookingRoom: (id: string): Promise<CfRoom> => rpc("cf_booking_room", { p_booking: id }),
+  officers: (org: string): Promise<CfOfficer[]> => rpc("cf_officers", { p_org: org }),
+  availabilityGet: (org: string, user?: string): Promise<CfAvailRule[]> => rpc("cf_availability_get", { p_org: org, p_user: user ?? null }),
+  availabilitySet: async (org: string, rules: Omit<CfAvailRule, "id">[], tz: string) => {
+    const res = await rpc("cf_availability_set", { p_org: org, p_rules: rules, p_tz: tz });
+    if (res && res.ok === false) throw new Error(res.error || "Failed");
+    return res as { ok: boolean; rules: number };
+  },
+  slots: (org: string, host: string, days = 14): Promise<{ at: string; slot_min: number }[]> => rpc("cf_slots", { p_org: org, p_host: host, p_days: days }),
+  book: async (org: string, host: string, at: string, duration: number, note?: string) => {
+    const res = await rpc("cf_book", { p_org: org, p_host: host, p_at: at, p_duration: duration, p_note: note ?? null });
+    if (res && res.ok === false) throw new Error(res.error || "Failed");
+    return res as { ok: boolean; booking_id: string };
+  },
+  myAgenda: (): Promise<{ meetings: CfAgendaMeeting[]; bookings: CfAgendaBooking[] }> => rpc("cf_my_agenda"),
+  bookingCancel: (id: string) => rpc("cf_booking_cancel", { p_booking: id }),
+  // Tells everyone called — email + MMS. Never blocks the thing it is announcing.
+  meetingNotify: async (kind: "meeting" | "booking", id: string) => {
+    try {
+      const { data } = await supabase.functions.invoke("cf-meeting-notify", { body: { kind, id } });
+      return data as { ok?: boolean; emailed?: number; texted?: number; error?: string };
+    } catch (e: any) { return { ok: false, error: e?.message }; }
+  },
+
   // ===== Offices are staffed FROM the parent, never by outside invitation =====
   // An office is a subdivision of its department: the Speaker's Office is staffed by
   // members of Parliament. Inviting an outsider directly into an office would put

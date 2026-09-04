@@ -8,20 +8,23 @@
 // Auth: the caller's JWT (must be able to see the thing) or x-kolis-secret for the
 // cron. Deploy with verify_jwt=FALSE; auth is enforced here.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  quorlyEmail, quorlyIcs, icsAttachment, esc,
+  QUORLY_FROM, QUORLY_SITE, QUORLY_MMS_BANNER,
+} from "../_shared/quorly-email.ts";
 
 const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, { auth: { persistSession: false } });
 const RESEND = Deno.env.get("RESEND_API_KEY");
 const TW_SID = Deno.env.get("KOLIS_TWILIO_SID"), TW_TOKEN = Deno.env.get("KOLIS_TWILIO_TOKEN"), TW_FROM = Deno.env.get("KOLIS_TWILIO_FROM");
-const FROM = "Quorly <noreply@loadq.ca>";          // loadq.ca is the Resend-verified domain
-const MMS_MEDIA = "https://quorly.ca/mms-logo";
+const FROM = QUORLY_FROM;
+const MMS_MEDIA = QUORLY_MMS_BANNER;
 const CF_SECRET = "kolis_notify_9f3a2c7b1e6d4084";
-const SITE = "https://quorly.ca";
+const SITE = QUORLY_SITE;
 const TZ = "America/Toronto";
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-api-version, x-kolis-secret", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 const isEmail = (e: string) => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
-const esc = (s: string) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // Both languages in one message: the roster is mixed and nobody should have to pick.
@@ -32,101 +35,46 @@ function when(iso: string) {
   return { en, fr };
 }
 
+// The letterhead itself lives in _shared/quorly-email.ts so every Quorly email is the
+// same object. What belongs HERE is only the wording that is specific to a meeting.
 function emailHtml(o: { kind: string; title: string; where: string; whenEn: string; whenFr: string; mins: number; link: string; note?: string | null; reminder?: boolean; cancelled?: boolean }) {
-  const dots = ["#E0574A", "#2F8F6B", "#6B4FA3", "#E0A83B"]
-    .map((c) => `<td width="10"><div style="width:9px;height:9px;border-radius:50%;background:${c};font-size:0;line-height:0">&nbsp;</div></td>`).join('<td width="5">&nbsp;</td>');
   const headFr = o.cancelled ? "Annulée." : o.reminder ? "Cela commence bientôt." : (o.kind === "booking" ? "Votre rendez-vous est confirmé." : "Vous êtes convoqué(e).");
   const headEn = o.cancelled ? "Cancelled." : o.reminder ? "Starting soon." : (o.kind === "booking" ? "Your meeting is confirmed." : "You are called to a meeting.");
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F1EA;padding:22px 12px"><tr><td align="center">
-<table role="presentation" width="560" cellpadding="0" cellspacing="0" style="width:560px;max-width:100%;background:#fff;border-radius:14px;overflow:hidden;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif">
-  <tr><td bgcolor="#2F3AA3" style="background:#2F3AA3;padding:18px 26px">
-    <table role="presentation" width="100%"><tr>
-      <td style="color:#fff;font-size:19px;font-weight:900">Quorly</td>
-      <td align="right"><table role="presentation"><tr>${dots}</tr></table></td></tr></table></td></tr>
-  <tr><td style="font-size:0;line-height:0"><table role="presentation" width="100%"><tr>
-    <td bgcolor="#E0574A" height="4"></td><td bgcolor="#2F8F6B" height="4"></td><td bgcolor="#6B4FA3" height="4"></td><td bgcolor="#E0A83B" height="4"></td>
-  </tr></table></td></tr>
-  <tr><td style="padding:26px 30px 8px">
-    <p style="margin:0 0 4px;font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#98A0AE">${esc(o.where)}</p>
-    <h1 style="margin:0 0 14px;font-size:21px;line-height:1.25;color:#14131A">${esc(headFr)}</h1>
-    <table role="presentation" width="100%" style="margin:0 0 16px"><tr>
-      <td width="4" bgcolor="#2F3AA3"></td>
-      <td style="padding:6px 0 6px 14px">
-        <div style="font-size:17px;font-weight:900;color:#14131A">${esc(o.title)}</div>
-        <div style="font-size:13.5px;color:#2F3AA3;font-weight:700;margin-top:3px">${esc(o.whenFr)} · ${o.mins} min</div>
-      </td></tr></table>
-    ${o.note ? `<p style="margin:0 0 14px;font-size:13.5px;line-height:1.6;color:#1C1B19;white-space:pre-wrap">${esc(o.note)}</p>` : ""}
-    ${o.cancelled
-      ? `<p style="margin:0 0 14px;font-size:14px;line-height:1.6;color:#B4531F;font-weight:700">Cette réunion n'aura pas lieu. · This meeting will not take place.</p>
-         <p style="margin:0 0 8px;font-size:12.5px;color:#6B6675;line-height:1.6">📅 Ouvrez <b>invite.ics</b> pour la retirer de votre calendrier.<br>Open <b>invite.ics</b> to remove it from your calendar.</p>`
-      : `<p style="margin:0 0 20px"><a href="${o.link}" style="display:inline-block;background:#2F3AA3;color:#fff;text-decoration:none;font-weight:800;font-size:14.5px;padding:13px 22px;border-radius:10px">Rejoindre la salle · Join the room →</a></p>
-         <p style="margin:0 0 8px;font-size:12.5px;color:#6B6675;line-height:1.6">La salle vidéo s'ouvre dans Quorly — aucun compte ni installation.<br>The video room opens inside Quorly — no account, no install.</p>
-         <p style="margin:10px 0 0;font-size:12.5px;color:#6B6675;line-height:1.6">📅 Ouvrez <b>invite.ics</b> pour l'ajouter à votre calendrier (Apple, Google, Outlook) — il vous rappellera une heure avant.<br>Open <b>invite.ics</b> to add it to your calendar; it reminds you an hour before.</p>`}
-  </td></tr>
-  <tr><td style="padding:0 30px"><div style="border-top:1px solid #EAE4DA"></div></td></tr>
-  <tr><td style="padding:14px 30px 24px">
-    <p style="margin:0 0 6px;font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#98A0AE">In English</p>
-    <p style="margin:0;font-size:13.5px;line-height:1.6;color:#4a4750">${esc(headEn)} <b>${esc(o.title)}</b> — ${esc(o.whenEn)}, ${o.mins} minutes.</p>
-  </td></tr>
-  <tr><td bgcolor="#FBF8F2" style="background:#FBF8F2;padding:13px 30px">
-    <p style="margin:0;color:#98A0AE;font-size:11px;line-height:1.6">${esc(o.link)}</p>
-  </td></tr>
-</table></td></tr></table>`;
-}
 
-// ---- Calendar invitation -------------------------------------------------------
-//
-// An .ics attachment is how the meeting reaches Apple Calendar, Google Calendar and
-// Outlook without asking anyone to connect an account or grant OAuth: every mail
-// client understands text/calendar. It also carries its OWN alarm, so the member's
-// phone reminds them even if our email and MMS never arrive.
-//
-// UID is the meeting's own id, so re-sending (or the hour-before reminder) UPDATES the
-// existing entry rather than creating a second one — that is what SEQUENCE is for too.
-const icsTime = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
-const icsEsc = (s: string) => String(s ?? "").replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
-// RFC 5545 caps a line at 75 octets; longer ones must continue with a leading space.
-const fold = (line: string) => line.length <= 73 ? line
-  : line.match(/.{1,73}/g)!.map((c, i) => (i ? " " : "") + c).join("\r\n");
+  // A cancelled meeting has no room to join, so the button is replaced rather than
+  // kept — offering it would be a trap.
+  const footnoteFr = o.cancelled
+    ? `📅 Ouvrez <b>invite.ics</b> pour la retirer de votre calendrier.<br>Open <b>invite.ics</b> to remove it from your calendar.`
+    : `La salle vidéo s'ouvre dans Quorly — aucun compte ni installation.<br>The video room opens inside Quorly — no account, no install.
+       <br><br>📅 Ouvrez <b>invite.ics</b> pour l'ajouter à votre calendrier (Apple, Google, Outlook) — il vous rappellera une heure avant.<br>Open <b>invite.ics</b> to add it to your calendar; it reminds you an hour before.`;
+
+  return quorlyEmail({
+    eyebrow: o.where,
+    headline: headFr,
+    bodyFr: [
+      o.note ? `<div style="white-space:pre-wrap">${esc(o.note)}</div>` : "",
+      o.cancelled ? `<p style="margin:12px 0 0;color:#B4531F;font-weight:700">Cette réunion n'aura pas lieu. · This meeting will not take place.</p>` : "",
+    ].filter(Boolean).join("") || undefined,
+    highlight: { title: o.title, sub: `${o.whenFr} · ${o.mins} min` },
+    cta: o.cancelled ? undefined : { label: "Rejoindre la salle · Join the room →", href: o.link },
+    footnoteFr,
+    english: `${esc(headEn)} <b>${esc(o.title)}</b> — ${esc(o.whenEn)}, ${o.mins} minutes.`,
+    footer: esc(o.link),
+  });
+}
 
 function buildIcs(o: { id: string; title: string; where: string; startsAt: string; mins: number; link: string; note?: string | null; cancelled?: boolean; sequence?: number }) {
-  const start = new Date(o.startsAt);
-  const end = new Date(start.getTime() + o.mins * 60_000);
-  const desc = [o.note || "", "", `${o.where} · Quorly`, o.link].filter(Boolean).join("\n");
-  const lines = [
-    "BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Quorly//Meetings//EN", "CALSCALE:GREGORIAN",
-    `METHOD:${o.cancelled ? "CANCEL" : "REQUEST"}`,
-    "BEGIN:VEVENT",
-    `UID:${o.id}@quorly.ca`,
-    `DTSTAMP:${icsTime(new Date())}`,
-    `DTSTART:${icsTime(start)}`,
-    `DTEND:${icsTime(end)}`,
-    `SUMMARY:${icsEsc(o.title)}`,
-    `DESCRIPTION:${icsEsc(desc)}`,
-    `LOCATION:${icsEsc(o.link)}`,
-    `URL:${icsEsc(o.link)}`,
-    `ORGANIZER;CN=Quorly:mailto:noreply@loadq.ca`,
-    `STATUS:${o.cancelled ? "CANCELLED" : "CONFIRMED"}`,
-    // A calendar client ignores an update whose SEQUENCE is not higher than the one
-    // it already holds, so a cancellation must climb past the original 0.
-    `SEQUENCE:${o.sequence ?? 0}`,
-    // The calendar's own reminder, an hour ahead — independent of our email and MMS.
-    "BEGIN:VALARM", "ACTION:DISPLAY", `DESCRIPTION:${icsEsc(o.title)}`, "TRIGGER:-PT1H", "END:VALARM",
-    "END:VEVENT", "END:VCALENDAR",
-  ];
-  return lines.map(fold).join("\r\n");
+  return quorlyIcs({
+    id: o.id, title: o.title, startsAt: o.startsAt, mins: o.mins, link: o.link,
+    description: [o.note || "", "", `${o.where} · Quorly`, o.link].filter(Boolean).join("\n"),
+    cancelled: o.cancelled, sequence: o.sequence,
+  });
 }
-
-const b64 = (s: string) => {
-  const bytes = new TextEncoder().encode(s);
-  let bin = ""; bytes.forEach((b) => { bin += String.fromCharCode(b); });
-  return btoa(bin);                                  // btoa is byte-wise; encode first for accents
-};
 
 async function sendEmail(to: string, subject: string, html: string, ics?: string) {
   if (!RESEND) return { ok: false, error: "resend_key_missing" };
   const payload: Record<string, unknown> = { from: FROM, to: [to], subject, html };
-  if (ics) payload.attachments = [{ filename: "invite.ics", content: b64(ics) }];
+  if (ics) payload.attachments = [icsAttachment(ics)];
   const r = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${RESEND}`, "Content-Type": "application/json" },

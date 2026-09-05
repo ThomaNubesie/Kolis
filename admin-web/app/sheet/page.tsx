@@ -24,7 +24,7 @@ import { getVehicleImageUrl } from "@/lib/vehicleImage";
 import {
   Search, X, ArrowLeftRight, Undo2, LogOut, RefreshCw, KeyRound,
   UserPlus, ShieldAlert, WifiOff, Camera, Check, Sun, SunMoon, Moon,
-  UserRound, Phone,
+  UserRound, Phone, UserX, UserCheck,
 } from "lucide-react";
 
 // Three themes, chosen on the tablet and remembered there. A parking lot at
@@ -101,6 +101,11 @@ type Req = {
   unmatched: boolean; driver_name: string | null; stall: string;
   blocks_dispatch: boolean; offers_made: number;
 };
+// Someone the writer marked absent today and who has not been put back yet.
+type Absent = {
+  driver_id: string; name: string; was_position: number | null;
+  at: string; minutes_ago: number; marked_by: string | null; note: string | null;
+};
 type Hit = {
   driver_id: string; name: string; car: string | null; make: string | null; model: string | null;
   color: string | null; seats: number | null; has_car: boolean; matched_alias: string | null;
@@ -125,6 +130,7 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
   const [line, setLine] = useState<Line | null>(null);
   const [rows, setRows] = useState<Row[]>([]);
   const [reqs, setReqs] = useState<Req[]>([]);
+  const [absent, setAbsent] = useState<Absent[]>([]);
   const [busy, setBusy] = useState(false);
   const [online, setOnline] = useState(true);
   const [toast, setToast] = useState<{ msg: string; undo?: () => void; bad?: boolean } | null>(null);
@@ -161,12 +167,14 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
 
   const load = useCallback(async () => {
     if (!line) return;
-    const [{ data }, { data: rq }] = await Promise.all([
+    const [{ data }, { data: rq }, { data: ab }] = await Promise.all([
       supabase.rpc("loadq_sheet", { p_zone: line.zone_id, p_dest: line.destination }),
       supabase.rpc("loadq_sheet_requests", { p_zone: line.zone_id, p_dest: line.destination }),
+      supabase.rpc("loadq_list_absent_today", { p_zone: line.zone_id, p_dest: line.destination }),
     ]);
     setRows((data ?? []) as Row[]);
     setReqs((rq ?? []) as Req[]);
+    setAbsent((ab ?? []) as Absent[]);
   }, [line]);
 
   useEffect(() => { load(); }, [load]);
@@ -240,6 +248,49 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
     load();
   };
 
+  // Not at the lot when their turn came. They come off the line completely —
+  // no number held, nobody stuck behind them — and if they were loading, the
+  // next car starts immediately. Writer-gated: if this needed an admin, the
+  // line would stall every time Thomas is unreachable.
+  const markAbsent = async (r: Row) => {
+    if (!confirm(`Marquer ${r.name} (#${r.position}) ABSENT ?\n\nIl sort de la liste. Un admin pourra le remettre à son retour.`)) return;
+    const note = window.prompt("Note (facultatif) — pourquoi est-il absent ?") || null;
+    setBusy(true);
+    const { data } = await supabase.rpc("loadq_list_absent", { p_entry: r.entry_id, p_note: note });
+    setBusy(false);
+    if (!data?.ok) return say(err(data?.error), { bad: true });
+    await load();
+    say(data.now_loading
+      ? `${r.name} absent — #${data.now_loading.position} ${data.now_loading.name} charge maintenant`
+      : `${r.name} marqué absent`);
+  };
+
+  // Putting someone back into a numbered queue takes a place from everyone
+  // behind them, so this one needs an admin or the twice-daily code.
+  const reinsert = async (a: Absent) => {
+    const to = window.prompt(
+      `Réinsérer ${a.name}.\nIl était au #${a.was_position ?? "?"}.\n\nÀ quel numéro ? (vide = à la fin)`,
+      a.was_position ? String(a.was_position) : "");
+    if (to === null) return;
+    let code: string | null = null;
+    if (!me.is_admin) {
+      code = window.prompt("Code d'autorisation (change deux fois par jour) :");
+      if (!code) return;
+    }
+    setBusy(true);
+    const { data } = await supabase.rpc("loadq_list_reinsert", {
+      p_driver: a.driver_id, p_zone: line!.zone_id, p_dest: line!.destination,
+      p_pos: to.trim() === "" ? null : Number(to.trim()), p_code: code,
+    });
+    setBusy(false);
+    if (!data?.ok) {
+      return say(data?.error === "too_many_attempts"
+        ? `Trop de codes erronés. Réessayez dans ${data.retry_after_minutes} min.` : err(data?.error), { bad: true });
+    }
+    say(`${data.driver} remis au #${data.position}${data.same_place ? " (sa place)" : ""}`);
+    load();
+  };
+
   const move = async (r: Row) => {
     const to = window.prompt(`Déplacer ${r.name} du #${r.position} vers quel numéro ?`);
     if (!to || !/^\d+$/.test(to.trim())) return;
@@ -309,6 +360,25 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
           </div>
         )}
 
+        {absent.length > 0 && (
+          <div style={{ background: "#F7F9FC", borderBottom: `1px solid ${C.ruleSoft}` }}>
+            {absent.map((a) => (
+              <div key={a.driver_id} style={{ padding: "10px 18px", display: "flex", alignItems: "center", gap: 11, fontSize: 13.5, borderTop: `1px solid ${C.ruleSoft}` }}>
+                <UserX size={16} style={{ color: C.ink2 }} />
+                <span>
+                  <b style={{ color: C.ink }}>{a.name}</b> marqué absent
+                  {a.was_position != null ? <> du <b>#{a.was_position}</b></> : null}
+                  {" "}il y a {a.minutes_ago} min{a.marked_by ? ` par ${a.marked_by}` : ""}
+                  {a.note ? <span style={{ color: C.faint }}> · {a.note}</span> : null}
+                </span>
+                <span onClick={() => reinsert(a)} style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 7, background: C.ink, color: "#fff", borderRadius: 9, padding: "8px 13px", fontWeight: 800, cursor: "pointer" }}>
+                  <UserCheck size={15} /> Réinsérer
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
         <Waiting reqs={reqs} />
 
         <div>
@@ -348,6 +418,7 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
                     onClick={() => swap(r)}
                     onLongPress={() => move(r)}
                     disabled={!online}><ArrowLeftRight size={17} /></IconBtn>
+                  <IconBtn title="Absent — le retirer de la liste" onClick={() => markAbsent(r)} disabled={!online}><UserX size={17} /></IconBtn>
                   <IconBtn title="Rayer (parti)" danger onClick={() => depart(r)} disabled={!online}><X size={19} /></IconBtn>
                 </div>
               </div>

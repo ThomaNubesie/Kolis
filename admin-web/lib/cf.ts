@@ -177,6 +177,9 @@ export const cf = {
   setMemberTitle: (member: string, title: string | null) => rpc("cf_set_member_title", { p_member: member, p_title: title ?? null }),
   // Announce a position to the person who received it — email + MMS, both languages.
   // Call AFTER setMemberTitle succeeds; it reads the title back off the member row.
+  // The appointment letter as a page — what the MMS links to, since a text cannot
+  // carry a letterhead and the email may sit in a mailbox nobody has opened yet.
+  positionLetter: (member: string): Promise<any> => rpc("cf_position_letter", { p_member: member }),
   notifyPosition: async (member: string): Promise<{ ok: boolean; title?: string; where?: string; email?: { ok: boolean }; sms?: { ok: boolean }; error?: string }> => {
     const { data, error } = await supabase.functions.invoke("cf-position-notify", { body: { member_id: member } });
     if (error) throw new Error(error.message);

@@ -19,6 +19,7 @@
 // every action here touches ONE row; a whole-line replace would delete a
 // self-joined driver mid-load, which has already happened once.
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { getVehicleImageUrl } from "@/lib/vehicleImage";
 import {
@@ -318,6 +319,11 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
 
         <div style={{ background: C.band, color: C.bandInk, padding: "13px 18px", display: "flex", alignItems: "center", gap: 13, flexWrap: "wrap" }}>
           <div style={{ fontWeight: 900, fontSize: 20, letterSpacing: .5 }}>LOAD Q</div>
+          {/* The incident register is the other thing the writer needs at the
+              kerb, so it is one tap away rather than another app. */}
+          <Link href="/sheet/incident" style={{ textDecoration: "none", color: "#8A909C", fontSize: 13.5, fontWeight: 700, padding: "7px 12px", borderRadius: 9, background: "rgba(255,255,255,.08)" }}>
+            Registre d'incident
+          </Link>
           <select
             value={line ? `${line.zone_id}|${line.destination}` : ""}
             onChange={(e) => setLine(lines.find((l) => `${l.zone_id}|${l.destination}` === e.target.value) ?? null)}

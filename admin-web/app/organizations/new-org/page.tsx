@@ -76,7 +76,7 @@ function NewOrgInner() {
         color, slug: slug.trim() || null, legalName: legalName.trim() || null,
         titles: titles.filter(Boolean), departments, invites: invited, adminName,
       });
-      router.push(`/forms?open=${res.org_id}`);
+      router.push(`/organizations?open=${res.org_id}`);
     } catch (e: any) { setMsg(e.message || "Failed"); setBusy(false); }
   }
 
@@ -91,7 +91,7 @@ function NewOrgInner() {
 
         {/* header */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 20px", borderBottom: `1px solid ${C.line}`, background: "#fff" }}>
-          <span onClick={() => router.push("/forms")} title={tr(L("Back", "Retour"))} style={{ fontSize: 24, fontWeight: 800, color: C.ink, cursor: "pointer", lineHeight: 1 }}>‹</span>
+          <span onClick={() => router.push("/organizations")} title={tr(L("Back", "Retour"))} style={{ fontSize: 24, fontWeight: 800, color: C.ink, cursor: "pointer", lineHeight: 1 }}>‹</span>
           <div style={{ display: "inline-flex", flexDirection: "column" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ width: 32, height: 32, borderRadius: 9, background: C.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 17 }}>Q</div>

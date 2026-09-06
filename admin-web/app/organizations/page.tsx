@@ -165,7 +165,7 @@ function FormsInner() {
 
   useEffect(() => { cf.myForms().then((f) => setList(f)).catch((e) => setErr(e.message)).finally(() => setLoading(false)); }, []);
   useEffect(() => { loadSpaces(); }, [loadSpaces]);
-  useEffect(() => { const o = sp.get("open"); if (o) { setSel(o); router.replace("/forms"); } }, [sp, router]);
+  useEffect(() => { const o = sp.get("open"); if (o) { setSel(o); router.replace("/organizations"); } }, [sp, router]);
   // Desktop (three-pane) opens the first form for convenience; mobile lands on Home (list) so
   // "back" from a form / new-form returns to the profile page, not into a form.
   useEffect(() => { if (!loading && !mobile && !sel && list.length) setSel(list[0].id); }, [loading, mobile, list, sel]);
@@ -280,7 +280,7 @@ function FormsInner() {
                           <span style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.name}</span>
                         </div>
                       ))}
-                      <div onClick={() => { setOrgSwitch(false); router.push("/forms/new-org"); }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 9px", borderRadius: 8, cursor: "pointer", color: C.accent, fontSize: 12.5, fontWeight: 800, borderTop: `1px solid ${C.line2}`, marginTop: 3 }}>
+                      <div onClick={() => { setOrgSwitch(false); router.push("/organizations/new-org"); }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 9px", borderRadius: 8, cursor: "pointer", color: C.accent, fontSize: 12.5, fontWeight: 800, borderTop: `1px solid ${C.line2}`, marginTop: 3 }}>
                         <PlusSquare size={14} /> {tr(L("New organization", "Nouvelle organisation"))}
                       </div>
                     </div>
@@ -309,7 +309,7 @@ function FormsInner() {
                 {/* ===== DEPARTMENTS ===== */}
                 <div style={{ ...railHead, display: "flex", alignItems: "center" }}>
                   {tr(L("Departments", "Départements"))}
-                  {tree?.is_admin && <span onClick={() => router.push(`/forms/new?parent=${activeOrg}`)} title={tr(L("New department", "Nouveau département"))} style={{ marginLeft: "auto", color: C.accent, cursor: "pointer", display: "inline-flex" }}><PlusSquare size={14} /></span>}
+                  {tree?.is_admin && <span onClick={() => router.push(`/organizations/new?parent=${activeOrg}`)} title={tr(L("New department", "Nouveau département"))} style={{ marginLeft: "auto", color: C.accent, cursor: "pointer", display: "inline-flex" }}><PlusSquare size={14} /></span>}
                 </div>
                 {(tree?.departments?.length ?? 0) === 0 && <div style={{ fontSize: 12, color: C.faint, padding: "2px 6px 4px" }}>{tr(L("None yet — add the first one.", "Aucun — ajoutez le premier."))}</div>}
                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -359,8 +359,8 @@ function FormsInner() {
 
             {canCreate && (
               <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
-                <div style={{ flex: 1, background: C.accent, color: "#fff", border: 0, borderRadius: 11, padding: 11, textAlign: "center", fontSize: 13, fontWeight: 800, cursor: "pointer" }} onClick={() => router.push("/forms/new-org")}>{tr(L("+ Organization", "+ Organisation"))}</div>
-                <div style={{ flex: 1, background: C.panel, color: C.accent, border: `1px solid ${C.line}`, borderRadius: 11, padding: 11, textAlign: "center", fontSize: 13, fontWeight: 800, cursor: "pointer" }} onClick={() => router.push("/forms/new")}>{tr(L("+ Form", "+ Formulaire"))}</div>
+                <div style={{ flex: 1, background: C.accent, color: "#fff", border: 0, borderRadius: 11, padding: 11, textAlign: "center", fontSize: 13, fontWeight: 800, cursor: "pointer" }} onClick={() => router.push("/organizations/new-org")}>{tr(L("+ Organization", "+ Organisation"))}</div>
+                <div style={{ flex: 1, background: C.panel, color: C.accent, border: `1px solid ${C.line}`, borderRadius: 11, padding: 11, textAlign: "center", fontSize: 13, fontWeight: 800, cursor: "pointer" }} onClick={() => router.push("/organizations/new")}>{tr(L("+ Form", "+ Formulaire"))}</div>
               </div>
             )}
             <JoinCode tr={tr} router={router} />
@@ -475,7 +475,7 @@ function FormsInner() {
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", fontSize: 11, fontWeight: 800, letterSpacing: .4, textTransform: "uppercase", color: C.faint }}>
                         <Users size={13} style={{ marginRight: 6, color: "#6B4FA3" }} /> {tr(L("Organizations", "Organisations"))}
-                        <span onClick={() => router.push("/forms/new-org")} style={{ marginLeft: "auto", color: C.accent, cursor: "pointer", fontSize: 12, letterSpacing: 0, textTransform: "none", display: "inline-flex", alignItems: "center", gap: 4 }}><FolderPlus size={13} /> {tr(L("New organization", "Nouvelle organisation"))}</span>
+                        <span onClick={() => router.push("/organizations/new-org")} style={{ marginLeft: "auto", color: C.accent, cursor: "pointer", fontSize: 12, letterSpacing: 0, textTransform: "none", display: "inline-flex", alignItems: "center", gap: 4 }}><FolderPlus size={13} /> {tr(L("New organization", "Nouvelle organisation"))}</span>
                       </div>
                       {spaces.length === 0 && <div style={{ fontSize: 12, color: C.faint }}>{tr(L("An organization holds your group's departments, members and documents in one place.", "Une organisation regroupe les départements, membres et documents de votre groupe."))}</div>}
                       {spaces.map((s) => (

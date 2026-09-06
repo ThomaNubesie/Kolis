@@ -54,7 +54,7 @@ Deno.serve(async (req) => {
     const formName = form?.name || "Quorly";
     const { data: members } = await admin.from("cf_members").select("user_id, email, phone, lang, name").eq("form_id", a.form_id).eq("status", "active");
     const recips = (members ?? []).filter((m: any) => !a.author_id || m.user_id !== a.author_id);
-    const link = `${base}/forms`;
+    const link = `${base}/organizations`;
     let emailed = 0, texted = 0, skipped = 0; const failed: any[] = [];
     const seenEmail = new Set<string>(), seenPhone = new Set<string>();
     for (const m of recips) {

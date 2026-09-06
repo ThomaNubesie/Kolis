@@ -49,7 +49,7 @@ function JoinInner() {
 
   async function join() {
     setBusy(true); setMsg("");
-    try { const r = await cf.joinToken(token, color, ""); if (r?.ok) router.push("/forms"); else setMsg(r?.error === "color_taken" ? tr(L("That colour is taken.", "Cette couleur est prise.")) : (r?.error || "Failed")); }
+    try { const r = await cf.joinToken(token, color, ""); if (r?.ok) router.push("/organizations"); else setMsg(r?.error === "color_taken" ? tr(L("That colour is taken.", "Cette couleur est prise.")) : (r?.error || "Failed")); }
     catch (e: any) { setMsg(e.message); }
     setBusy(false);
   }

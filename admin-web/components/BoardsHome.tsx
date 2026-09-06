@@ -62,7 +62,7 @@ export default function BoardsHome() {
               <button className={fr ? "" : "on"} onClick={() => setFr(false)}>EN</button>
               <button className={fr ? "on" : ""} onClick={() => setFr(true)}>FR</button>
             </div>
-            <a className="qb-btn qb-btn-primary" href="/forms"><span data-en>Start free</span><span data-fr>Commencer</span></a>
+            <a className="qb-btn qb-btn-primary" href="/organizations"><span data-en>Start free</span><span data-fr>Commencer</span></a>
           </div>
         </div>
       </header>
@@ -81,7 +81,7 @@ export default function BoardsHome() {
               <span data-fr>Procès-verbaux, votes, documents sécurisés et reçus du trésorier — au même endroit, en qui chaque membre a confiance. Fini les fils de courriels et les tableurs perdus.</span>
             </p>
             <div className="qb-cta">
-              <a className="qb-btn qb-btn-primary qb-btn-lg" href="/forms"><span data-en>Start a free board</span><span data-fr>Créer un conseil gratuit</span> →</a>
+              <a className="qb-btn qb-btn-primary qb-btn-lg" href="/organizations"><span data-en>Start a free board</span><span data-fr>Créer un conseil gratuit</span> →</a>
               <a className="qb-btn qb-btn-ghost qb-btn-lg" href="#feat"><span data-en>See how it works</span><span data-fr>Voir comment</span></a>
             </div>
             <p className="qb-micro"><span data-en>Free 3-month pilot · 20-minute setup · No credit card</span><span data-fr>Essai gratuit de 3 mois · Configuration en 20 min · Sans carte</span></p>
@@ -228,7 +228,7 @@ export default function BoardsHome() {
                 <li>✓ <span><span data-en>Minutes, votes &amp; documents</span><span data-fr>PV, votes &amp; documents</span></span></li>
                 <li>✓ <span>2 GB <span data-en>storage</span><span data-fr>de stockage</span></span></li>
               </ul>
-              <a className="qb-btn qb-btn-ghost" href="/forms"><span data-en>Start free</span><span data-fr>Commencer</span></a>
+              <a className="qb-btn qb-btn-ghost" href="/organizations"><span data-en>Start free</span><span data-fr>Commencer</span></a>
             </div>
             <div className="qb-tier qb-pop">
               <span className="qb-flag"><span data-en>Most boards</span><span data-fr>Populaire</span></span>
@@ -242,7 +242,7 @@ export default function BoardsHome() {
                 <li>✓ <span>2FA + <span data-en>download approval</span><span data-fr>approbation téléchargement</span></span></li>
                 <li>✓ <span>50 GB <span data-en>storage</span><span data-fr>de stockage</span></span></li>
               </ul>
-              <a className="qb-btn qb-btn-primary" href="/forms"><span data-en>Start free pilot</span><span data-fr>Essai gratuit</span></a>
+              <a className="qb-btn qb-btn-primary" href="/organizations"><span data-en>Start free pilot</span><span data-fr>Essai gratuit</span></a>
             </div>
             <div className="qb-tier">
               <div className="qb-nm">Business</div>
@@ -255,7 +255,7 @@ export default function BoardsHome() {
                 <li>✓ <span><span data-en>Priority support</span><span data-fr>Soutien prioritaire</span></span></li>
                 <li>✓ <span>500 GB <span data-en>storage</span><span data-fr>de stockage</span></span></li>
               </ul>
-              <a className="qb-btn qb-btn-ghost" href="/forms"><span data-en>Start free</span><span data-fr>Commencer</span></a>
+              <a className="qb-btn qb-btn-ghost" href="/organizations"><span data-en>Start free</span><span data-fr>Commencer</span></a>
             </div>
             <div className="qb-tier">
               <div className="qb-nm">Enterprise</div>
@@ -280,7 +280,7 @@ export default function BoardsHome() {
         <div className="qb-wrap">
           <h2 className="qb-h2 qb-cen"><span data-en>Run your next meeting on Quorly.</span><span data-fr>Tenez votre prochaine réunion sur Quorly.</span></h2>
           <p><span data-en>Set up your board in 20 minutes. Free for 3 months — no credit card.</span><span data-fr>Configurez votre conseil en 20 minutes. Gratuit 3 mois — sans carte.</span></p>
-          <a className="qb-btn qb-btn-primary qb-btn-lg qb-fcta" href="/forms"><span data-en>Start a free board</span><span data-fr>Créer un conseil gratuit</span> →</a>
+          <a className="qb-btn qb-btn-primary qb-btn-lg qb-fcta" href="/organizations"><span data-en>Start a free board</span><span data-fr>Créer un conseil gratuit</span> →</a>
         </div>
       </section>
 
@@ -302,7 +302,7 @@ export default function BoardsHome() {
             <div>
               <h5 className="qb-fh"><span data-en>Company</span><span data-fr>Entreprise</span></h5>
               <a href="#security"><span data-en>Security</span><span data-fr>Sécurité</span></a>
-              <a href="/forms"><span data-en>Log in</span><span data-fr>Connexion</span></a>
+              <a href="/organizations"><span data-en>Log in</span><span data-fr>Connexion</span></a>
               <a href="#contact"><span data-en>Contact</span><span data-fr>Contact</span></a>
             </div>
             <div>

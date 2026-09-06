@@ -42,7 +42,7 @@ function LetterInner() {
             {DOTS.map((c) => <span key={c} style={{ width: 9, height: 9, borderRadius: "50%", background: c }} />)}
           </div>
           <div style={{ fontSize: 16, fontWeight: 800, color: C.ink }}>{why}</div>
-          <div onClick={() => router.push("/forms")} style={{ marginTop: 14, fontSize: 12.5, fontWeight: 700, color: C.accent, cursor: "pointer" }}>
+          <div onClick={() => router.push("/organizations")} style={{ marginTop: 14, fontSize: 12.5, fontWeight: 700, color: C.accent, cursor: "pointer" }}>
             ← {tr(L("Open Quorly", "Ouvrir Quorly"))}
           </div>
         </div>
@@ -78,7 +78,7 @@ function LetterInner() {
             Votre fonction apparaît désormais à côté de votre nom, et vos décisions sont enregistrées sous ce titre — horodatées, numérotées et signées.
           </p>
           <p style={{ margin: "0 0 22px" }}>
-            <a href="/forms" style={{ display: "inline-block", background: C.accent, color: "#fff", textDecoration: "none", fontWeight: 800, fontSize: 14.5, padding: "13px 22px", borderRadius: 10 }}>Ouvrir Quorly →</a>
+            <a href="/organizations" style={{ display: "inline-block", background: C.accent, color: "#fff", textDecoration: "none", fontWeight: 800, fontSize: 14.5, padding: "13px 22px", borderRadius: 10 }}>Ouvrir Quorly →</a>
           </p>
         </div>
 

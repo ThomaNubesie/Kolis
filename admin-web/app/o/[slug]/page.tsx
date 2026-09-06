@@ -45,7 +45,7 @@ export default function OrgHandlePage() {
     setPhase("checking");
     try {
       const mine = await cf.myOrgs();
-      if (mine.some((m) => m.id === o.id)) { router.replace(`/forms?open=${o.id}`); return; }
+      if (mine.some((m) => m.id === o.id)) { router.replace(`/organizations?open=${o.id}`); return; }
     } catch { /* fall through to the not-a-member card */ }
     setPhase("notmember");
   }, [router]);
@@ -120,7 +120,7 @@ export default function OrgHandlePage() {
                 {tr(L("Check the link, or ask whoever shared it to send it again — an organization's address can be changed by its administrator.",
                       "Vérifiez le lien, ou demandez à la personne qui l'a partagé de le renvoyer — l'adresse d'une organisation peut être modifiée par son administrateur."))}
               </div>
-              <div onClick={() => router.push("/forms")} style={btn(C.accent)}>{tr(L("Go to Quorly", "Aller à Quorly"))}</div>
+              <div onClick={() => router.push("/organizations")} style={btn(C.accent)}>{tr(L("Go to Quorly", "Aller à Quorly"))}</div>
             </>
           )}
 
@@ -152,7 +152,7 @@ export default function OrgHandlePage() {
                   style={{ border: `1px solid ${C.line}`, borderRadius: 9, padding: "11px", fontSize: 14, background: "#fff", color: C.ink, outline: "none", width: "100%", textAlign: "center", letterSpacing: 2, fontWeight: 800, textTransform: "uppercase" }} />
                 <div onClick={joinByCode} style={{ background: accent, color: "#fff", borderRadius: 9, padding: "0 16px", display: "flex", alignItems: "center", fontWeight: 800, cursor: "pointer", opacity: busy ? .6 : 1 }}>{busy ? "…" : "→"}</div>
               </div>
-              <div onClick={() => router.push("/forms")} style={{ textAlign: "center", fontSize: 12.5, fontWeight: 800, color: C.ink2, cursor: "pointer", paddingTop: 2 }}>
+              <div onClick={() => router.push("/organizations")} style={{ textAlign: "center", fontSize: 12.5, fontWeight: 800, color: C.ink2, cursor: "pointer", paddingTop: 2 }}>
                 {tr(L("Go to my organizations", "Aller à mes organisations"))}
               </div>
             </>

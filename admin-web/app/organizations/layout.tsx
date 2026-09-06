@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 //
 // Overriding the title was not enough. The ROOT layout sets
 // `metadataBase: https://business.kolis.ca`, and metadataBase is what every
-// relative metadata URL resolves against — so quorly.ca/forms was serving
+// relative metadata URL resolves against — so quorly.ca/organizations was serving
 // og:image = https://business.kolis.ca/opengraph-image with
 // og:image:alt = "Kolis for Business". Paste a Quorly link into iMessage,
 // WhatsApp or Slack and the unfurled card was Kolis, magenta "Ship more. Bill
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "Quorly",
-    url: "https://quorly.ca/forms",
+    url: "https://quorly.ca/organizations",
     title: "Quorly — decide together, on the record",
     description: "Boards, associations and committees. Everyone gets a colour; every entry is timed, numbered and signed.",
     images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Quorly — decide together, on the record" }],

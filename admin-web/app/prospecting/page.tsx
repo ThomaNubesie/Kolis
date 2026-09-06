@@ -107,13 +107,13 @@ function Inner() {
     <div style={{ background: C.paper, minHeight: "100vh", fontFamily: "-apple-system,Inter,Segoe UI,Roboto,sans-serif", color: C.ink }}>
       <div style={{ background: "#fff", borderBottom: `1px solid ${C.line}`, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "13px 26px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div onClick={() => router.push("/forms")} style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer" }}>
+          <div onClick={() => router.push("/organizations")} style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer" }}>
             <div style={{ width: 32, height: 32, borderRadius: 9, background: C.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 }}>Q</div>
             <div><div style={{ fontWeight: 800, fontSize: 17 }}>Quorly</div>
               <div style={{ display: "flex", gap: 3, marginTop: 2 }}>{DOTS.map((c) => <span key={c} style={{ width: 5, height: 5, borderRadius: "50%", background: c }} />)}</div></div>
           </div>
         </div>
-        <div onClick={() => router.push("/forms")} style={{ fontSize: 12.5, fontWeight: 700, color: C.accent, cursor: "pointer" }}>← {tr(L("Forms", "Formulaires"))}</div>
+        <div onClick={() => router.push("/organizations")} style={{ fontSize: 12.5, fontWeight: 700, color: C.accent, cursor: "pointer" }}>← {tr(L("Forms", "Formulaires"))}</div>
       </div>
 
       <div style={{ padding: "24px 26px 48px", maxWidth: 1180, margin: "0 auto" }}>

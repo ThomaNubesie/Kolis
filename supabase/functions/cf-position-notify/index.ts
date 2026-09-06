@@ -56,7 +56,7 @@ function emailHtml(name: string, title: string, where: string, id: string) {
   <tr><td style="padding:16px 30px 26px">
     <p style="margin:0 0 10px;font-size:11px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;color:#98A0AE">In English</p>
     <p style="margin:0 0 11px;font-size:13.5px;line-height:1.6;color:#4a4750">You have been appointed <b>${esc(title)}</b> in ${esc(where)}. The title now appears beside your name, and decisions you record carry it — timestamped, numbered and signed.</p>
-    <p style="margin:0"><a href="${SITE}/forms" style="color:#2F3AA3;font-weight:800;font-size:13.5px;text-decoration:none">Open Quorly →</a></p>
+    <p style="margin:0"><a href="${SITE}/organizations" style="color:#2F3AA3;font-weight:800;font-size:13.5px;text-decoration:none">Open Quorly →</a></p>
   </td></tr>
 </table></td></tr></table>`;
 }

@@ -173,7 +173,7 @@ function NewFormInner() {
         if (ndaOn && (ndaText.trim() || NDA_DEFAULT)) { try { await cf.setNda(res.form_id, ndaText.trim() || NDA_DEFAULT); } catch { /* non-fatal */ } }
         const d = res.delivery;
         if (d && d.ok === false && (d.failed?.length || d.error)) alert(tr(L("Form created, but some invites couldn't be delivered: ", "Formulaire créé, mais certaines invitations n'ont pu être envoyées : ")) + (d.failed?.map((f: any) => `${f.contact} (${f.error})`).join("; ") || d.error));
-        router.push(`/forms?open=${res.form_id}`);
+        router.push(`/organizations?open=${res.form_id}`);
       } else alert(tr(L("Something went wrong. Please try again.", "Une erreur est survenue. Veuillez réessayer.")));
     } catch (e: any) { alert(e.message); }
     creatingRef.current = false;
@@ -185,7 +185,7 @@ function NewFormInner() {
       <div style={{ maxWidth: 420, margin: "60px auto 0", background: C.paper, borderRadius: 14, padding: 24, textAlign: "center" }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: C.ink }}>{tr(L("Members can't create forms", "Les membres ne peuvent pas créer de formulaires"))}</div>
         <div style={{ fontSize: 13, color: C.ink2, marginTop: 8 }}>{tr(L("Only form creators can start a new form. You can take part in the forms you've been invited to.", "Seuls les créateurs peuvent démarrer un formulaire. Vous pouvez participer aux formulaires auxquels vous êtes invité."))}</div>
-        <div onClick={() => router.push("/forms")} style={{ marginTop: 16, background: C.accent, color: "#fff", borderRadius: 10, padding: "11px 16px", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>{tr(L("Back to forms", "Retour aux formulaires"))}</div>
+        <div onClick={() => router.push("/organizations")} style={{ marginTop: 16, background: C.accent, color: "#fff", borderRadius: 10, padding: "11px 16px", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>{tr(L("Back to forms", "Retour aux formulaires"))}</div>
       </div>
     </div>
   );
@@ -194,7 +194,7 @@ function NewFormInner() {
     <div style={{ background: "#2A2824", minHeight: "100vh", padding: 24, fontFamily: "-apple-system,Inter,Segoe UI,Roboto,sans-serif" }}>
       <div style={{ maxWidth: 720, margin: "0 auto", background: C.paper, borderRadius: 14, overflow: "hidden", boxShadow: "0 30px 70px rgba(0,0,0,.45)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 22px", borderBottom: `1px solid ${C.line}` }}>
-          <span onClick={() => router.push("/forms")} title={tr(L("Back to home", "Retour à l'accueil"))} style={{ fontSize: 24, fontWeight: 800, color: C.ink, cursor: "pointer", lineHeight: 1 }}>‹</span>
+          <span onClick={() => router.push("/organizations")} title={tr(L("Back to home", "Retour à l'accueil"))} style={{ fontSize: 24, fontWeight: 800, color: C.ink, cursor: "pointer", lineHeight: 1 }}>‹</span>
           <div style={{ fontSize: 18, fontWeight: 800 }}>{tr(L("New form", "Nouveau formulaire"))}</div>
           <div style={{ marginLeft: "auto", display: "inline-flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
             {(["en", "fr"] as const).map((l) => <span key={l} onClick={() => { setLang(l); cf.setLang(l).catch(() => {}); }} style={{ padding: "5px 11px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", background: lang === l ? C.accent : "transparent", color: lang === l ? "#fff" : C.ink2 }}>{l.toUpperCase()}</span>)}
@@ -317,7 +317,7 @@ function NewFormInner() {
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
-            <div onClick={() => router.push("/forms")} style={{ flex: "0 0 auto", border: `1px solid ${C.line}`, color: C.ink2, borderRadius: 10, padding: "13px 18px", textAlign: "center", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>{tr(L("Cancel", "Annuler"))}</div>
+            <div onClick={() => router.push("/organizations")} style={{ flex: "0 0 auto", border: `1px solid ${C.line}`, color: C.ink2, borderRadius: 10, padding: "13px 18px", textAlign: "center", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>{tr(L("Cancel", "Annuler"))}</div>
             <div onClick={create} style={{ flex: 1, background: name.trim() && adminName.trim() ? C.accent : "#C9C3B8", color: "#fff", borderRadius: 10, padding: 13, textAlign: "center", fontWeight: 800, fontSize: 14, cursor: name.trim() && adminName.trim() ? "pointer" : "default" }}>{tr(L("Create & invite", "Créer et inviter"))}</div>
           </div>
         </div>

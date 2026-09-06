@@ -65,7 +65,7 @@ function RoomInner() {
             {["#E0574A", "#2F8F6B", "#6B4FA3", "#E0A83B"].map((c) => <span key={c} style={{ width: 9, height: 9, borderRadius: "50%", background: c }} />)}
           </div>
           <div style={{ color: "#fff", fontSize: 17, fontWeight: 800, marginBottom: 8 }}>{why}</div>
-          <div onClick={() => router.push("/forms")} style={{ color: "#9b97a6", fontSize: 12.5, fontWeight: 700, cursor: "pointer", marginTop: 14 }}>
+          <div onClick={() => router.push("/organizations")} style={{ color: "#9b97a6", fontSize: 12.5, fontWeight: 700, cursor: "pointer", marginTop: 14 }}>
             ← {tr(L("Back to Quorly", "Retour à Quorly"))}
           </div>
         </div>
@@ -79,7 +79,7 @@ function RoomInner() {
   return (
     <div style={{ background: "#14131A", minHeight: "100vh", display: "flex", flexDirection: "column", fontFamily: "-apple-system,Inter,Segoe UI,Roboto,sans-serif" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 15px", background: "#1D1B25", color: "#fff", flex: "0 0 auto" }}>
-        <span onClick={() => router.push("/forms")} style={{ cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#9b97a6" }}>←</span>
+        <span onClick={() => router.push("/organizations")} style={{ cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#9b97a6" }}>←</span>
         <div style={{ minWidth: 0, flex: 1 }}>
           <div style={{ fontSize: 13.5, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{room.title}</div>
           {room.where && <div style={{ fontSize: 11, color: "#9b97a6" }}>{room.where}</div>}

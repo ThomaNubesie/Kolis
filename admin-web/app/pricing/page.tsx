@@ -38,7 +38,7 @@ export default function Pricing() {
               <button className={fr ? "" : "on"} onClick={() => setLang("en")}>EN</button>
               <button className={fr ? "on" : ""} onClick={() => setLang("fr")}>FR</button>
             </div>
-            <a className="qp-btn qp-btn-p" href="/forms"><span data-en>Start free</span><span data-fr>Commencer</span></a>
+            <a className="qp-btn qp-btn-p" href="/organizations"><span data-en>Start free</span><span data-fr>Commencer</span></a>
           </div>
         </div>
       </header>
@@ -66,7 +66,7 @@ export default function Pricing() {
               <li><span className="qp-c">✓</span> <span><span data-en>Minutes, motions &amp; votes</span><span data-fr>PV, motions &amp; votes</span></span></li>
               <li><span className="qp-c">✓</span> <span><span data-en>Documents &amp; folders</span><span data-fr>Documents &amp; dossiers</span> · 2 GB</span></li>
             </ul>
-            <a className="qp-btn qp-btn-g" href="/forms"><span data-en>Start free</span><span data-fr>Commencer</span></a>
+            <a className="qp-btn qp-btn-g" href="/organizations"><span data-en>Start free</span><span data-fr>Commencer</span></a>
           </div>
           {/* BOARD */}
           <div className="qp-tier qp-pop">
@@ -84,7 +84,7 @@ export default function Pricing() {
               <li><span className="qp-c">✓</span> <span>2FA + <span data-en>download approval</span><span data-fr>approbation téléchargement</span></span></li>
               <li><span className="qp-c">✓</span> <span>50 GB <span data-en>storage</span><span data-fr>de stockage</span></span></li>
             </ul>
-            <a className="qp-btn qp-btn-p" href="/forms"><span data-en>Start free trial</span><span data-fr>Essai gratuit</span></a>
+            <a className="qp-btn qp-btn-p" href="/organizations"><span data-en>Start free trial</span><span data-fr>Essai gratuit</span></a>
           </div>
           {/* BUSINESS */}
           <div className="qp-tier">
@@ -101,7 +101,7 @@ export default function Pricing() {
               <li><span className="qp-c">✓</span> <span><span data-en>Priority support</span><span data-fr>Soutien prioritaire</span></span></li>
               <li><span className="qp-c">✓</span> <span>500 GB <span data-en>storage</span><span data-fr>de stockage</span></span></li>
             </ul>
-            <a className="qp-btn qp-btn-g" href="/forms"><span data-en>Start free</span><span data-fr>Commencer</span></a>
+            <a className="qp-btn qp-btn-g" href="/organizations"><span data-en>Start free</span><span data-fr>Commencer</span></a>
           </div>
           {/* ENTERPRISE */}
           <div className="qp-tier">
@@ -158,7 +158,7 @@ export default function Pricing() {
         <div className="qp-final">
           <h2><span data-en>Run your next meeting on Quorly.</span><span data-fr>Tenez votre prochaine réunion sur Quorly.</span></h2>
           <p><span data-en>Free for 1 month · 20-minute setup · no credit card.</span><span data-fr>Gratuit 1 mois · configuration en 20 min · sans carte.</span></p>
-          <a className="qp-btn qp-fcta" href="/forms"><span data-en>Start a free board →</span><span data-fr>Créer un conseil gratuit →</span></a>
+          <a className="qp-btn qp-fcta" href="/organizations"><span data-en>Start a free board →</span><span data-fr>Créer un conseil gratuit →</span></a>
         </div>
       </div>
       <div style={{ height: 44 }} />

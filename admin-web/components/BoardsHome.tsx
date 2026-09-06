@@ -230,14 +230,27 @@ export default function BoardsHome() {
               </ul>
               <a className="qb-btn qb-btn-ghost" href="/organizations"><span data-en>Start free</span><span data-fr>Commencer</span></a>
             </div>
+            <div className="qb-tier">
+              <div className="qb-nm">Starter</div>
+              <div className="qb-pr">$49<small>/<span data-en>mo</span><span data-fr>mois</span></small></div>
+              <div className="qb-u"><span data-en>A small condo board or committee</span><span data-fr>Un petit syndicat ou comité</span></div>
+              <ul className="qb-tul">
+                <li>✓ <span><span data-en>Up to 25 members</span><span data-fr>Jusqu&rsquo;à 25 membres</span></span></li>
+                <li>✓ <span><span data-en>Minutes, votes &amp; documents</span><span data-fr>PV, votes &amp; documents</span></span></li>
+                <li>✓ <span><span data-en>Meetings with video</span><span data-fr>Réunions avec vidéo</span></span></li>
+                <li>✓ <span>10 GB <span data-en>storage</span><span data-fr>de stockage</span></span></li>
+              </ul>
+              <a className="qb-btn qb-btn-ghost" href="/organizations"><span data-en>Start free trial</span><span data-fr>Essai gratuit</span></a>
+            </div>
             <div className="qb-tier qb-pop">
               <span className="qb-flag"><span data-en>Most boards</span><span data-fr>Populaire</span></span>
               <div className="qb-nm">Board</div>
               <div className="qb-pr">$129<small>/<span data-en>mo</span><span data-fr>mois</span></small></div>
               <div className="qb-u"><span data-en>Everything a working board needs</span><span data-fr>Tout pour un conseil actif</span></div>
               <ul className="qb-tul">
-                <li>✓ <span><span data-en>Unlimited members</span><span data-fr>Membres illimités</span></span></li>
-                <li>✓ <span><span data-en>Committees (sub-forms)</span><span data-fr>Comités (sous-formulaires)</span></span></li>
+                <li>✓ <span><span data-en>Up to 100 members</span><span data-fr>Jusqu&rsquo;à 100 membres</span></span></li>
+                <li>✓ <span><span data-en>Departments &amp; offices</span><span data-fr>Départements &amp; bureaux</span></span></li>
+                <li>✓ <span><span data-en>800 texts/mo included</span><span data-fr>800 SMS/mois inclus</span></span></li>
                 <li>✓ <span><span data-en>Receipts &amp; expense reports</span><span data-fr>Reçus &amp; rapports de dépenses</span></span></li>
                 <li>✓ <span>2FA + <span data-en>download approval</span><span data-fr>approbation téléchargement</span></span></li>
                 <li>✓ <span>50 GB <span data-en>storage</span><span data-fr>de stockage</span></span></li>
@@ -250,7 +263,8 @@ export default function BoardsHome() {
               <div className="qb-u"><span data-en>For associations with staff &amp; several boards</span><span data-fr>Associations avec personnel</span></div>
               <ul className="qb-tul">
                 <li>✓ <span><span data-en>Everything in Board</span><span data-fr>Tout de Board</span></span></li>
-                <li>✓ <span><span data-en>Up to 5 boards</span><span data-fr>Jusqu&rsquo;à 5 conseils</span></span></li>
+                <li>✓ <span><span data-en>Up to 250 members, then $1 each</span><span data-fr>Jusqu&rsquo;à 250 membres, puis 1 $ chacun</span></span></li>
+                <li>✓ <span><span data-en>2,500 texts/mo included</span><span data-fr>2 500 SMS/mois inclus</span></span></li>
                 <li>✓ <span><span data-en>End-to-end encryption</span><span data-fr>Chiffrement bout en bout</span></span></li>
                 <li>✓ <span><span data-en>Priority support</span><span data-fr>Soutien prioritaire</span></span></li>
                 <li>✓ <span>500 GB <span data-en>storage</span><span data-fr>de stockage</span></span></li>
@@ -423,7 +437,8 @@ const CSS = `
 .qb .qb-price{padding:80px 0;background:var(--cream)}
 .qb .qb-ph{text-align:center;max-width:36em;margin:0 auto}
 .qb .qb-ph p{color:#3A3A37;font-size:17px;margin-top:12px}
-.qb .qb-tiers{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:18px;margin-top:44px}
+.qb .qb-tiers{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px;margin-top:44px}
+@media(max-width:1180px){.qb .qb-tiers{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .qb .qb-tier{background:#fff;border:1px solid var(--line);border-radius:16px;padding:24px 20px;display:flex;flex-direction:column}
 .qb .qb-pop{border:2px solid var(--indigo);box-shadow:0 24px 50px -28px rgba(35,43,122,.5);position:relative}
 .qb .qb-flag{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--indigo);color:#fff;font-weight:800;font-size:11px;letter-spacing:.05em;text-transform:uppercase;padding:5px 12px;border-radius:999px;white-space:nowrap}

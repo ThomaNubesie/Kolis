@@ -68,6 +68,23 @@ export default function Pricing() {
             </ul>
             <a className="qp-btn qp-btn-g" href="/organizations"><span data-en>Start free</span><span data-fr>Commencer</span></a>
           </div>
+          {/* STARTER */}
+          <div className="qp-tier">
+            <div className="qp-nm">Starter</div>
+            <div className="qp-pr qp-m">$49<small> CAD/<span data-en>mo</span><span data-fr>mois</span></small></div>
+            <div className="qp-pr qp-a">$490<small> CAD/<span data-en>yr</span><span data-fr>an</span></small></div>
+            <div className="qp-per qp-m"><span data-en>per organization, billed monthly</span><span data-fr>par organisation, mensuel</span></div>
+            <div className="qp-per qp-a"><span data-en>= $40.83/mo · 2 months free</span><span data-fr>= 40,83 $/mois · 2 mois gratuits</span></div>
+            <div className="qp-u"><span data-en>A small condo board or committee</span><span data-fr>Un petit syndicat ou comité</span></div>
+            <ul>
+              <li><span className="qp-c">✓</span> <span><b><span data-en>Up to 25 members</span><span data-fr>Jusqu’à 25 membres</span></b> · <span data-en>1 department</span><span data-fr>1 département</span></span></li>
+              <li><span className="qp-c">✓</span> <span><span data-en>Minutes, motions &amp; votes</span><span data-fr>PV, motions &amp; votes</span></span></li>
+              <li><span className="qp-c">✓</span> <span><b><span data-en>Meetings with video</span><span data-fr>Réunions avec vidéo</span></b></span></li>
+              <li><span className="qp-c">✓</span> <span><span data-en>Email notifications</span><span data-fr>Avis par courriel</span></span></li>
+              <li><span className="qp-c">✓</span> <span>10 GB <span data-en>storage</span><span data-fr>de stockage</span></span></li>
+            </ul>
+            <a className="qp-btn qp-btn-g" href="/organizations"><span data-en>Start free trial</span><span data-fr>Essai gratuit</span></a>
+          </div>
           {/* BOARD */}
           <div className="qp-tier qp-pop">
             <span className="qp-flag"><span data-en>Most boards</span><span data-fr>Populaire</span></span>
@@ -82,6 +99,7 @@ export default function Pricing() {
               <li><span className="qp-c">✓</span> <span><b><span data-en>Elections</span><span data-fr>Élections</span></b> &amp; <span data-en>committees</span><span data-fr>comités</span></span></li>
               <li><span className="qp-c">✓</span> <span><b><span data-en>Receipts</span><span data-fr>Reçus</span></b> → <span data-en>expense reports</span><span data-fr>rapports de dépenses</span></span></li>
               <li><span className="qp-c">✓</span> <span>2FA + <span data-en>download approval</span><span data-fr>approbation téléchargement</span></span></li>
+              <li><span className="qp-c">✓</span> <span><b><span data-en>800 texts/mo included</span><span data-fr>800 SMS/mois inclus</span></b></span></li>
               <li><span className="qp-c">✓</span> <span>50 GB <span data-en>storage</span><span data-fr>de stockage</span></span></li>
             </ul>
             <a className="qp-btn qp-btn-p" href="/organizations"><span data-en>Start free trial</span><span data-fr>Essai gratuit</span></a>
@@ -96,7 +114,9 @@ export default function Pricing() {
             <div className="qp-u"><span data-en>Associations with staff &amp; several boards</span><span data-fr>Associations avec personnel</span></div>
             <ul>
               <li><span className="qp-c">✓</span> <span><span data-en>Everything in Board</span><span data-fr>Tout de Board</span></span></li>
-              <li><span className="qp-c">✓</span> <span><b><span data-en>Unlimited members &amp; departments</span><span data-fr>Membres &amp; départements illimités</span></b></span></li>
+              <li><span className="qp-c">✓</span> <span><b><span data-en>Up to 250 members</span><span data-fr>Jusqu’à 250 membres</span></b> · <span data-en>unlimited departments</span><span data-fr>départements illimités</span></span></li>
+              <li><span className="qp-c">✓</span> <span><span data-en>then</span><span data-fr>puis</span> <b>$1<span data-en>/member/mo</span><span data-fr> $/membre/mois</span></b></span></li>
+              <li><span className="qp-c">✓</span> <span><b><span data-en>2,500 texts/mo included</span><span data-fr>2 500 SMS/mois inclus</span></b></span></li>
               <li><span className="qp-c">✓</span> <span><b><span data-en>End-to-end encryption</span><span data-fr>Chiffrement bout en bout</span></b></span></li>
               <li><span className="qp-c">✓</span> <span><span data-en>Priority support</span><span data-fr>Soutien prioritaire</span></span></li>
               <li><span className="qp-c">✓</span> <span>500 GB <span data-en>storage</span><span data-fr>de stockage</span></span></li>
@@ -124,20 +144,23 @@ export default function Pricing() {
           <div className="qp-tablewrap"><table>
             <thead><tr>
               <th><span data-en>Feature</span><span data-fr>Fonction</span></th>
-              <th>Free</th><th className="qp-pop">Board</th><th>Business</th><th>Enterprise</th>
+              <th>Free</th><th>Starter</th><th className="qp-pop">Board</th><th>Business</th><th>Enterprise</th>
             </tr></thead>
             <tbody>
-              <tr><td><span data-en>Members</span><span data-fr>Membres</span></td><td>10</td><td>100</td><td className="qp-c"><span data-en>Unlimited</span><span data-fr>Illimité</span></td><td className="qp-c"><span data-en>Unlimited</span><span data-fr>Illimité</span></td></tr>
-              <tr><td><span data-en>Departments</span><span data-fr>Départements</span></td><td>1</td><td>3</td><td className="qp-c"><span data-en>Unlimited</span><span data-fr>Illimité</span></td><td className="qp-c"><span data-en>Unlimited</span><span data-fr>Illimité</span></td></tr>
-              <tr><td><span data-en>Minutes, motions &amp; votes</span><span data-fr>PV, motions &amp; votes</span></td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td></tr>
-              <tr><td><span data-en>Documents, folders &amp; versions</span><span data-fr>Documents, dossiers &amp; versions</span></td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td></tr>
-              <tr><td><span data-en>Storage</span><span data-fr>Stockage</span></td><td>2 GB</td><td>50 GB</td><td>500 GB</td><td><span data-en>Custom</span><span data-fr>Sur mesure</span></td></tr>
-              <tr><td><span data-en>Elections</span><span data-fr>Élections</span></td><td className="qp-x">—</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td></tr>
-              <tr><td><span data-en>Receipts &amp; expense reports</span><span data-fr>Reçus &amp; rapports de dépenses</span></td><td className="qp-x">—</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td></tr>
-              <tr><td>2FA + <span data-en>download approval</span><span data-fr>approbation téléchargement</span></td><td className="qp-x">—</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td></tr>
-              <tr><td><span data-en>End-to-end encryption</span><span data-fr>Chiffrement bout en bout</span></td><td className="qp-x">—</td><td className="qp-x">—</td><td className="qp-c">✓</td><td className="qp-c">✓</td></tr>
-              <tr><td>SSO &amp; <span data-en>custom retention</span><span data-fr>rétention sur mesure</span></td><td className="qp-x">—</td><td className="qp-x">—</td><td className="qp-x">—</td><td className="qp-c">✓</td></tr>
-              <tr><td><span data-en>Support</span><span data-fr>Soutien</span></td><td><span data-en>Community</span><span data-fr>Communauté</span></td><td><span data-en>Email</span><span data-fr>Courriel</span></td><td><span data-en>Priority</span><span data-fr>Prioritaire</span></td><td><span data-en>Dedicated</span><span data-fr>Dédié</span></td></tr>
+              <tr><td><span data-en>Members</span><span data-fr>Membres</span></td><td>10</td><td>25</td><td>100</td><td><span data-en>250, then $1 each</span><span data-fr>250, puis 1 $ chacun</span></td><td><span data-en>Unlimited</span><span data-fr>Illimité</span></td></tr>
+              <tr><td><span data-en>Departments</span><span data-fr>Départements</span></td><td>1</td><td>1</td><td>3</td><td><span data-en>Unlimited</span><span data-fr>Illimité</span></td><td><span data-en>Unlimited</span><span data-fr>Illimité</span></td></tr>
+              <tr><td><span data-en>Minutes, motions &amp; votes</span><span data-fr>PV, motions &amp; votes</span></td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td></tr>
+              <tr><td><span data-en>Documents, folders &amp; versions</span><span data-fr>Documents, dossiers &amp; versions</span></td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td></tr>
+              <tr><td><span data-en>Meetings with video</span><span data-fr>Réunions avec vidéo</span></td><td className="qp-x">—</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td></tr>
+              <tr><td><span data-en>Email notifications</span><span data-fr>Avis par courriel</span></td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td></tr>
+              <tr><td><span data-en>Text (MMS) notifications</span><span data-fr>Avis par SMS (MMS)</span></td><td className="qp-x">—</td><td className="qp-x">—</td><td>800/mo</td><td>2,500/mo</td><td><span data-en>Custom</span><span data-fr>Sur mesure</span></td></tr>
+              <tr><td><span data-en>Storage</span><span data-fr>Stockage</span></td><td>2 GB</td><td>10 GB</td><td>50 GB</td><td>500 GB</td><td><span data-en>Custom</span><span data-fr>Sur mesure</span></td></tr>
+              <tr><td><span data-en>Elections</span><span data-fr>Élections</span></td><td className="qp-x">—</td><td className="qp-x">—</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td></tr>
+              <tr><td><span data-en>Receipts &amp; expense reports</span><span data-fr>Reçus &amp; rapports de dépenses</span></td><td className="qp-x">—</td><td className="qp-x">—</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td></tr>
+              <tr><td>2FA + <span data-en>download approval</span><span data-fr>approbation téléchargement</span></td><td className="qp-x">—</td><td className="qp-x">—</td><td className="qp-c">✓</td><td className="qp-c">✓</td><td className="qp-c">✓</td></tr>
+              <tr><td><span data-en>End-to-end encryption</span><span data-fr>Chiffrement bout en bout</span></td><td className="qp-x">—</td><td className="qp-x">—</td><td className="qp-x">—</td><td className="qp-c">✓</td><td className="qp-c">✓</td></tr>
+              <tr><td>SSO &amp; <span data-en>custom retention</span><span data-fr>rétention sur mesure</span></td><td className="qp-x">—</td><td className="qp-x">—</td><td className="qp-x">—</td><td className="qp-x">—</td><td className="qp-c">✓</td></tr>
+              <tr><td><span data-en>Support</span><span data-fr>Soutien</span></td><td><span data-en>Community</span><span data-fr>Communauté</span></td><td><span data-en>Email</span><span data-fr>Courriel</span></td><td><span data-en>Email</span><span data-fr>Courriel</span></td><td><span data-en>Priority</span><span data-fr>Prioritaire</span></td><td><span data-en>Dedicated</span><span data-fr>Dédié</span></td></tr>
             </tbody>
           </table></div>
         </div>
@@ -196,7 +219,8 @@ const CSS = `
 .qp .qp-toggle{display:inline-flex;align-items:center;gap:10px;margin-top:22px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:5px}
 .qp .qp-toggle button{border:0;background:none;padding:9px 16px;border-radius:999px;font-weight:800;font-size:13px;color:var(--muted);cursor:pointer}.qp .qp-toggle button.on{background:var(--indigo);color:#fff}
 .qp .qp-save{font-size:11.5px;font-weight:800;color:#1E7A48;background:#E4F6EC;border-radius:999px;padding:3px 9px;margin-left:2px}
-.qp .qp-tiers{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin-top:34px}
+.qp .qp-tiers{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:13px;margin-top:34px}
+@media(max-width:1180px){.qp .qp-tiers{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:900px){.qp .qp-tiers{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:560px){.qp .qp-tiers{grid-template-columns:1fr}}
 .qp .qp-tier{background:#fff;border:1px solid var(--line);border-radius:18px;padding:22px 20px;display:flex;flex-direction:column}

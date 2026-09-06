@@ -55,6 +55,7 @@ export type CfFileRequest = { id: string; label: string; required: boolean; crea
 // apart so a half-delivery is visible rather than averaged into one "sent" flag.
 export type CfNoticeStatus = { member_id: string; name: string | null; notified: boolean; email_ok: boolean; sms_ok: boolean; acknowledged_at: string | null; chased: boolean; last_error: string | null };
 export type CfPendingAck = { file_id: string; name: string; created_at: string; followup_due_at: string | null };
+export type CfFileLocate = { form_id: string; form_name: string | null; file_name: string | null; can_view: boolean; notified: boolean };
 
 // ===== Organizations & departments =====
 // An ORGANIZATION is the container a group's whole life lives in; a DEPARTMENT
@@ -483,6 +484,10 @@ export const cf = {
     return data ?? [];
   },
   fileAck: (file: string): Promise<boolean> => rpc("cf_file_ack", { p_file: file }),
+  // Resolves a /doc/<id> link to the space holding it. Name is null unless the caller may
+  // see the document or was notified about it.
+  fileLocate: async (file: string): Promise<CfFileLocate | null> =>
+    ((await rpc("cf_file_locate", { p_file: file })) as CfFileLocate[])?.[0] ?? null,
   fileNoticeStatus: (file: string): Promise<CfNoticeStatus[]> => rpc("cf_file_notice_status", { p_file: file }),
   myPendingAcks: (form: string): Promise<CfPendingAck[]> => rpc("cf_my_pending_acks", { p_form: form }),
   // Fires the email + MMS. Returns what the providers actually accepted, so the caller

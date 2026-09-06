@@ -52,7 +52,10 @@ async function fetchRetry(url: string, init: RequestInit, tries = 3): Promise<Re
   return last ?? new Response("unreachable", { status: 599 });
 }
 
-const docLink = (fileId: string) => `${QUORLY_SITE}/organizations?doc=${fileId}`;
+// Short by design: this goes into an SMS, where a long /organizations?open=…&doc=… URL
+// wraps badly and reads as spam. /doc/<id> resolves the document to its space and
+// forwards, surviving a sign-in on the way.
+const docLink = (fileId: string) => `${QUORLY_SITE}/doc/${fileId}`;
 
 function emailHtml(o: {
   org: string; title: string; poster: string; urgent: boolean; link: string; followup: boolean;
@@ -71,9 +74,12 @@ function emailHtml(o: {
           o.urgent ? ` Il est marqué <b>urgent</b> : merci d'en accuser réception.` : ""
         }</p>`,
     highlight: { title: esc(o.title), sub: o.urgent ? "Marqué urgent · Marked urgent" : undefined },
-    cta: { label: o.urgent ? "Ouvrir et accuser réception" : "Ouvrir le document", href: o.link },
+    cta: { label: "Ouvrir le document", href: o.link },
+    // Opening is not acknowledging: the button opens the document, and the acknowledgement
+    // is a separate, deliberate tap. Saying otherwise here would promise a record that the
+    // link does not create.
     footnoteFr: o.urgent
-      ? "Le bouton ouvre le document et enregistre votre accusé de réception."
+      ? "Le bouton ouvre le document. L'accusé de réception se fait ensuite d'un seul geste, sur la page."
       : "Le bouton ouvre le document dans Quorly.",
     english: o.followup
       ? `<p style="margin:0">Reminder: this document has been waiting ${FOLLOWUP_HOURS} hours for your acknowledgement. This is the only reminder.</p>`

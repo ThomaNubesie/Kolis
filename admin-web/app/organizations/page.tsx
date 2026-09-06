@@ -167,7 +167,16 @@ function FormsInner() {
 
   useEffect(() => { cf.myForms().then((f) => setList(f)).catch((e) => setErr(e.message)).finally(() => setLoading(false)); }, []);
   useEffect(() => { loadSpaces(); }, [loadSpaces]);
-  useEffect(() => { const o = sp.get("open"); if (o) { setSel(o); router.replace("/organizations"); } }, [sp, router]);
+  // ?open=<form> selects the space. ?doc=<file> arrives with it from a /doc/<id> link and
+  // must SURVIVE this replace — clearing the whole query here would strip the document the
+  // member tapped through to. FilesPanel consumes and clears it once the file is open.
+  useEffect(() => {
+    const o = sp.get("open"), d = sp.get("doc");
+    if (!o) return;
+    setSel(o);
+    if (d) setTab("files");
+    router.replace(d ? `/organizations?doc=${encodeURIComponent(d)}` : "/organizations");
+  }, [sp, router]);
   // Desktop (three-pane) opens the first form for convenience; mobile lands on Home (list) so
   // "back" from a form / new-form returns to the profile page, not into a form.
   useEffect(() => { if (!loading && !mobile && !sel && list.length) setSel(list[0].id); }, [loading, mobile, list, sel]);
@@ -661,6 +670,8 @@ function detectDocType(name: string): DocType {
 }
 
 function FilesPanel({ form, tr, lang, mobile, entries, memberOf, isVault, flat }: any) {
+  const router = useRouter();
+  const sp = useSearchParams();          // ?doc=<id> — a member arriving from a document link
   const [view, setView] = useState<"folder" | "shared" | "starred" | "expiring" | "requests" | "deleted">("folder");
   const [files, setFiles] = useState<CfFile[]>([]);
   const [folders, setFolders] = useState<CfFolder[]>([]);
@@ -814,6 +825,26 @@ function FilesPanel({ form, tr, lang, mobile, entries, memberOf, isVault, flat }
     if (!f.encrypted) { setPreview({ file: f }); return; }
     try { const b = await decryptedBlob(f); setPreview({ file: f, url: URL.createObjectURL(b) }); } catch (e: any) { if (e.message !== "cancelled") alert(e.message); }
   };
+  // A member arriving from a document link. The file is looked up across the whole space
+  // rather than in the current folder — the link has to work whatever folder the document
+  // was filed into, and whatever view this panel happens to be showing.
+  const docParam = sp.get("doc");
+  useEffect(() => {
+    if (!docParam || !form?.id) return;
+    let cancelled = false;
+    (async () => {
+      const found = files.find((x) => x.id === docParam)
+        ?? (await cf.files(form.id, null, "all").catch(() => [] as CfFile[])).find((x) => x.id === docParam);
+      if (cancelled) return;
+      // Clear the parameter either way, so a refresh does not reopen the preview and a
+      // failed lookup does not retry forever.
+      router.replace("/organizations");
+      if (found) openPreview(found);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [docParam, form?.id]);
+
   const download = async (f: CfFile) => {
     try {
       // Non-admins may need admin approval to download.

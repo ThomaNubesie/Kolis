@@ -174,8 +174,20 @@ function FormsInner() {
     const o = sp.get("open"), d = sp.get("doc");
     if (!o) return;
     setSel(o);
-    if (d) setTab("files");
+    if (d) {
+      // An organisation and a department reach their files through DIFFERENT state: an
+      // org shows FilesPanel only when orgTab is "documents", a department when tab is
+      // "files". Setting only `tab` left FilesPanel unmounted for org-level documents, so
+      // the ?doc= handler never ran and the link silently did nothing. Set both — whichever
+      // this space turns out to be, the panel mounts.
+      setTab("files");
+      setOrgTab("documents");
+      if (orgs.some((x) => x.id === o)) setActiveOrg(o);
+    }
     router.replace(d ? `/organizations?doc=${encodeURIComponent(d)}` : "/organizations");
+    // `orgs` is intentionally omitted: it loads asynchronously and re-running this effect
+    // after the replace would find no ?open= and do nothing useful.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sp, router]);
   // Desktop (three-pane) opens the first form for convenience; mobile lands on Home (list) so
   // "back" from a form / new-form returns to the profile page, not into a form.

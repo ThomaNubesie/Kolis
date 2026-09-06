@@ -134,10 +134,14 @@ async function sendSms(phone: string, body: string) {
 
 // One recipient, both channels. Returns what actually succeeded — never a bare "sent",
 // so a half-delivery is visible in cf_file_notices instead of being averaged away.
+// `record: false` is preview mode — the message is byte-identical to the real one, but
+// nothing is written to cf_file_notices. A preview must not appear in the delivery record
+// as though the recipient had been served, and must not arm the six-hour chase against
+// the person who asked to see it.
 async function deliver(
   admin: any, fileId: string, r: Recipient,
   ctx: { org: string; title: string; poster: string; urgent: boolean; formId: string },
-  followup: boolean,
+  followup: boolean, record = true,
 ) {
   const link = docLink(fileId);
   const subject = (ctx.urgent ? "[Urgent] " : "") +
@@ -152,7 +156,9 @@ async function deliver(
   const errs = [em.ok ? null : `email:${(em as any).error}`, sm.ok ? null : `sms:${(sm as any).error}`]
     .filter(Boolean).join(" | ") || null;
 
-  if (followup) {
+  if (!record) {
+    // preview — deliberately no delivery record
+  } else if (followup) {
     await admin.from("cf_file_notices").update({ followup_at: now, last_error: errs })
       .eq("file_id", fileId).eq("member_id", r.member_id);
   } else {
@@ -170,6 +176,45 @@ async function deliver(
 
   if (sm.ok) await admin.rpc("cf_usage_add", { p_form: ctx.formId, p_n: 1 });
   return { email: em.ok, sms: sm.ok };
+}
+
+// The poster's receipt: what went out, and to whom. Sent after the real delivery, so the
+// person who pressed send has a record without having to open the app — and can see
+// immediately if someone they expected is missing a channel.
+//
+// Email only, deliberately. A receipt is a list of names and outcomes, which reads badly
+// as an SMS and would spend a text on the one person who already knows what they sent.
+async function posterReceipt(
+  admin: any, fileId: string,
+  ctx: { org: string; title: string; poster: string; urgent: boolean; formId: string },
+  uploader: string,
+  rows: { name: string | null; email: boolean; sms: boolean }[],
+) {
+  const { data: me } = await admin.from("cf_members")
+    .select("email").eq("form_id", ctx.formId).eq("user_id", uploader).maybeSingle();
+  if (!me?.email) return { ok: false, error: "poster_has_no_email" };
+
+  const list = rows.map((r) => {
+    const ch = [r.email ? "courriel/email" : null, r.sms ? "texto/text" : null].filter(Boolean).join(" + ");
+    return `<tr><td style="padding:4px 0;font-size:13px">${esc(r.name || "—")}</td>
+            <td style="padding:4px 0;font-size:13px;color:${ch ? "#2F8F6B" : "#C0392B"};text-align:right">${ch || "non remis / not delivered"}</td></tr>`;
+  }).join("");
+
+  const html = quorlyEmail({
+    eyebrow: ctx.org,
+    headline: "Voici ce qui a été envoyé",
+    bodyFr: `<p style="margin:0 0 11px">Votre document a été transmis aux personnes que vous avez sélectionnées.${
+      ctx.urgent ? " Il est marqué <b>urgent</b> : un rappel unique partira dans 6 heures vers toute personne n'ayant pas accusé réception." : ""
+    }</p><table role="presentation" width="100%">${list}</table>`,
+    highlight: { title: esc(ctx.title), sub: `${rows.length} destinataire(s) · recipient(s)` },
+    cta: { label: "Voir le document", href: docLink(fileId) },
+    footnoteFr: "Vous recevez cette confirmation parce que vous avez déposé ce document.",
+    english: `<p style="margin:0">This is the copy of what was sent to the people you selected.${
+      ctx.urgent ? " Marked urgent — one reminder goes out in 6 hours to anyone who has not acknowledged." : ""
+    }</p>`,
+    footer: `${esc(docLink(fileId))}<br>Confirmation d'envoi · Send confirmation`,
+  });
+  return sendEmail(me.email, `✓ Envoyé · Sent — ${ctx.title}`, html);
 }
 
 async function contextFor(admin: any, fileId: string) {
@@ -245,14 +290,40 @@ Deno.serve(async (req) => {
     const ctx = await contextFor(admin, fileId);
     if (!ctx) return json({ error: "file_not_found" }, 404);
 
-    const { data: recips, error: rerr } = await admin.rpc("cf_file_recipients", { p_file: fileId });
-    if (rerr) return json({ error: rerr.message }, 500);
+    // Preview to one named member. Bypasses the uploader exclusion on purpose: the poster
+    // is the person who wants to see what they are about to send, and cf_file_recipients
+    // correctly refuses to return them.
+    const preview = !!b.test;
+    let recips: Recipient[] | null;
+    if (preview) {
+      const { data } = await admin.from("cf_members")
+        .select("id, name, email, phone, lang").eq("id", String(b.to_member || "")).maybeSingle();
+      recips = data
+        ? [{ member_id: data.id, name: data.name, email: data.email, phone: data.phone, lang: data.lang ?? "en" }]
+        : [];
+    } else {
+      const { data, error: rerr } = await admin.rpc("cf_file_recipients", { p_file: fileId });
+      if (rerr) return json({ error: rerr.message }, 500);
+      recips = data as Recipient[];
+    }
 
     let email = 0, sms = 0, none = 0;
+    const sentRows: { name: string | null; email: boolean; sms: boolean }[] = [];
     for (const r of (recips ?? []) as Recipient[]) {
-      const out = await deliver(admin, fileId, r, ctx, false);
+      const out = await deliver(admin, fileId, r, ctx, false, !preview);
       out.email ? email++ : 0; out.sms ? sms++ : 0;
       if (!out.email && !out.sms) none++;
+      sentRows.push({ name: r.name, email: out.email, sms: out.sms });
+    }
+
+    if (preview) return json({ ok: true, preview: true, recipients: recips?.length ?? 0, email, sms, failed: none });
+
+    // Confirm to the poster what actually went out. Never on a preview — there is nothing
+    // to confirm — and never when nobody was reachable, which would be a misleading receipt.
+    let receipt = false;
+    if (sentRows.length) {
+      const { data: f } = await admin.from("cf_files").select("uploader").eq("id", fileId).maybeSingle();
+      if (f?.uploader) receipt = (await posterReceipt(admin, fileId, ctx, f.uploader, sentRows)).ok;
     }
 
     await admin.from("cf_file_activity").insert({
@@ -261,7 +332,7 @@ Deno.serve(async (req) => {
     });
 
     // Counts are what was actually accepted by Resend and Twilio, not what was attempted.
-    return json({ ok: true, recipients: recips?.length ?? 0, email, sms, failed: none, urgent: ctx.urgent });
+    return json({ ok: true, recipients: recips?.length ?? 0, email, sms, failed: none, urgent: ctx.urgent, receipt });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e).slice(0, 300) }, 500);
   }

@@ -29,6 +29,7 @@ const RCAT_COLOR: Record<string, string> = { Meals: "#C0392B", Fuel: "#1F7A4D", 
 const money = (n: number | null | undefined, cur = "CAD", lang = "en") => n == null ? "—" : new Intl.NumberFormat(lang === "fr" ? "fr-CA" : "en-CA", { style: "currency", currency: cur || "CAD" }).format(n);
 const isPdfPath = (p?: string | null) => !!p && p.toLowerCase().endsWith(".pdf");
 import { deriveKey, newSalt, makeCheck, verifyCheck, decryptToBlob } from "@/lib/e2e";
+import DocAudience from "./DocAudience";
 
 // Folder colours
 const FOLDER_COLORS = ["#E0A83B", "#D64545", "#E0574A", "#2F8F6B", "#0EA5A5", "#2F5BA3", "#6B4FA3", "#8A8378"];
@@ -702,6 +703,17 @@ function FilesPanel({ form, tr, lang, mobile, entries, memberOf, isVault, flat }
   const [expiryFor, setExpiryFor] = useState<CfFile | null>(null);
   const [lostFor, setLostFor] = useState<CfFile | null>(null);
   const [suggest, setSuggest] = useState<{ file: CfFile; type: string; filed?: string | null } | null>(null);
+  // Rendered only while `suggest` is null, so the expiry prompt and this never stack —
+  // the audience dialog simply appears once the expiry banner is dismissed.
+  const [notifyFor, setNotifyFor] = useState<{ id: string; name: string; urgent: boolean } | null>(null);
+  // Urgent documents this member has been sent but not yet acknowledged. Surfaced in the
+  // app as well as by email, because the six-hour chase is unfair to someone who opened
+  // Quorly and was never shown what was waiting.
+  const [pendingAcks, setPendingAcks] = useState<{ file_id: string; name: string }[]>([]);
+  useEffect(() => {
+    if (!form?.id) return;
+    cf.myPendingAcks(form.id).then((r) => setPendingAcks(r ?? [])).catch(() => setPendingAcks([]));
+  }, [form?.id, files.length]);
   const [saveForm, setSaveForm] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const folderInputRef = useRef<HTMLInputElement | null>(null);
@@ -757,6 +769,12 @@ function FilesPanel({ form, tr, lang, mobile, entries, memberOf, isVault, flat }
       }
       const [fresh, freshFolders] = await Promise.all([cf.files(form.id, cwd, "folder"), cf.folders(form.id, cwd)]);
       setFiles(fresh); setFolders(freshFolders); cf.filesCounts(form.id).then(setCounts).catch(() => {});
+      // Ask who this document concerns. Only for the first of a batch — a ten-file drop
+      // should not open ten dialogs; the rest can be notified from the row menu.
+      if (uploaded.length) {
+        const u = uploaded[0];
+        setNotifyFor({ id: u.id, name: u.name, urgent: fresh.find((x) => x.id === u.id)?.priority === "urgent" });
+      }
       // Offer an expiry reminder for the recognized document.
       for (const u of uploaded) {
         const d = detectDocType(u.name); if (!d.expiring) continue;
@@ -882,6 +900,10 @@ function FilesPanel({ form, tr, lang, mobile, entries, memberOf, isVault, flat }
         <FileMenuItem icon={<Clock size={16} />} label={tr(L("Version history", "Historique des versions"))} onClick={() => { setMenuFor(null); setVersionsFor(f); }} />
         <FileMenuItem icon={<Download size={16} />} label={tr(L("Download", "Télécharger"))} onClick={() => { setMenuFor(null); download(f); }} />
         <FileMenuItem icon={<Star size={16} />} label={f.starred ? tr(L("Remove star", "Retirer le favori")) : tr(L("Add to Starred", "Ajouter aux favoris"))} onClick={() => { setMenuFor(null); star(f); }} />
+        {/* Notify is available after upload as well as during it: the poster usually marks a
+            document urgent (the star) only once it is filed, and urgency is what triggers the
+            six-hour chase — so they need a way to send once that flag is right. */}
+        <FileMenuItem icon={<Send size={16} />} label={tr(L("Notify people…", "Informer des personnes…"))} onClick={() => { setMenuFor(null); setNotifyFor({ id: f.id, name: f.name, urgent: f.priority === "urgent" }); }} />
         {canEdit(f) && <FileMenuItem icon={<Pencil size={16} />} label={tr(L("Rename", "Renommer"))} onClick={() => { setMenuFor(null); rename(f); }} />}
         {canEdit(f) && <FileMenuItem icon={<FolderInput size={16} />} label={tr(L("Move to…", "Déplacer vers…"))} onClick={() => { setMenuFor(null); setMoveFor(f); }} />}
         {canEdit(f) && <FileMenuItem icon={<Trash2 size={16} />} label={tr(L("Delete", "Supprimer"))} danger onClick={() => { setMenuFor(null); remove(f); }} />}
@@ -973,6 +995,44 @@ function FilesPanel({ form, tr, lang, mobile, entries, memberOf, isVault, flat }
           <span onClick={() => { setExpiryFor(suggest.file); setSuggest(null); }} style={{ background: "#B4801F", color: "#fff", borderRadius: 8, padding: "7px 12px", fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}>{tr(L("Set reminder", "Définir un rappel"))}</span>
           <span onClick={() => setSuggest(null)} style={{ color: "#B4801F", cursor: "pointer", display: "flex" }}><X size={16} /></span>
         </div>
+      )}
+
+      {/* Urgent documents awaiting this member's acknowledgement. */}
+      {pendingAcks.length > 0 && (
+        <div style={{ background: "#FBE9E7", border: "1px solid #F3CFC9", borderRadius: 12, padding: "11px 13px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 9, fontSize: 12.5, color: "#8E2A20", fontWeight: 700 }}>
+            <AlertTriangle size={17} style={{ flex: "0 0 auto" }} />
+            {tr(L("Urgent — awaiting your acknowledgement", "Urgent — en attente de votre accusé de réception"))}
+          </div>
+          {pendingAcks.map((p) => (
+            <div key={p.file_id} style={{ display: "flex", alignItems: "center", gap: 10, paddingLeft: 26 }}>
+              <div style={{ flex: 1, minWidth: 0, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+              <span
+                onClick={async () => {
+                  try {
+                    await cf.fileAck(p.file_id);
+                    setPendingAcks((xs) => xs.filter((x) => x.file_id !== p.file_id));
+                  } catch (e: any) { alert(e.message); }
+                }}
+                style={{ background: "#C0392B", color: "#fff", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap" }}
+              >
+                {tr(L("I have read this", "J'en accuse réception"))}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Who should know about this document — and who may open it. */}
+      {notifyFor && !suggest && (
+        <DocAudience
+          fileId={notifyFor.id}
+          fileName={notifyFor.name}
+          urgent={notifyFor.urgent}
+          members={form.members ?? []}
+          lang={tr(L("en", "fr")) as "en" | "fr"}
+          onClose={() => setNotifyFor(null)}
+        />
       )}
 
       {view === "requests" ? requestsView : <>

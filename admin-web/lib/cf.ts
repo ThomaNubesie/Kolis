@@ -51,6 +51,10 @@ export type LostGuide = { title?: string; authority?: string; report?: string[];
 export type CfFolder = { id: string; name: string; parent_id: string | null; files: number; subfolders: number; color?: string | null; approvals?: number; decided?: boolean };
 export type CfShare = { id: string; token: string; has_password: boolean; expires_at: string | null; allow_download: boolean; revoked: boolean; views: number } | null;
 export type CfFileRequest = { id: string; label: string; required: boolean; created_at: string; fulfilled: number; total_members: number; mine: boolean };
+// Per-recipient delivery record. email_ok/sms_ok are what the providers accepted, kept
+// apart so a half-delivery is visible rather than averaged into one "sent" flag.
+export type CfNoticeStatus = { member_id: string; name: string | null; notified: boolean; email_ok: boolean; sms_ok: boolean; acknowledged_at: string | null; chased: boolean; last_error: string | null };
+export type CfPendingAck = { file_id: string; name: string; created_at: string; followup_due_at: string | null };
 
 // ===== Organizations & departments =====
 // An ORGANIZATION is the container a group's whole life lives in; a DEPARTMENT
@@ -466,6 +470,35 @@ export const cf = {
   fileStar: (file: string, on: boolean) => rpc("cf_file_star", { p_file: file, p_on: on }),
   setPriority: (file: string, level: "urgent" | "important" | "normal" | null) => rpc("cf_file_set_priority", { p_file: file, p_priority: level }),
   fileRestore: (file: string) => rpc("cf_file_restore", { p_file: file }),
+
+  // --- Document notification -----------------------------------------------
+  // Two independent lists. Passing both empty clears the restriction entirely and the
+  // document reverts to belonging to the whole space.
+  fileAudienceSet: (file: string, notify: string[], view: string[]): Promise<number> =>
+    rpc("cf_file_audience_set", { p_file: file, p_notify: notify, p_view: view }),
+  fileAudienceGet: async (file: string): Promise<{ member_id: string; notify: boolean; can_view: boolean }[]> => {
+    const { data, error } = await supabase.from("cf_file_audience")
+      .select("member_id, notify, can_view").eq("file_id", file);
+    if (error) throw new Error(error.message);
+    return data ?? [];
+  },
+  fileAck: (file: string): Promise<boolean> => rpc("cf_file_ack", { p_file: file }),
+  fileNoticeStatus: (file: string): Promise<CfNoticeStatus[]> => rpc("cf_file_notice_status", { p_file: file }),
+  myPendingAcks: (form: string): Promise<CfPendingAck[]> => rpc("cf_my_pending_acks", { p_form: form }),
+  // Fires the email + MMS. Returns what the providers actually accepted, so the caller
+  // can report real delivery rather than "sent".
+  async fileNotify(file: string): Promise<{ recipients: number; email: number; sms: number; failed: number; urgent: boolean }> {
+    const { data: { session } } = await supabase.auth.getSession();
+    const base = process.env.NEXT_PUBLIC_QUORLY_SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const r = await fetch(`${base}/functions/v1/cf-doc-notify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+      body: JSON.stringify({ action: "notify", file_id: file }),
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.error) throw new Error(j.error || `notify_failed_${r.status}`);
+    return j;
+  },
   async filePurge(file: string) {
     const paths = await rpc("cf_file_purge", { p_file: file });
     if (Array.isArray(paths) && paths.length) await supabase.storage.from("cf-files").remove(paths).catch(() => {});

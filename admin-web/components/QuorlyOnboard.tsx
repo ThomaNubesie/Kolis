@@ -140,10 +140,14 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, onDone }: { 
         <div style={{ background: glass ? "linear-gradient(160deg,rgba(47,58,163,.40),rgba(32,36,94,.40))" : "linear-gradient(160deg,#2F3AA3,#20245e)", color: "#fff", padding: narrow ? "20px 20px 18px" : "26px 24px", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
             <div style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {/* The wordmark goes home, the way a masthead does everywhere else on
+                  the web. Someone who reached the sign-in by accident, or who wants
+                  to read what Quorly is before creating an account, had no way back. */}
+              <a href="/" title={tr(L("Back to quorly.ca", "Retour à quorly.ca"))}
+                style={{ display: "flex", alignItems: "center", gap: 8, textDecoration: "none", color: "inherit" }}>
                 <div style={{ width: 34, height: 34, borderRadius: 9, background: "rgba(255,255,255,.18)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 }}>Q</div>
                 <div style={{ fontWeight: 900, fontSize: 18 }}>Quorly</div>
-              </div>
+              </a>
               <div style={{ display: "flex", gap: 6, marginTop: 3, paddingLeft: 43 }}>{["#E0574A", "#2F8F6B", "#6B4FA3", "#E0A83B"].map((c) => <span key={c} style={{ width: 9, height: 9, borderRadius: "50%", background: c }} />)}</div>
             </div>
             <div style={{ marginLeft: "auto", display: "inline-flex", background: "rgba(255,255,255,.14)", borderRadius: 8, padding: 2 }}>

@@ -60,13 +60,14 @@ const docLink = (fileId: string) => `${QUORLY_SITE}/doc/${fileId}`;
 function emailHtml(o: {
   org: string; title: string; poster: string; urgent: boolean; link: string; followup: boolean;
 }) {
-  const urg = o.urgent
-    ? `<span style="background:#FBE9E7;color:#C0392B;font-weight:800;font-size:11px;padding:2px 8px;border-radius:10px">URGENT</span> `
-    : "";
+  // headline is ESCAPED by quorlyEmail (esc(o.headline)) — only bodyFr and english take
+  // HTML. A styled badge here renders as literal <span …> markup in the reader's inbox.
+  // Urgency is carried by the word itself and by highlight.sub below.
+  const urg = o.urgent ? "URGENT — " : "";
   return quorlyEmail({
     eyebrow: o.org,
     headline: o.followup
-      ? `${urg}Rappel — document en attente de votre accusé de réception`
+      ? `${urg}Rappel : document en attente de votre accusé de réception`
       : `${urg}Un document vous a été adressé`,
     bodyFr: o.followup
       ? `<p style="margin:0 0 11px">Ce document a été déposé il y a ${FOLLOWUP_HOURS} heures et attend toujours votre accusé de réception. Un seul rappel est envoyé — celui-ci.</p>`

@@ -48,10 +48,10 @@ export default function BoardsHome() {
       {/* NAV */}
       <header className="qb-hdr">
         <div className="qb-wrap qb-nav">
-          <div className="qb-logo" aria-label="Quorly">
+          <a className="qb-logo" href="/" aria-label="Quorly — home">
             <div className="qb-row"><span className="qb-q">Q</span><span className="qb-word">Quorly</span></div>
             <Dots />
-          </div>
+          </a>
           <nav className="qb-links">
             <a href="#feat"><span data-en>Features</span><span data-fr>Fonctions</span></a>
             <a href="#security"><span data-en>Security</span><span data-fr>Sécurité</span></a>
@@ -303,7 +303,7 @@ export default function BoardsHome() {
         <div className="qb-wrap">
           <div className="qb-fgrid">
             <div>
-              <div className="qb-logo qb-footlogo"><div className="qb-row"><span className="qb-q">Q</span><span className="qb-word">Quorly</span></div><Dots /></div>
+              <a className="qb-logo qb-footlogo" href="/" aria-label="Quorly — home"><div className="qb-row"><span className="qb-q">Q</span><span className="qb-word">Quorly</span></div><Dots /></a>
               <p className="qb-ftag"><span data-en>The calm, secure home for boards and associations — between every meeting.</span><span data-fr>L&rsquo;espace calme et sécurisé des conseils et associations — entre chaque réunion.</span></p>
             </div>
             <div>
@@ -352,7 +352,7 @@ const CSS = `
 .qb .qb-btn-ghost{background:#fff;color:var(--ink);border-color:var(--ink)}
 .qb .qb-btn-ghost:hover{background:var(--cream)}
 .qb .qb-btn-lg{font-size:16px;padding:15px 26px}
-.qb .qb-logo{display:inline-flex;flex-direction:column;align-items:flex-start;line-height:1}
+.qb .qb-logo{display:inline-flex;flex-direction:column;align-items:flex-start;line-height:1;text-decoration:none;color:inherit}
 .qb .qb-logo .qb-row{display:flex;align-items:baseline;gap:9px}
 .qb .qb-logo .qb-q{font-weight:900;font-size:30px;color:var(--indigo);letter-spacing:-.03em}
 .qb .qb-logo .qb-word{font-weight:800;font-size:19px;color:var(--ink);letter-spacing:-.01em}

@@ -57,7 +57,7 @@ function LetterInner() {
       <div style={{ maxWidth: 560, margin: "0 auto", background: "#fff", borderRadius: 14, overflow: "hidden", boxShadow: "0 10px 40px rgba(0,0,0,.07)" }}>
         {/* Same letterhead as the email, so the two are recognisably one document. */}
         <div style={{ background: C.accent, padding: "18px 26px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ color: "#fff", fontSize: 19, fontWeight: 900, letterSpacing: -.3 }}>Quorly</div>
+          <a href="/" style={{ textDecoration: "none", color: "inherit" }}><div style={{ color: "#fff", fontSize: 19, fontWeight: 900, letterSpacing: -.3 }}>Quorly</div></a>
           <div style={{ display: "flex", gap: 5 }}>{DOTS.map((c) => <span key={c} style={{ width: 9, height: 9, borderRadius: "50%", background: c }} />)}</div>
         </div>
         <div style={{ display: "flex", height: 4 }}>{DOTS.map((c) => <div key={c} style={{ flex: 1, background: c }} />)}</div>

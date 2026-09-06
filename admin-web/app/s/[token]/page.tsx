@@ -39,7 +39,7 @@ export default function SharePage() {
   const isImg = /^image\//.test(file?.mime || "") || /\.(png|jpe?g|gif|webp|svg)$/i.test(file?.name || "");
   const wrap: any = { minHeight: "100vh", background: C.paper, fontFamily: "-apple-system,Inter,Segoe UI,Roboto,sans-serif", color: C.ink, display: "flex", flexDirection: "column", alignItems: "center" };
   const brand = <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 0", fontWeight: 800, fontSize: 15 }}>
-    <span style={{ background: C.accent, color: "#fff", borderRadius: 8, padding: "3px 9px" }}>Quorly</span>
+    <a href="/" style={{ textDecoration: "none", color: "inherit" }}><span style={{ background: C.accent, color: "#fff", borderRadius: 8, padding: "3px 9px" }}>Quorly</span></a>
     <span style={{ display: "flex", gap: 4 }}>{["#E0574A", "#2F8F6B", "#6B4FA3", "#E0A83B"].map((c) => <span key={c} style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />)}</span>
   </div>;
   const card: any = { background: "#fff", border: `1px solid ${C.line}`, borderRadius: 16, padding: 22, maxWidth: 760, width: "100%", boxShadow: "0 10px 40px rgba(0,0,0,.06)" };

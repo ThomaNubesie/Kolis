@@ -87,8 +87,10 @@ export default function OrgHandlePage() {
         {/* branded head — the group's own name and colour, before anything is typed */}
         <div style={{ background: `linear-gradient(160deg, ${accent}, ${shade(accent)})`, color: "#fff", padding: "22px 22px 20px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(255,255,255,.2)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 15 }}>Q</div>
-            <div style={{ fontWeight: 900, fontSize: 15 }}>Quorly</div>
+            <a href="/" style={{ textDecoration: "none", color: "inherit" }}><div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+              <div style={{ width: 30, height: 30, borderRadius: 8, background: "rgba(255,255,255,.2)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 15 }}>Q</div>
+              <div style={{ fontWeight: 900, fontSize: 15 }}>Quorly</div>
+            </div></a>
             <div style={{ marginLeft: "auto", display: "inline-flex", background: "rgba(255,255,255,.16)", borderRadius: 8, padding: 2 }}>
               {(["en", "fr"] as const).map((l) => (
                 <span key={l} onClick={() => setLang(l)} style={{ padding: "3px 9px", fontSize: 11, fontWeight: 800, borderRadius: 6, cursor: "pointer", background: lang === l ? "#fff" : "transparent", color: lang === l ? accent : "#fff" }}>{l.toUpperCase()}</span>

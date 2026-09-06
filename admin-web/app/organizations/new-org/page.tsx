@@ -92,13 +92,13 @@ function NewOrgInner() {
         {/* header */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 20px", borderBottom: `1px solid ${C.line}`, background: "#fff" }}>
           <span onClick={() => router.push("/organizations")} title={tr(L("Back", "Retour"))} style={{ fontSize: 24, fontWeight: 800, color: C.ink, cursor: "pointer", lineHeight: 1 }}>‹</span>
-          <div style={{ display: "inline-flex", flexDirection: "column" }}>
+          <a href="/" style={{ textDecoration: "none", color: "inherit" }}><div style={{ display: "inline-flex", flexDirection: "column" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{ width: 32, height: 32, borderRadius: 9, background: C.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 17 }}>Q</div>
               <div style={{ fontWeight: 900, fontSize: 17 }}>Quorly</div>
             </div>
             <div style={{ display: "flex", gap: 6, marginTop: 3, paddingLeft: 40 }}>{["#E0574A", "#2F8F6B", "#6B4FA3", "#E0A83B"].map((c) => <span key={c} style={{ width: 8, height: 8, borderRadius: "50%", background: c }} />)}</div>
-          </div>
+          </div></a>
           <div style={{ marginLeft: "auto", display: "inline-flex", border: `1px solid ${C.line}`, borderRadius: 8, overflow: "hidden" }}>
             {(["en", "fr"] as const).map((l) => <span key={l} onClick={() => { setLang(l); cf.setLang(l).catch(() => {}); }} style={{ padding: "5px 11px", fontSize: 11.5, fontWeight: 800, cursor: "pointer", background: lang === l ? C.accent : "transparent", color: lang === l ? "#fff" : C.ink2 }}>{l.toUpperCase()}</span>)}
           </div>

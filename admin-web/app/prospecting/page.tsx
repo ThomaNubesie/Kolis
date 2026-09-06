@@ -109,7 +109,7 @@ function Inner() {
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div onClick={() => router.push("/organizations")} style={{ display: "flex", alignItems: "center", gap: 9, cursor: "pointer" }}>
             <div style={{ width: 32, height: 32, borderRadius: 9, background: C.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 }}>Q</div>
-            <div><div style={{ fontWeight: 800, fontSize: 17 }}>Quorly</div>
+            <div><a href="/" style={{ textDecoration: "none", color: "inherit" }}><div style={{ fontWeight: 800, fontSize: 17 }}>Quorly</div></a>
               <div style={{ display: "flex", gap: 3, marginTop: 2 }}>{DOTS.map((c) => <span key={c} style={{ width: 5, height: 5, borderRadius: "50%", background: c }} />)}</div></div>
           </div>
         </div>

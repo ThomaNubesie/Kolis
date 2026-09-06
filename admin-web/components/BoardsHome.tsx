@@ -314,7 +314,7 @@ export default function BoardsHome() {
           </div>
           <div className="qb-fbottom">
             <span>© 2026 Quorly · <span data-en>Made in Canada 🇨🇦</span><span data-fr>Conçu au Canada 🇨🇦</span></span>
-            <span>hello@quorly.ca</span>
+            <span>outreach@quorly.ca</span>
           </div>
         </div>
       </footer>

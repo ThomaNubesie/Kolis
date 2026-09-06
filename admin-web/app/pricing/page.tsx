@@ -114,7 +114,7 @@ export default function Pricing() {
               <li><span className="qp-c">✓</span> <span>SSO &amp; <span data-en>custom retention</span><span data-fr>rétention sur mesure</span></span></li>
               <li><span className="qp-c">✓</span> <span><span data-en>Dedicated onboarding &amp; DPA</span><span data-fr>Intégration dédiée &amp; DPA</span></span></li>
             </ul>
-            <a className="qp-btn qp-btn-g" href="mailto:hello@quorly.ca"><span data-en>Contact us</span><span data-fr>Nous joindre</span></a>
+            <a className="qp-btn qp-btn-g" href="mailto:outreach@quorly.ca"><span data-en>Contact us</span><span data-fr>Nous joindre</span></a>
           </div>
         </div>
 

@@ -53,9 +53,9 @@ export default function BookCallQuorly() {
       });
       const d = await r.json().catch(() => ({}));
       if (d && d.ok) { setState("done"); return; }
-      setErr(t("Couldn't send that — please write to shaloderick@concordexpress.ca.", "Envoi impossible — écrivez à shaloderick@concordexpress.ca.")); setState("form");
+      setErr(t("Couldn't send that — please write to outreach@quorly.ca.", "Envoi impossible — écrivez à outreach@quorly.ca.")); setState("form");
     } catch {
-      setErr(t("Network error — please write to shaloderick@concordexpress.ca.", "Erreur réseau — écrivez à shaloderick@concordexpress.ca.")); setState("form");
+      setErr(t("Network error — please write to outreach@quorly.ca.", "Erreur réseau — écrivez à outreach@quorly.ca.")); setState("form");
     }
   }
 

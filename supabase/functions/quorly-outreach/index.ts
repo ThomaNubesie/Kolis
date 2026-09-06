@@ -22,12 +22,12 @@ const KEY = Deno.env.get("QUORLY_OUTREACH_KEY")!;
 const INBOUND_TOKEN = Deno.env.get("QUORLY_INBOUND_TOKEN") || "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const FROM = Deno.env.get("QUORLY_FROM_EMAIL") || "Quorly <hello@quorly.ca>";
+const FROM = Deno.env.get("QUORLY_FROM_EMAIL") || "Quorly <outreach@quorly.ca>";
 // The address a prospect sees and replies to. A business domain, not a personal
 // gmail: this is a cold email to a board, and the signature has to look like the
 // company it comes from. Drives the signature, the footer, reply_to, and the
 // List-Unsubscribe mailto — change it here and it changes everywhere at once.
-const REPLY = Deno.env.get("QUORLY_REPLY_EMAIL") || "shaloderick@concordexpress.ca";
+const REPLY = Deno.env.get("QUORLY_REPLY_EMAIL") || "outreach@quorly.ca";
 const SITE = "https://quorly.ca";
 
 // supabase-js functions.invoke() sends x-client-info and apikey alongside the auth
@@ -292,9 +292,22 @@ Deno.serve(async (req) => {
         }).eq("id", rec.id);
         await admin.from("quorly_outreach_events").insert({ email: rec.email, type: touch === 1 ? "intro" : "followup", meta: { touch } });
         out.push({ email: rec.email, touch, id: (r.body as any)?.id });
-      } else out.push({ email: rec.email, error: r.body });
+      } else {
+        // Record the failure on the ROW, not just in a response nobody reads. The cron
+        // fires into pg_net and discards the body, so a send that fails every four
+        // hours left no trace anywhere — which is how 55 prospects sat for five days
+        // looking scheduled while nothing had ever gone out.
+        await admin.from("quorly_outreach").update({
+          last_error: typeof r.body === "string" ? r.body.slice(0, 300) : JSON.stringify(r.body).slice(0, 300),
+          last_error_at: new Date().toISOString(),
+        }).eq("id", rec.id);
+        out.push({ email: rec.email, error: r.body });
+      }
     }
-    return json({ sent: out.length, results: out });
+    // "sent" used to be out.length, which counted failures as sends. A 403 on every
+    // single message reported {"sent":1} and looked like success.
+    const okCount = out.filter((o) => !o.error).length;
+    return json({ sent: okCount, failed: out.length - okCount, results: out });
   }
 
   return json({ error: "unknown_action" }, 400);

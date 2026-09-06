@@ -209,6 +209,8 @@ Deno.serve(async (req) => {
       await sleep(140);                                 // stay under provider rate limits
     }
 
+    const textedN = results.filter((r) => r.sms_ok).length;
+    if (textedN > 0) await admin.rpc("cf_usage_add", { p_form: formId, p_n: textedN });
     return json({
       ok: true, org, recipients: pending.length,
       emailed: results.filter((r) => r.email_ok).length,

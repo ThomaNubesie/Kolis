@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
       }
       if (!isEmail(e) && !ph) skipped++;
     }
+    if (texted > 0) await admin.rpc("cf_usage_add", { p_form: a.form_id, p_n: texted });
     return json({ ok: true, recipients: recips.length, emailed, texted, skipped, failed });
   } catch (e) { return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500); }
 });

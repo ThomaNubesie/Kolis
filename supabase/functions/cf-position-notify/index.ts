@@ -128,6 +128,7 @@ Deno.serve(async (req) => {
     if (ph.length >= 10) out.sms = await sendSms(ph, m.title, where, `${SITE}/letter/${m.id}`);
     if (!out.email && !out.sms) out.note = "no_contact_on_file";
 
+    if (out.sms?.ok) await admin.rpc("cf_usage_add", { p_form: m.form_id, p_n: 1 });
     return json(out);
   } catch (e) {
     return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);

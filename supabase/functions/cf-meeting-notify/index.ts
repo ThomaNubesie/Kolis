@@ -117,6 +117,7 @@ Deno.serve(async (req) => {
     }
 
     let title = "", where = "", startsAt = "", mins = 30, note: string | null = null, link = "";
+    let formId = "", orgId = "";
     let people: Person[] = [];
 
     if (kind === "meeting") {
@@ -131,6 +132,7 @@ Deno.serve(async (req) => {
           .eq("form_id", m.form_id).eq("user_id", uid).eq("status", "active").maybeSingle();
         if (!mine) return json({ ok: false, error: "not_allowed" }, 403);
       }
+      formId = m.form_id;
       title = m.title; where = f?.name || "Quorly"; startsAt = m.starts_at; mins = m.duration_min;
       note = m.description; link = `${SITE}/m/${m.id}`;
 
@@ -152,6 +154,7 @@ Deno.serve(async (req) => {
       people = rows ?? [];
       const nameOf = (u: string) => (rows ?? []).find((r: any) => r.user_id === u)?.name || "a member";
       title = `${nameOf(b.host_user_id)} · ${nameOf(b.guest_user_id)}`;
+      orgId = b.org_id;
       where = f?.name || "Quorly"; startsAt = b.starts_at; mins = b.duration_min;
       note = b.note; link = `${SITE}/m/${b.id}`;
     }
@@ -185,6 +188,8 @@ Deno.serve(async (req) => {
       }
       await sleep(120);
     }
+    // Bill only what was actually sent: a message Twilio refused is not usage.
+    if (texted > 0) await admin.rpc("cf_usage_add", { p_form: kind === "meeting" ? formId : orgId, p_n: texted });
     return json({ ok: true, kind, recipients: people.length, emailed, texted, failed });
   } catch (e) {
     return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);

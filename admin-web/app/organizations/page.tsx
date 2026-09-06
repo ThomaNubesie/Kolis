@@ -138,7 +138,7 @@ function FormsInner() {
   const [activeOrg, setActiveOrg] = useState<string | null>(null);
   const [tree, setTree] = useState<CfOrgTree | null>(null);
   const [orgSwitch, setOrgSwitch] = useState(false);
-  const [orgTab, setOrgTab] = useState<"home" | "members" | "documents" | "meet" | "settings">("home");
+  const [orgTab, setOrgTab] = useState<"home" | "members" | "documents" | "meet" | "billing" | "settings">("home");
   const [qoAdmin, setQoAdmin] = useState(false); // outreach/prospecting operator → sees the GROWTH rail group
   const [newSpace, setNewSpace] = useState(false);
   const isVault = !!sel && sel === vaultId;
@@ -299,6 +299,7 @@ function FormsInner() {
                      ["members", tr(L("Members", "Membres")), <Users key="m" size={14} />],
                      ["documents", tr(L("Documents", "Documents")), <Folder key="d" size={14} />],
                      ["meet", tr(L("Book a call", "Réserver un appel")), <CalendarClock key="bk" size={14} />],
+                     ["billing", tr(L("Billing", "Facturation")), <Coins key="bi" size={14} />],
                      ["settings", tr(L("Settings", "Paramètres")), <Settings key="s" size={14} />]] as const).map(([k, label, icon]) => (
                     // Town Hall used to sit here; it is a department now, listed with the rest.
                     <div key={k} onClick={() => { setOrgTab(k as any); setSel(activeOrg); }} style={sItem(sel === activeOrg && orgTab === k)}>
@@ -443,7 +444,7 @@ function FormsInner() {
                 // a bylaws archive) does all of its work.
                 <FilesPanel form={form} tr={tr} lang={lang} mobile={mobile} entries={entries} memberOf={memberOf} isVault={false} flat={false} />
               ) : isOrg ? (
-                <OrgHome tree={tree} tab={orgTab as "home" | "members" | "settings"} setTab={setOrgTab} tr={tr} lang={lang} mobile={mobile}
+                <OrgHome tree={tree} tab={orgTab as "home" | "members" | "settings" | "billing"} setTab={setOrgTab} tr={tr} lang={lang} mobile={mobile}
                   onOpen={(id: string) => setSel(id)}
                   onChanged={() => { loadSpaces(); if (activeOrg) loadTree(activeOrg); cf.myForms().then(setList).catch(() => {}); }} />
               ) : (!isVault && tab === "entries") ? (

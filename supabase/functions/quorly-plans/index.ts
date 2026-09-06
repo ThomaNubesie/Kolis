@@ -195,9 +195,10 @@ Deno.serve(async (req) => {
         mode: "subscription",
         customer: customerId!,
         line_items: items,
-        // The month advertised on the pricing page, honoured in Stripe rather than
-        // tracked by hand.
-        subscription_data: { trial_period_days: 30, metadata: { org_id: orgId, plan, product: "quorly" } },
+        // The 7-day trial advertised on the pricing page, honoured by Stripe rather
+        // than tracked by hand. If this number and the page ever disagree, Stripe wins
+        // and the page is the bug.
+        subscription_data: { trial_period_days: 7, metadata: { org_id: orgId, plan, product: "quorly" } },
         success_url: `${SITE}/organizations?billing=ok`,
         cancel_url: `${SITE}/pricing?billing=cancel`,
         metadata: { org_id: orgId, plan, product: "quorly" },

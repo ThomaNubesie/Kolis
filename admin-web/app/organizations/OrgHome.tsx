@@ -8,6 +8,7 @@
 // "Office" here means the POST a person holds — President, Trésorier — not a
 // container. The containers are departments.
 import { useCallback, useEffect, useMemo, useState } from "react";
+import BillingPanel from "./BillingPanel";
 import { cf, planLimitMsg, type CfOrgTree, type CfOrgMember, type CfDept } from "@/lib/cf";
 import { memberColors } from "@/lib/colors";
 import { QUICK_ADD, deptPayload } from "@/lib/presets";
@@ -27,7 +28,7 @@ const deptIcon = (d: CfDept) => (d.kind === "election" ? Vote : (d.features as a
 
 export default function OrgHome({ tree, tab, setTab, tr, lang, mobile, onOpen, onChanged }: {
   tree: CfOrgTree | null;
-  tab: "home" | "members" | "settings";
+  tab: "home" | "members" | "settings" | "billing";
   setTab: (t: "home" | "members" | "settings") => void;
   tr: TR; lang: "en" | "fr"; mobile: boolean;
   onOpen: (id: string) => void;
@@ -39,6 +40,9 @@ export default function OrgHome({ tree, tab, setTab, tr, lang, mobile, onOpen, o
       {tab === "home" && <OrgHomePage tree={tree} tr={tr} lang={lang} mobile={mobile} onOpen={onOpen} setTab={setTab} onChanged={onChanged} />}
       {tab === "members" && <MembersTab tree={tree} tr={tr} lang={lang} mobile={mobile} onChanged={onChanged} />}
       {tab === "settings" && <SettingsTab tree={tree} tr={tr} onChanged={onChanged} />}
+      {tab === "billing" && (tree.is_admin
+        ? <BillingPanel orgId={tree.id} tr={tr} lang={lang} />
+        : <div style={{ fontSize: 13, color: C.faint }}>{tr(L("Only an administrator can see billing.", "Seul un administrateur peut voir la facturation."))}</div>)}
     </div>
   );
 }

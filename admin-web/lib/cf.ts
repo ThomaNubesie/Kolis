@@ -27,6 +27,12 @@ export type CfAgendaBooking = { id: string; starts_at: string; duration_min: num
 
 // One person as offered to an office picker — always a row from the PARENT's roster,
 // carrying the member_id the office RPCs validate against that parent.
+export type CfBillingState = {
+  org_id: string; name: string; plan: string | null; plan_status: string | null;
+  stripe_customer_id: string | null; stripe_subscription_id: string | null;
+  plan_renews_at: string | null;
+  members: number; texts_this_month: number; texts_reported: number;
+};
 export type CfOfficePerson = { member_id: string; user_id: string | null; name: string; contact: string | null; color: string | null; title: string | null };
 export type CfMember = { id: string | null; member_id?: string; name: string | null; color: string | null; role: string; status: string; suspended?: boolean; contact: string | null; joined_at?: string | null };
 export type CfComment = { id: string; author: string; body: string; created_at: string };
@@ -131,6 +137,26 @@ export const cf = {
   // An association names its own structure. Departments and offices only; the
   // organisation's own name lives in org settings with the slug and branding.
   renameForm: (form: string, name: string) => rpc("cf_form_rename", { p_form: form, p_name: name }),
+
+  // ===== Billing (Stripe) =====
+  // Every call is admin-gated inside quorly-plans; the client never holds a key.
+  billingState: async (org: string): Promise<{ ok?: boolean; state?: CfBillingState; plans?: any; error?: string }> => {
+    const { data, error } = await supabase.functions.invoke("quorly-plans", { body: { action: "state", org_id: org } });
+    if (error) throw new Error(error.message);
+    return data as any;
+  },
+  // Returns a Stripe Checkout URL. Nothing is charged until the member completes it.
+  billingCheckout: async (org: string, plan: string): Promise<{ ok?: boolean; url?: string; error?: string }> => {
+    const { data, error } = await supabase.functions.invoke("quorly-plans", { body: { action: "checkout", org_id: org, plan } });
+    if (error) throw new Error(error.message);
+    return data as any;
+  },
+  // Stripe's own portal: card, invoices, cancellation. We never rebuild those screens.
+  billingPortal: async (org: string): Promise<{ ok?: boolean; url?: string; error?: string }> => {
+    const { data, error } = await supabase.functions.invoke("quorly-plans", { body: { action: "portal", org_id: org } });
+    if (error) throw new Error(error.message);
+    return data as any;
+  },
   // Suspension is a flag, not a status: the member keeps their seat and can still
   // read — what they lose is the floor. Who may post is set per board.
   setMemberSuspended: (member: string, on: boolean) => rpc("cf_set_member_suspended", { p_member: member, p_on: on }),

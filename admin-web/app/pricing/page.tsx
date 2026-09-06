@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useLang } from "@/lib/i18n";
 
-// Quorly public pricing page (/pricing). Per-organization, CAD, 1-month free
+// Quorly public pricing page (/pricing). Per-organization, CAD, 7-day free
 // trial. Namespaced qp-* classes because this renders inside the shared app
 // document (globals.css defines generic .tier/.btn/.row/.card that would leak).
 // EN/FR via the app's shared language (useLang) + a `fr` class; monthly/annual
@@ -167,20 +167,20 @@ export default function Pricing() {
 
         <div className="qp-notes">
           <div className="qp-note">💛 <b><span data-en>Nonprofit discount</span><span data-fr>Rabais OBNL</span></b> — <span data-en>registered nonprofits get 30–50% off any paid plan. Just ask.</span><span data-fr>les OBNL enregistrés obtiennent 30 à 50 % de rabais sur tout forfait payant. Demandez-nous.</span></div>
-          <div className="qp-note">🎁 <b><span data-en>1 month free</span><span data-fr>1 mois gratuit</span></b> — <span data-en>run your board on the Board plan free for 1 month. No credit card, 20-minute setup.</span><span data-fr>utilisez le forfait Board gratuitement 1 mois. Sans carte, configuration en 20 min.</span></div>
+          <div className="qp-note">🎁 <b><span data-en>7 days free</span><span data-fr>7 jours gratuits</span></b> — <span data-en>run your board on the Board plan free for 7 days. Cancel any time before it ends.</span><span data-fr>utilisez le forfait Board gratuitement 7 jours. Annulez avant la fin, sans frais.</span></div>
         </div>
 
         {/* FAQ */}
         <div className="qp-faq">
           <h3>FAQ</h3>
           <div className="qp-qa"><div className="qp-q"><span data-en>Is it really per organization, not per member?</span><span data-fr>Est-ce vraiment par organisation, pas par membre ?</span></div><div className="qp-ans"><span data-en>Yes. Invite your whole board or association — 10 members or 100 — for one flat price. Volunteers should never be a line item.</span><span data-fr>Oui. Invitez tout votre conseil ou association — 10 ou 100 membres — pour un prix fixe. Les bénévoles ne devraient jamais être facturés à l’unité.</span></div></div>
-          <div className="qp-qa"><div className="qp-q"><span data-en>What happens after the 1-month free trial?</span><span data-fr>Que se passe-t-il après l’essai gratuit d’un mois ?</span></div><div className="qp-ans"><span data-en>You choose a plan or drop to Free. Nothing is deleted — your minutes and documents stay put.</span><span data-fr>Vous choisissez un forfait ou revenez à Gratuit. Rien n’est supprimé — vos PV et documents restent en place.</span></div></div>
+          <div className="qp-qa"><div className="qp-q"><span data-en>What happens after the 7-day free trial?</span><span data-fr>Que se passe-t-il après l’essai gratuit de 7 jours ?</span></div><div className="qp-ans"><span data-en>You choose a plan or drop to Free. Nothing is deleted — your minutes and documents stay put.</span><span data-fr>Vous choisissez un forfait ou revenez à Gratuit. Rien n’est supprimé — vos PV et documents restent en place.</span></div></div>
           <div className="qp-qa"><div className="qp-q"><span data-en>Where is our data stored?</span><span data-fr>Où sont stockées nos données ?</span></div><div className="qp-ans"><span data-en>In Canada 🇨🇦, encrypted at rest, with 2FA and end-to-end encryption available on paid plans.</span><span data-fr>Au Canada 🇨🇦, chiffrées au repos, avec 2FA et chiffrement bout en bout sur les forfaits payants.</span></div></div>
         </div>
 
         <div className="qp-final">
           <h2><span data-en>Run your next meeting on Quorly.</span><span data-fr>Tenez votre prochaine réunion sur Quorly.</span></h2>
-          <p><span data-en>Free for 1 month · 20-minute setup · no credit card.</span><span data-fr>Gratuit 1 mois · configuration en 20 min · sans carte.</span></p>
+          <p><span data-en>Free for 7 days · 20-minute setup · cancel any time.</span><span data-fr>Gratuit 7 jours · configuration en 20 min · annulable à tout moment.</span></p>
           <a className="qp-btn qp-fcta" href="/organizations"><span data-en>Start a free board →</span><span data-fr>Créer un conseil gratuit →</span></a>
         </div>
       </div>

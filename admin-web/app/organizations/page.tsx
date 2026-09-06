@@ -12,6 +12,7 @@ import { AutoTranslateProvider, useAutoT, useDeptLabel } from "@/lib/autotransla
 import QuorlyAuthGate from "@/components/QuorlyAuthGate";
 import { buildFormPdf, pdfFilename } from "@/lib/pdf";
 import ElectionPanel from "./ElectionPanel";
+import DeptMark from "./DeptMark";
 import MeetingsPanel from "./MeetingsPanel";
 import BookingPanel from "./BookingPanel";
 import OrgHome from "./OrgHome";
@@ -319,7 +320,7 @@ function FormsInner() {
                       {items.map((d) => (
                         <div key={d.id} onClick={() => setSel(d.id)} style={{ ...sItem(d.id === sel), opacity: d.im_member || d.kind === "election" ? 1 : .72 }}>
                           <span style={{ color: d.id === sel ? C.accent : C.faint, display: "inline-flex", fontSize: d.emoji ? 14 : undefined }}>
-                            {d.emoji || (d.kind === "election" ? <ThumbsUp size={14} /> : <FileText size={14} />)}
+                            <DeptMark value={d.emoji} size={14} fallback={d.kind === "election" ? <ThumbsUp size={14} /> : <FileText size={14} />} />
                           </span>
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{dlabel(d)}</span>
                           {d.kind === "election" && d.election_status === "open" && <span style={{ width: 6, height: 6, borderRadius: "50%", background: C.green, flex: "0 0 auto" }} />}
@@ -1401,6 +1402,14 @@ function SubformsPanel({ form, tr, lang, onOpen }: any) {
   const [saving, setSaving] = useState(false);
   useEffect(() => { if (adding) cf.officeRoster(form.id).then(setRoster).catch(() => setRoster([])); }, [adding, form.id]);
   const toggleStaff = (id: string) => setOfficeStaff((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+  // An office is named by the department that runs it, not fixed at creation.
+  const renameOffice = async (o: any) => {
+    const next = window.prompt(tr(L("Name of this office", "Nom de ce bureau")), o.name ?? "");
+    if (next === null || !next.trim() || next.trim() === o.name) return;
+    try { const r = await cf.renameForm(o.id, next.trim()); if (r?.ok === false) alert(cfErr(r.error, tr)); else reload(); }
+    catch (e: any) { alert(e?.message || cfErr(null, tr)); }
+  };
+
   const createOffice = async () => {
     const nm = officeName.trim();
     if (!nm || !officeAdmin || saving) return;
@@ -1479,6 +1488,13 @@ function SubformsPanel({ form, tr, lang, onOpen }: any) {
               <div key={s.id} onClick={async () => { if (s.im_member) return onOpen(s.id); if (s.kind === "election") { try { const r = await cf.electionEnsureMember(s.id); if (r?.ok) return onOpen(s.id); } catch { /* fall through */ } } alert(tr(L("You're not a member of this office. Ask its admin to invite you.", "Vous n'êtes pas membre de ce bureau. Demandez à son admin de vous inviter."))); }} style={{ display: "flex", alignItems: "center", gap: 12, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 12, padding: "11px 13px", cursor: "pointer", opacity: s.im_member || s.kind === "election" ? 1 : .6 }}>
                 <span style={{ width: 32, height: 32, borderRadius: 8, background: s.im_member || s.kind === "election" ? C.accentSoft : "#F0EEE9", color: s.im_member || s.kind === "election" ? C.accent : C.faint, display: "flex", alignItems: "center", justifyContent: "center", flex: "0 0 auto" }}>{s.kind === "election" ? <ThumbsUp size={15} /> : s.im_member ? <FileText size={16} /> : <Lock size={15} />}</span>
                 <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.name}{s.kind === "election" ? <span style={{ fontSize: 10.5, fontWeight: 800, color: C.accent, background: C.accentSoft, borderRadius: 6, padding: "1px 6px", marginLeft: 6 }}>{tr(L("Returning Office", "Bureau du scrutin"))}</span> : ""}</div><div style={{ fontSize: 11.5, color: C.faint }}>{s.members} {tr(L("members", "membres"))}{s.is_admin ? " · " + tr(L("admin", "admin")) : s.kind === "election" ? " · " + tr(L("open to all members", "ouvert à tous les membres")) : s.im_member ? "" : " · " + tr(L("not a member", "non membre"))}</div></div>
+                {(form.is_admin || s.is_admin) && (
+                  <span onClick={(ev) => { ev.stopPropagation(); renameOffice(s); }}
+                    title={tr(L("Rename this office", "Renommer ce bureau"))}
+                    style={{ color: C.faint, display: "inline-flex", padding: 4, cursor: "pointer", flex: "none" }}>
+                    <Pencil size={13} />
+                  </span>
+                )}
                 <ChevronRight size={16} style={{ color: C.faint }} />
               </div>
             ))}

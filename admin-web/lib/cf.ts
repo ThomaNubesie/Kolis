@@ -128,6 +128,9 @@ export const cf = {
   // org loads is how a newly joined member lands in the hall.
   ensureTownHall: (org: string): Promise<string | null> => rpc("cf_ensure_townhall", { p_org: org }),
   setDeptEmoji: (form: string, emoji: string | null) => rpc("cf_set_dept_emoji", { p_form: form, p_emoji: emoji }),
+  // An association names its own structure. Departments and offices only; the
+  // organisation's own name lives in org settings with the slug and branding.
+  renameForm: (form: string, name: string) => rpc("cf_form_rename", { p_form: form, p_name: name }),
   // Suspension is a flag, not a status: the member keeps their seat and can still
   // read — what they lose is the floor. Who may post is set per board.
   setMemberSuspended: (member: string, on: boolean) => rpc("cf_set_member_suspended", { p_member: member, p_on: on }),

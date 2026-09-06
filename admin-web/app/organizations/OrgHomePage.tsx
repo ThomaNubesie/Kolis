@@ -9,6 +9,7 @@ import { memberColors } from "@/lib/colors";
 import { useAutoT, useDeptLabel } from "@/lib/autotranslate";
 import { Users, Folder, MessageSquare, ChevronRight, Pencil, Plus, X, LayoutGrid, FileText, ImagePlus } from "lucide-react";
 import Announcements from "./Announcements";
+import DeptMark from "./DeptMark";
 import EmojiPicker from "./EmojiPicker";
 
 const C = { paper: "#F1EEE7", panel: "#FFFFFF", ink: "#14131A", ink2: "#4A4A46", faint: "#8a8790", line: "#ECE9E2", accent: "#2F3AA3", cream: "#FBF8F2" };
@@ -93,7 +94,7 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
     const logo = <div style={{ width: 56, height: 56, borderRadius: 15, background: "rgba(255,255,255,.2)", border: "1px solid rgba(255,255,255,.4)", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 22, ...(align === "center" ? { margin: "0 auto" } : {}) }}>{badge}</div>;
     const cta = (
       <div style={{ display: "flex", gap: 10, marginTop: 15, flexWrap: "wrap", ...(align === "center" ? { justifyContent: "center" } : {}) }}>
-        {hall && <span onClick={() => onOpen(hall.id)} style={{ background: "rgba(255,255,255,.18)", border: "1px solid rgba(255,255,255,.4)", color: "#fff", fontWeight: 800, fontSize: 13, padding: "9px 15px", borderRadius: 10, cursor: "pointer" }}>{hall.emoji ? hall.emoji + " " : ""}{tr(L("Parliament", "Parlement"))}</span>}
+        {hall && <span onClick={() => onOpen(hall.id)} style={{ background: "rgba(255,255,255,.18)", border: "1px solid rgba(255,255,255,.4)", color: "#fff", fontWeight: 800, fontSize: 13, padding: "9px 15px", borderRadius: 10, cursor: "pointer" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><DeptMark value={hall.emoji} size={14} />{tr(L("Parliament", "Parlement"))}</span></span>}
       </div>
     );
     return (
@@ -124,6 +125,21 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
     catch (err: any) { alert(err.message); }
   };
 
+  // The vocabulary is the association's own: a board that calls its assembly
+  // "Conseil général" should be able to say so without asking anyone.
+  const renameDept = async (d: any) => {
+    const next = window.prompt(tr(L("Name of this department", "Nom de ce département")), d.name ?? "");
+    if (next === null || !next.trim() || next.trim() === d.name) return;
+    try {
+      const r = await cf.renameForm(d.id, next.trim());
+      if (r?.ok === false) {
+        alert(r.error === "not_admin" ? tr(L("Only an admin can rename this.", "Seul un admin peut renommer."))
+            : r.error === "name_too_long" ? tr(L("That name is too long.", "Ce nom est trop long."))
+            : tr(L("Couldn't rename that.", "Renommage impossible.")));
+      } else onChanged();
+    } catch (err: any) { alert(err.message); }
+  };
+
   const Explore = () => (
     <div style={{ ...secStyle, marginTop: 6 }}>
       <h3 style={h3}>{tr(L("Explore", "Explorer"))}</h3>
@@ -142,9 +158,16 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
                 onClick={tree.is_admin ? (ev) => { ev.stopPropagation(); setEmojiFor(d); } : undefined}
                 title={tree.is_admin ? tr(L("Change this department's emoji", "Changer l'emoji de ce département")) : undefined}
                 style={{ width: 30, height: 30, borderRadius: 8, background: "#EEEBFA", color: C.accent, display: "flex", alignItems: "center", justifyContent: "center", flex: "none", fontSize: d.emoji ? 16 : undefined, cursor: tree.is_admin ? "pointer" : "inherit" }}>
-                {d.emoji || <FileText size={15} />}
+                <DeptMark value={d.emoji} size={15} fallback={<FileText size={15} />} />
               </span>
               <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{dlabel(d)}</div><div style={{ fontSize: 11, color: C.faint }}>{d.members} {tr(L("members", "membres"))} · {d.entries} {tr(L("entries", "entrées"))}</div></div>
+              {tree.is_admin && (
+                <span onClick={(ev) => { ev.stopPropagation(); renameDept(d); }}
+                  title={tr(L("Rename this department", "Renommer ce département"))}
+                  style={{ color: C.faint, display: "inline-flex", padding: 4, cursor: "pointer", flex: "none" }}>
+                  <Pencil size={13} />
+                </span>
+              )}
               <ChevronRight size={16} style={{ color: C.faint }} />
             </div>
           ))}

@@ -240,13 +240,17 @@ function FormsInner() {
         {showHome && (
           <aside style={{ background: "#F4F1EB", borderRight: mobile ? "none" : `1px solid ${C.line}`, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 10, minHeight: mobile ? "100vh" : "auto" }}>
             <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>
-              <a href="/" title={tr(L("Back to quorly.ca", "Retour à quorly.ca"))} style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", cursor: "pointer", textDecoration: "none", color: "inherit" }}>
+              {/* INSIDE the app the logo goes to the organisation's own home, not out to
+                  quorly.ca. Everywhere else the mark is marketing and leaving is right;
+                  here it is navigation, and dropping a member onto the sales page
+                  mid-meeting is the wrong door. */}
+              <div onClick={() => { setOrgSwitch(false); setOrgTab("home"); setSel(activeOrg ?? null); }} title={tr(L("Home", "Accueil"))} style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-start", cursor: "pointer" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{ width: 34, height: 34, borderRadius: 9, background: C.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 18 }}>Q</div>
                   <div style={{ fontWeight: 800, fontSize: 18, letterSpacing: -.2 }}>Quorly</div>
                 </div>
                 <div style={{ display: "flex", gap: 6, marginTop: 3, paddingLeft: 43 }}>{["#E0574A", "#2F8F6B", "#6B4FA3", "#E0A83B"].map((c) => <span key={c} style={{ width: 9, height: 9, borderRadius: "50%", background: c }} />)}</div>
-              </a>
+              </div>
               <div style={{ marginLeft: "auto" }}>{langToggle}</div>
             </div>
             <div onClick={editName} style={{ display: "flex", alignItems: "center", gap: 11, background: C.panel, border: `1px solid ${C.line}`, borderRadius: 14, padding: 11, cursor: "pointer" }}>

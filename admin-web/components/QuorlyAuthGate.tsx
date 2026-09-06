@@ -5,10 +5,14 @@ import { useEffect, useState } from "react";
 import { quorly as supabase } from "@/lib/quorly";
 import { cf } from "@/lib/cf";
 import QuorlyOnboard from "@/components/QuorlyOnboard";
+import { useIdleLogout } from "@/lib/idleLogout";
 
 export default function QuorlyAuthGate({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [done, setDone] = useState(false);
+  // Three hours idle ends the session. The gate wraps every Quorly surface, so this
+  // one call covers the app, the meeting room and the appointment letter alike.
+  useIdleLogout(3);
 
   useEffect(() => {
     let sub: any;

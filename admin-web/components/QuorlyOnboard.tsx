@@ -116,23 +116,26 @@ export default function QuorlyOnboard({ invitedEmail, invitedPhone, onDone }: { 
   if (step === "done") return null;
 
   return (
-    <div style={{ position: "relative", background: "#2A2824", minHeight: "100vh", padding: 24, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "-apple-system,Inter,Segoe UI,Roboto,sans-serif" }}>
+    <div style={{ position: "relative", background: "#2A2824", minHeight: "100dvh", padding: narrow ? 16 : 24, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "-apple-system,Inter,Segoe UI,Roboto,sans-serif" }}>
       {/* A Canadian landmark, from the database, changing every two hours. The scrim is
           symmetric — darkest down the middle where the card sits, clearing toward both
           edges — so the landmark stays a photograph at the margins instead of wallpaper. */}
       {backdrop && <>
-        <div style={{ position: "absolute", inset: 0, backgroundImage: `url("${backdrop.url}")`, backgroundSize: "cover", backgroundPosition: "center" }} />
+        <div style={{ position: "absolute", inset: 0, backgroundImage: `url("${backdrop.url}")`, backgroundSize: "cover", backgroundPosition: narrow ? "center 38%" : "center" }} />
         <div style={{ position: "absolute", inset: 0, background: narrow
-          ? "linear-gradient(180deg,rgba(20,19,26,.62),rgba(20,19,26,.76))"
+          ? "linear-gradient(180deg,rgba(20,19,26,.20) 0%,rgba(20,19,26,.30) 45%,rgba(20,19,26,.66) 100%)"
           : "linear-gradient(180deg,rgba(20,19,26,.16),rgba(20,19,26,.30))" }} />
         {/* The centre band only needs to be dark enough to carry text THROUGH the card.
             An opaque card carries its own text, so it gets the lighter, brighter scrim. */}
         {!narrow && <div style={{ position: "absolute", inset: 0, background: `linear-gradient(90deg,rgba(20,19,26,0) 0%,rgba(20,19,26,.10) 24%,rgba(20,19,26,${glass ? ".46" : ".30"}) 42%,rgba(20,19,26,${glass ? ".46" : ".30"}) 58%,rgba(20,19,26,.10) 76%,rgba(20,19,26,0) 100%)` }} />}
-        <div style={{ position: "absolute", left: 18, bottom: 13, color: "rgba(255,255,255,.78)", fontSize: 11.5, fontWeight: 600, letterSpacing: .2, textShadow: "0 1px 3px rgba(0,0,0,.55)" }}>
+        {/* On a phone the card is the whole width, so the band that carries text
+            through the glass has to sit behind the card rather than beside it. */}
+        {narrow && glass && <div style={{ position: "absolute", left: 0, right: 0, top: "18%", bottom: "12%", background: "rgba(20,19,26,.34)", filter: "blur(28px)" }} />}
+        <div style={{ position: "absolute", left: narrow ? 0 : 18, right: narrow ? 0 : undefined, textAlign: narrow ? "center" : "left", bottom: narrow ? 10 : 13, color: "rgba(255,255,255,.82)", fontSize: 11.5, fontWeight: 600, letterSpacing: .2, textShadow: "0 1px 4px rgba(0,0,0,.7)" }}>
           {lang === "fr" ? backdrop.label_fr : backdrop.label_en}
         </div>
       </>}
-      <div style={{ position: "relative", width: "100%", maxWidth: narrow ? 420 : 760, margin: "auto", background: glass ? "transparent" : C.paper, backdropFilter: glass ? "blur(18px)" : undefined, WebkitBackdropFilter: glass ? "blur(18px)" : undefined, border: glass ? "1px solid rgba(255,255,255,.22)" : undefined, borderRadius: 16, boxShadow: "0 24px 60px rgba(0,0,0,.4)", overflow: "hidden", display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr" }}>
+      <div style={{ position: "relative", width: "100%", maxWidth: narrow ? 380 : 760, margin: "auto", background: glass ? "transparent" : C.paper, backdropFilter: glass ? "blur(18px)" : undefined, WebkitBackdropFilter: glass ? "blur(18px)" : undefined, border: glass ? "1px solid rgba(255,255,255,.22)" : undefined, borderRadius: 16, boxShadow: narrow ? "0 18px 50px rgba(0,0,0,.55)" : "0 24px 60px rgba(0,0,0,.4)", overflow: "hidden", display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr" }}>
         {/* Brand panel */}
         <div style={{ background: glass ? "linear-gradient(160deg,rgba(47,58,163,.40),rgba(32,36,94,.40))" : "linear-gradient(160deg,#2F3AA3,#20245e)", color: "#fff", padding: narrow ? "20px 20px 18px" : "26px 24px", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "flex-start", gap: 9 }}>

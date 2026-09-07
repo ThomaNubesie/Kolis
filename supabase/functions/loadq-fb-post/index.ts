@@ -114,8 +114,10 @@ Deno.serve(async (req) => {
         return json({ error: "no_images_uploaded", detail: failed }, 502);
       }
 
-      const body: Record<string, unknown> = { message, access_token: PAGE_TOKEN };
-      ids.forEach((id, i) => { body[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id }); });
+      // attached_media MUST be a real JSON array here — FB ignores "attached_media[0]"
+      // bracket-keys in a JSON body (that syntax is form-encoded only), which silently
+      // produced a text-only post with the photos uploaded but never shown.
+      const body: Record<string, unknown> = { message, access_token: PAGE_TOKEN, attached_media: ids.map((id) => ({ media_fbid: id })) };
       const fr = await fetch(`${GRAPH}/${PAGE_ID}/feed`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

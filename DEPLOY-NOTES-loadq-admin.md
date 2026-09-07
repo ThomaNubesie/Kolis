@@ -36,3 +36,20 @@ once). Please commit + push the loadq-admin source (with `app/board`) to a branc
 machine can build admin.loadq.ca safely. Then the laptop can do future deploys too.
 
 See memory notes: loadq-incident-register, loadq-fb-board-autopost.
+
+---
+# loadq.ca — Android download link is expired (2026-09-07)
+
+The **Android** button + QR on loadq.ca point to a Google Play **internal-testing**
+link that has expired now that LoadQ is live in production:
+- WRONG: `https://play.google.com/apps/internaltest/4701707282664092289`
+- RIGHT: `https://play.google.com/store/apps/details?id=ca.loadq.app`  (public listing, confirmed live)
+
+loadq.ca is a multi-page STATIC site (site `comfy-melomakarona-e176a0`, id
+`f54300ce-683f-4110-9d05-adc9db177189`, NOT git-connected) whose source lives only
+on the iMac. In that source, replace **both** occurrences on the homepage — the
+`href="…internaltest…"` on the Android `.dl-card` **and** the `data-qr="…internaltest…"`
+(the QR encodes the same URL) — with the RIGHT URL above. Check the **/fr/** homepage
+too (same cards). Then redeploy loadq.ca the usual way.
+
+(iOS link `https://apps.apple.com/ca/app/id6770652996` is correct — leave it.)

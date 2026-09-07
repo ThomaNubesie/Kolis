@@ -95,11 +95,17 @@ Deno.serve(async (req) => {
       const failed: string[] = [];
       for (const b of list) {
         const url = `https://admin.loadq.ca/board/${encodeURIComponent(b.zone_id)}`;
-        const r = await fetch(`${GRAPH}/${PAGE_ID}/photos`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url, published: false, access_token: PAGE_TOKEN }),
-        });
+        // Upload the actual PNG BYTES (multipart), not a url= for FB to fetch. Fetching by
+        // url let Facebook create a photo id while silently rendering nothing (the post
+        // showed no image); uploading the bytes we fetched ourselves guarantees the image.
+        const img = await fetch(url).catch(() => null);
+        if (!img || !img.ok) { failed.push(`${b.zone}: board fetch ${img?.status ?? "err"}`); continue; }
+        const blob = await img.blob();
+        const fd = new FormData();
+        fd.append("source", blob, `${b.zone_id}.png`);
+        fd.append("published", "false");
+        fd.append("access_token", PAGE_TOKEN);
+        const r = await fetch(`${GRAPH}/${PAGE_ID}/photos`, { method: "POST", body: fd });
         const o = await r.json().catch(() => ({}));
         if (r.ok && o.id) ids.push(o.id); else failed.push(`${b.zone}: ${o?.error?.message ?? r.status}`);
       }

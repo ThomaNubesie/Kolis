@@ -49,7 +49,7 @@ function JoinInner() {
 
   async function join() {
     setBusy(true); setMsg("");
-    try { const r = await cf.joinToken(token, color, ""); if (r?.ok) router.push("/organizations"); else setMsg(r?.error === "color_taken" ? tr(L("That colour is taken.", "Cette couleur est prise.")) : (r?.error || "Failed")); }
+    try { const pick = available.includes(color) ? color : ""; const r = await cf.joinToken(token, pick, ""); if (r?.ok) router.push("/organizations"); else setMsg(r?.error === "color_taken" ? tr(L("That colour is taken.", "Cette couleur est prise.")) : (r?.error || "Failed")); }
     catch (e: any) { setMsg(e.message); }
     setBusy(false);
   }
@@ -111,9 +111,8 @@ function JoinInner() {
                   </label>
                 </div>
               )}
-              {available.length === 0
-                ? <div style={{ color: "#B4531F", fontSize: 12.5 }}>{tr(L("All colours are taken on this form.", "Toutes les couleurs sont prises sur ce formulaire."))}</div>
-                : <div style={{ ...btn, opacity: busy || (info?.nda && !agreed) ? .6 : 1 }} onClick={() => (!info?.nda || agreed) && join()}>{tr(L("Join form", "Rejoindre le formulaire"))}</div>}
+              {available.length === 0 && <div style={{ color: C.ink2, fontSize: 12.5 }}>{tr(L("All preset colours are taken — a unique colour will be assigned to you automatically.", "Toutes les couleurs prédéfinies sont prises — une couleur unique vous sera attribuée automatiquement."))}</div>}
+              <div style={{ ...btn, opacity: busy || (info?.nda && !agreed) ? .6 : 1 }} onClick={() => (!info?.nda || agreed) && join()}>{tr(L("Join form", "Rejoindre le formulaire"))}</div>
               {msg && <div style={{ color: "#B4531F", fontSize: 12.5 }}>{msg}</div>}
             </>
           )}

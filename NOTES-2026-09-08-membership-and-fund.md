@@ -182,6 +182,18 @@ Written down because none of it is recoverable from the files.
 - **A lawyer should read** Article 1 of the Fund rules (mutual aid vs insurance), the PPSA
   mechanics in Article 13, and whether co-signing member loans affects Concord Express's own
   credit standing.
-- Still outstanding from earlier: **roll the exposed `sk_live_` Stripe key**, **revoke the
-  exposed Facebook user token**, and **send Chris Therrier the $44.50 Interac refund** already
-  promised by email.
+- Still outstanding from earlier: **roll the exposed `sk_live_` Stripe key** and **revoke the
+  exposed Facebook user token**.
+
+## 5. Chris Therrier — closed pending confirmation
+
+The $44.50 Interac refund **was sent on 8 Sept 2026**. `loadq_ride_requests`
+`98b2b3f1-1bc2-47b4-9ab0-c21e590fc29a` (Pierrefonds QC → Ottawa, fare $44.49, `refund_cents`
+4450) now records it in `notes` — there is **no `refunded_at` column**, so the notes field is
+the only place that distinguishes "refund owed" from "refund sent". Worth adding a real column
+if refunds become common.
+
+A **follow-up on 11 Sept** by MMS, SMS and email is to ask whether he received it
+(613-710-1009 · mrchrisfinances@gmail.com). It is scheduled as a session-only reminder on the
+iMac, so **it will not survive that session ending** — if nothing has gone out by 11 Sept,
+send it from here.

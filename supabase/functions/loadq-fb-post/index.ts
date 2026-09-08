@@ -3,6 +3,7 @@
 //   POST {action:"preview"}      → the text that WOULD be posted, publishes nothing
 //   POST {action:"post"}         → publishes the text post
 //   POST {action:"post_boards"}  → publishes ONE post carrying a board image per active zone
+//   POST {action:"post_photo"}   → publishes ONE image (base64) with a caption
 //
 // The text is composed in the database (loadq_fb_daily_text), not here, so the wording
 // can be changed without redeploying a function, and so the same text can be previewed
@@ -75,6 +76,36 @@ Deno.serve(async (req) => {
             ? `This token belongs to "${me?.name}". In GET /me/accounts, copy the access_token from the Concord CarPool entry instead.`
             : "This is a user token. Run GET /me/accounts and copy the access_token from the Concord CarPool entry.",
       });
+    }
+
+    // ---- a single image post (a flyer, a poster) ------------------------------
+    // Bytes are passed in rather than fetched from a URL: uploading by url= let Facebook
+    // mint a photo id while rendering nothing, which is how earlier posts went out as
+    // text with the images silently missing.
+    if (action === "post_photo") {
+      if (!PAGE_TOKEN || !PAGE_ID) {
+        return json({ error: "facebook_not_configured", need: ["LOADQ_FB_PAGE_TOKEN", "LOADQ_FB_PAGE_ID"] }, 503);
+      }
+      const b64 = String(b.image_b64 || "");
+      if (!b64) return json({ error: "image_b64_required" }, 400);
+      const caption = String(b.caption ?? message);
+
+      const bin = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const fd = new FormData();
+      fd.append("source", new Blob([bin], { type: "image/png" }), String(b.filename || "loadq.png"));
+      fd.append("caption", caption);
+      fd.append("published", "true");
+      fd.append("access_token", PAGE_TOKEN);
+
+      const r = await fetch(`${GRAPH}/${PAGE_ID}/photos`, { method: "POST", body: fd });
+      const o = await r.json().catch(() => ({}));
+      if (!r.ok || o.error) {
+        const m = o?.error?.message ?? `http_${r.status}`;
+        await admin.from("loadq_fb_posts").insert({ message: caption, error: String(m).slice(0, 400) });
+        return json({ error: m }, 502);
+      }
+      await admin.from("loadq_fb_posts").insert({ message: caption, fb_post_id: o.post_id ?? o.id ?? null });
+      return json({ ok: true, fb_post_id: o.post_id ?? o.id ?? null, photo_id: o.id ?? null, bytes: bin.length });
     }
 
     // ---- one post, one image per active zone ---------------------------------

@@ -1,55 +1,75 @@
-# iMac deploy notes — LoadQ incident register → admin.loadq.ca (2026-09-07)
+# admin.loadq.ca — how it is built and deployed (updated 2026-09-08)
 
-Left by the laptop session. Context: the **incident register** ("Registre d'incident",
-tablet `/sheet/incident`) needs to go live on **admin.loadq.ca** (Netlify site
-`loadq-admin`, id `74c65dc0-8ee8-4884-a688-eb42d5eb3ea5`). Its **database backend is already
-live** (tables `loadq_incidents/_media/_recipient/_send`, the `loadq_incident_*` RPCs, and the
-`loadq-incident-send` edge fn are all deployed on `kzjptcpjpwlxfofzhyku`).
+**admin.loadq.ca is served by the KOLIS repo, from `admin-web/`.** Netlify site
+`loadq-admin`, id `74c65dc0-8ee8-4884-a688-eb42d5eb3ea5`. Not git-connected — deploys are
+manual.
 
-## Why the laptop could NOT do it
-- `admin.loadq.ca` serves `/board/{zone_id}` (the PNGs the Facebook auto-posts use). **That
-  `/board` route exists only in this iMac's local, unpushed code** — it is in NO git branch and
-  not on the laptop. Deploying the plain Kolis repo to `loadq-admin` from the laptop dropped
-  `/board` and 404'd the whole site (it was rolled back). **Do NOT deploy the plain Kolis repo
-  to loadq-admin — it wipes /board and breaks the FB boards.**
-- The incident-register commit had been dropped from `ship-kolis-1.1.0` (divergent history). It
-  is recovered and pushed as branch **`loadq-incident-register`** (commit `a901826`): it contains
-  `admin-web/app/sheet/incident/page.tsx` and the incident-tab `admin-web/app/sheet/page.tsx`.
+This corrects the earlier note, which said `/board` lived only on the iMac and in no branch.
+That was wrong in a way that mattered: `/board` *was* pushed, but to the **LoadQ** repo
+(`ship-loadq-1.2.6`, `admin-web/app/board/[zone]/route.tsx`). Two repos each held half the
+site, and admin.loadq.ca can only serve one build — so whichever was deployed last silently
+deleted the other half.
 
-## To ship it (on THIS iMac, which HAS /board)
+That is exactly what happened, twice:
+
+- deploying **Kolis** wiped `/board` (the Facebook auto-post images 404'd), and
+- deploying **LoadQ** wiped `/sheet` (the tablet 404'd for several hours on 8 Sept).
+
+## Fixed by merging, not by choosing
+
+`/board` now lives in the Kolis repo next to `/sheet`. Both routes are in one build, so there
+is nothing left to overwrite:
+
+| Path | What |
+|---|---|
+| `admin-web/app/sheet/` | the tablet — list writer's console |
+| `admin-web/app/board/[zone]/route.tsx` | live board PNG, used by the Facebook posts |
+| `admin-web/lib/carSlugs.ts` | manifest of pre-sized vehicle images |
+| `admin-web/public/cars/*.png` | 87 vehicle images (1 per make/model/colour) |
+| `admin-web/scripts/fetch_cars.py` | regenerates the above when vehicles are added |
+
+This works because **Kolis and LoadQ share the Supabase project** `kzjptcpjpwlxfofzhyku`, so
+`NEXT_PUBLIC_SUPABASE_URL` already points where the board needs.
+
+`app/board/[zone]/route.tsx` still exists in the LoadQ repo. It is now a **stale copy** —
+edit the Kolis one. Delete the LoadQ copy when convenient.
+
+## To deploy
+
 ```bash
-cd ~/…/Kolis            # the working copy that builds admin.loadq.ca (has app/board)
-git fetch origin
-# bring in ONLY the incident register, keeping your /board and everything else:
-git checkout origin/loadq-incident-register -- admin-web/app/sheet/incident
-# if your /sheet page doesn't yet link the "Registre d'incident" tab, also take its sheet page:
-#   git checkout origin/loadq-incident-register -- admin-web/app/sheet/page.tsx   (review the diff first)
-# build + deploy admin.loadq.ca the way you already do (that build keeps /board):
-#   e.g. netlify deploy --build --prod --site 74c65dc0-8ee8-4884-a688-eb42d5eb3ea5
+cd ~/…/Kolis/admin-web        # NOT the repo root — see the trap below
+npm run build
+npx netlify-cli deploy --prod --dir=.next --site=74c65dc0-8ee8-4884-a688-eb42d5eb3ea5
 ```
-Verify after: `curl -sI https://admin.loadq.ca/board/ottawa-universal-grocery` (must be 200
-image/png) and `https://admin.loadq.ca/sheet/incident` (should be 200).
 
-## PLEASE push /board to GitHub
-The `/board` route living only on this iMac is fragile (a laptop deploy already broke the site
-once). Please commit + push the loadq-admin source (with `app/board`) to a branch so either
-machine can build admin.loadq.ca safely. Then the laptop can do future deploys too.
+**The trap:** the Netlify CLI resolves `publish` from the *working directory*, not from the
+`base` in `netlify.toml`. Run it from the repo root and it looks for `Kolis/.next`, which
+does not exist, and the deploy fails. Run it from `admin-web/` and `publish = ".next"`
+resolves correctly. (Netlify's own CI does honour `base`; only the local CLI differs.)
 
-See memory notes: loadq-incident-register, loadq-fb-board-autopost.
+## Verify after every deploy — both, every time
 
----
-# loadq.ca — Android download link is expired (2026-09-07)
+```bash
+curl -sI https://admin.loadq.ca/sheet                          # 200 text/html
+curl -sI https://admin.loadq.ca/board/ottawa-universal-grocery # 200 image/png
+```
 
-The **Android** button + QR on loadq.ca point to a Google Play **internal-testing**
-link that has expired now that LoadQ is live in production:
-- WRONG: `https://play.google.com/apps/internaltest/4701707282664092289`
-- RIGHT: `https://play.google.com/store/apps/details?id=ca.loadq.app`  (public listing, confirmed live)
+A board PNG of ~25 KB is the **empty-state** image ("Aucune voiture en file") — correct when
+no cars are queued. A populated board is 150–300 KB. Both are 200, so status alone does not
+tell you the board is working; check the size.
 
-loadq.ca is a multi-page STATIC site (site `comfy-melomakarona-e176a0`, id
-`f54300ce-683f-4110-9d05-adc9db177189`, NOT git-connected) whose source lives only
-on the iMac. In that source, replace **both** occurrences on the homepage — the
-`href="…internaltest…"` on the Android `.dl-card` **and** the `data-qr="…internaltest…"`
-(the QR encodes the same URL) — with the RIGHT URL above. Check the **/fr/** homepage
-too (same cards). Then redeploy loadq.ca the usual way.
+## Other sites, so they are not confused again
 
-(iOS link `https://apps.apple.com/ca/app/id6770652996` is correct — leave it.)
+| Site | Netlify id | Source |
+|---|---|---|
+| **admin.loadq.ca** | `74c65dc0-…` | **Kolis** repo, `admin-web/` |
+| loadq.ca | `f54300ce-683f-4110-9d05-adc9db177189` | **LoadQ** repo, `site/` (static) |
+| quorly.ca | quorly-app | Kolis repo, `admin-web/` (host-routed) |
+
+## Still open
+
+- The **incident register** (`loadq-incident-register` branch, commit `a901826`,
+  `admin-web/app/sheet/incident/`) has not been merged. It can now be taken into the Kolis
+  admin-web safely — `/board` will no longer be lost by doing so.
+- loadq.ca Android links were pointing at an expired Play **internal-test** URL; fixed on
+  8 Sept (18 occurrences across 6 files) to the public listing.

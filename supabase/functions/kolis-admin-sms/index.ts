@@ -1,5 +1,7 @@
 // One-off / admin custom SMS via Twilio. Guarded by x-kolis-secret (same as the
-// notify pipeline). Body: { to, body }. Reuses project KOLIS_TWILIO_* secrets.
+// notify pipeline). Body: { to, body, media_url? }. Reuses project KOLIS_TWILIO_* secrets.
+// media_url turns the message into an MMS — used to carry the LoadQ banner so an apology
+// about money does not arrive as anonymous text from an unrecognised number.
 const SECRET = "kolis_notify_9f3a2c7b1e6d4084";
 const TW_SID = Deno.env.get("KOLIS_TWILIO_SID");
 const TW_TOKEN = Deno.env.get("KOLIS_TWILIO_TOKEN");
@@ -9,12 +11,13 @@ const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: 
 Deno.serve(async (req) => {
   try {
     if (req.headers.get("x-kolis-secret") !== SECRET) return json({ error: "forbidden" }, 403);
-    const { to, body } = await req.json();
+    const { to, body, media_url } = await req.json();
     if (!to || !body) return json({ error: "to and body required" }, 400);
     if (!TW_SID || !TW_TOKEN || !TW_FROM) return json({ error: "twilio not configured" }, 500);
     let num = String(to).replace(/[^\d+]/g, "");
     if (!num.startsWith("+")) num = num.length === 10 ? "+1" + num : "+" + num;
     const form = new URLSearchParams({ To: num, Body: String(body) });
+    if (media_url) form.set("MediaUrl", String(media_url));
     if (TW_FROM.startsWith("MG")) form.set("MessagingServiceSid", TW_FROM);
     else form.set("From", TW_FROM);
     const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${TW_SID}/Messages.json`, {

@@ -93,6 +93,29 @@ Deno.serve(async (req) => {
       // this function, which is what kept the render out of memory trouble.
       const ids: string[] = [];
       const failed: string[] = [];
+
+      // The marketing flyer leads the post: it is attached FIRST so it appears as the
+      // cover photo, with the live boards following. It is a fixed hosted PNG (not a
+      // live render), uploaded as bytes exactly like the boards. A flyer that fails to
+      // fetch must never sink the post — the boards still go out — so we only warn.
+      const FLYER_URL = "https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/loadq-rideshare-flyer.png";
+      if (b.flyer === true) {
+        const fi = await fetch(FLYER_URL).catch(() => null);
+        if (fi && fi.ok) {
+          const fblob = await fi.blob();
+          const ffd = new FormData();
+          ffd.append("source", fblob, "loadq-flyer.png");
+          ffd.append("published", "false");
+          ffd.append("access_token", PAGE_TOKEN);
+          const frr = await fetch(`${GRAPH}/${PAGE_ID}/photos`, { method: "POST", body: ffd });
+          const foo = await frr.json().catch(() => ({}));
+          if (frr.ok && foo.id) ids.push(foo.id);
+          else failed.push(`flyer: ${foo?.error?.message ?? frr.status}`);
+        } else {
+          failed.push(`flyer: fetch ${fi?.status ?? "err"}`);
+        }
+      }
+
       for (const b of list) {
         const url = `https://admin.loadq.ca/board/${encodeURIComponent(b.zone_id)}`;
         // Upload the actual PNG BYTES (multipart), not a url= for FB to fetch. Fetching by

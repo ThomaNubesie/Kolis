@@ -1,0 +1,169 @@
+<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<title>Concord Express · LoadQ — Simulation du Fonds d'assistance routière</title><style>
+ @page { size: letter; margin: 13mm 13mm 15mm; }
+ *{box-sizing:border-box;margin:0;padding:0}
+ body{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+   font-size:12px;line-height:1.5;color:#1d1f1e;background:#fff}
+ .lh{display:flex;align-items:stretch;border-bottom:1px solid #e6e9e7}
+ .lh .mark{background:#12452f;color:#fff;padding:14px 20px;text-align:center;min-width:124px;
+   display:flex;flex-direction:column;justify-content:center}
+ .lh .mark b{font-size:27px;letter-spacing:1px;color:#3fd08a;line-height:1}
+ .lh .mark span{font-size:9px;letter-spacing:3px;color:#9fe3c2;margin-top:3px;
+   border-top:2px solid #3fd08a;padding-top:4px}
+ .lh .who{padding:12px 18px;flex:1}
+ .lh .who h1{margin:0;font-size:18px}
+ .lh .who .t1{color:#2eb872;font-size:11px;margin-top:2px}
+ .lh .who .t2{color:#5c635f;font-size:10.5px}
+ .lh .lq{display:flex;flex-direction:column;justify-content:center;padding:0 20px;
+   border-left:1px solid #e6e9e7;text-align:center}
+ .lh .lq b{font-size:21px;font-weight:900;letter-spacing:-.8px;color:#15171C}
+ .lh .lq b i{color:#FF8A1A;font-style:normal}
+ .lh .lq span{font-size:8.5px;letter-spacing:1.4px;color:#5c635f;font-weight:700;margin-top:2px}
+ .body{padding:16px 4px}
+ .kick{text-align:center;font-size:9.5px;letter-spacing:2px;color:#5c635f;font-weight:700}
+ h2.t{text-align:center;font-size:17px;color:#12452f;margin:5px 0 1px}
+ h3.s{text-align:center;font-size:13.5px;color:#2eb872;margin:0 0 4px}
+ .meta{text-align:center;color:#7a817d;font-size:10px;margin-bottom:12px}
+ .rule{height:2px;background:#2eb872;margin-bottom:12px}
+ .hd{background:#12452f;color:#fff;padding:5px 12px;font-weight:700;font-size:11.5px;
+   display:flex;justify-content:space-between;margin-top:11px}
+ .hd .r{color:#7fe0b0}
+ .hd.blue{background:#2f6fb5} .hd.blue .r{color:#bcd9f5}
+ .hd.amber{background:#b9770e} .hd.amber .r{color:#f6d9a4}
+ .hd.red{background:#a4241a} .hd.red .r{color:#f6c9c4}
+ .grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid #e6e9e7;border-top:none}
+ .grid .fr{padding:9px 12px;border-right:1px solid #e6e9e7;border-left:3px solid #2eb872}
+ .grid .en{padding:9px 12px;color:#5c635f}
+ .grid.blue .fr{border-left-color:#2f6fb5}
+ .grid.amber .fr{border-left-color:#b9770e}
+ .grid.red .fr{border-left-color:#a4241a}
+ table.d{width:100%;border-collapse:collapse;border:1px solid #e6e9e7;border-top:none}
+ table.d th{background:#f4f7f5;color:#3f4a44;padding:6px 11px;text-align:left;font-size:9.5px;
+   letter-spacing:.5px;border-bottom:1px solid #e6e9e7}
+ table.d td{padding:7px 11px;border-bottom:1px solid #eef1ef;vertical-align:top;font-size:11px}
+ table.d td span{display:block;color:#7a817d;font-size:10px;font-style:italic}
+ table.d th span{display:block;font-weight:400;letter-spacing:0}
+ .n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+ .big{font-weight:800;color:#12452f}
+ .obs td{background:#f3f8f4}
+ .obs td:first-child{border-left:3px solid #2e7d5b}
+ .note{background:#f8fafb;border-left:3px solid #2f6fb5;padding:9px 12px;font-size:10.5px;
+   margin-top:10px}
+ .flag{background:#fefaf2;border-left:3px solid #f39c12;padding:9px 12px;font-size:10.5px;
+   margin-top:10px}
+ .foot{display:flex;background:#12452f;color:#cfe9dc;font-size:9.5px;margin-top:16px}
+ .foot div{padding:9px 14px} .foot .g{background:#2eb872;flex:0 0 12px}
+</style></head><body>
+
+<div class="lh">
+  <div class="mark"><b>CX</b><span>CONCORD</span></div>
+  <div class="who">
+    <h1>Concord Express Co Inc.</h1>
+    <div class="t1">Transport des personnes · Expédition · Gestion de la file d'attente</div>
+    <div class="t2">Ottawa, Ontario · (613) 862-2639 · shaloderick@concordexpress.ca</div>
+  </div>
+  <div class="lq"><b>Load<i>Q</i></b><span>LOADQ.CA</span></div>
+</div>
+
+<div class="body">
+  <div class="kick">ANNEXE À L'ARTICLE 3 · ANNEX TO ARTICLE 3</div>
+  <h2 class="t">Fonds d'entraide routière</h2>
+  <h3 class="s">Roadside Mutual Aid Fund — simulation sur un an</h3>
+  <div class="meta">50 membres participants · 20 $ par jour d'activité · document de travail pour le Parlement</div>
+  <div class="rule"></div>
+
+  <div class="hd blue"><span>1</span><span class="r">Base de calcul / Basis</span></div>
+  <div class="grid blue">
+    <div class="fr">La simulation ne repose pas sur une estimation. Elle part de
+      l'activité réellement enregistrée : <b>88 jours</b> de chargements
+      (10 juin – 8 septembre 2026), <b>78 chauffeurs</b> actifs.<br><br>
+      Comme la participation est <b>volontaire</b>, on suppose que ce sont les
+      <b>50 chauffeurs les plus actifs</b> qui adhèrent — ce sont eux qui roulent, donc eux
+      qui tombent en panne. Ces 50 ont totalisé <b>725 jours d'activité</b> sur la période,
+      soit <b>3 007 jours par an</b>.</div>
+    <div class="en">This is not an estimate. It starts from activity actually recorded:
+      <b>88 days</b> of loadings (10 June – 8 September 2026), <b>78 active</b> drivers.
+      <br><br>Because taking part is <b>voluntary</b>, it assumes the
+      <b>50 busiest drivers</b> join — they are the ones on the road, so the ones who break
+      down. Those 50 recorded <b>725 days of activity</b> in the window, which annualises to
+      <b>3,007 days a year</b>.</div>
+  </div>
+
+  <div class="hd"><span>2</span><span class="r">Ce que le Fonds encaisse / What the Fund takes in</span></div>
+  <table class="d">
+    <tr><th>Hypothèse d'activité<span style="font-style:normal;color:#7a817d">Activity assumption</span></th>
+        <th class="n">Jours / an<span style="font-style:normal;color:#7a817d">Days / yr</span></th>
+        <th class="n">Par chauffeur<span style="font-style:normal;color:#7a817d">Per driver</span></th>
+        <th class="n">Fonds / an<span style="font-style:normal;color:#7a817d">Fund / yr</span></th></tr>
+    <tr><td>1 jour par semaine<span>1 day a week</span></td>
+        <td class="n">2 600</td><td class="n">1 040 $</td><td class="n">52 000 $</td></tr>
+    <tr class="obs"><td><b>Rythme observé</b> — 60 jours/chauffeur
+        <span>Observed rate — 60 days per driver</span></td>
+        <td class="n"><b>3 007</b></td><td class="n"><b>1 203 $</b></td>
+        <td class="n big">60 140 $</td></tr>
+    <tr><td>2 jours par semaine<span>2 days a week</span></td>
+        <td class="n">5 200</td><td class="n">2 080 $</td><td class="n">104 000 $</td></tr>
+    <tr><td>3 jours par semaine<span>3 days a week</span></td>
+        <td class="n">7 800</td><td class="n">3 120 $</td><td class="n">156 000 $</td></tr>
+  </table>
+
+  <div class="note"><b>Les 100 $ n'entrent pas dans le Fonds.</b> Les 50 billets d'entrée
+    (5 000 $) couvrent la carte de membre et les frais administratifs, conformément à
+    l'Article 3.2. Le Fonds n'est alimenté que par les 20 $ par jour d'activité. /
+    <b>The $100 is not Fund money.</b> The 50 entry tickets ($5,000) cover the member card and
+    administrative costs under Article 3.2. The Fund is financed only by the $20 per day.</div>
+
+  <div class="hd amber"><span>3</span><span class="r">Ce qu'il reste après les dépannages / Balance after payouts</span></div>
+  <table class="d">
+    <tr><th>Scénario de sinistres<span style="font-style:normal;color:#7a817d">Claim scenario</span></th>
+        <th class="n">Interventions<span style="font-style:normal;color:#7a817d">Call-outs</span></th>
+        <th class="n">Sorties<span style="font-style:normal;color:#7a817d">Paid out</span></th>
+        <th class="n">Solde<span style="font-style:normal;color:#7a817d">Balance</span></th></tr>
+    <tr><td>Faible — 1 par chauffeur, 150 $<span>Light — 1 per driver, $150</span></td>
+        <td class="n">50</td><td class="n">7 500 $</td><td class="n">52 640 $</td></tr>
+    <tr><td>Moyen — 2 par chauffeur, 200 $<span>Moderate — 2 per driver, $200</span></td>
+        <td class="n">100</td><td class="n">20 000 $</td><td class="n">40 140 $</td></tr>
+    <tr><td>Lourd — 3 par chauffeur, 300 $<span>Heavy — 3 per driver, $300</span></td>
+        <td class="n">150</td><td class="n">45 000 $</td><td class="n">15 140 $</td></tr>
+  </table>
+  <div class="note">Sur le rythme observé (60 140 $), le Fonds reste excédentaire dans les
+    trois scénarios. Il encaisse environ <b>5 010 $ par mois</b>. /
+    On the observed rate ($60,140) the Fund stays in surplus in all three scenarios. It takes
+    in roughly <b>$5,010 a month</b>.</div>
+
+  <div class="hd red"><span>4</span><span class="r">Le point à trancher / The question for Parliament</span></div>
+  <div class="grid red">
+    <div class="fr">Au rythme observé, un chauffeur participant verse <b>1 203 $ par an</b>.
+      Une adhésion commerciale de dépannage coûte de <b>100 $ à 160 $ par an</b>.
+      Le Fonds encaisserait donc environ <b>huit fois</b> le coût du risque qu'il nomme.
+      <br><br>Deux issues possibles, et c'est au Parlement de choisir :
+      <br>· <b>Le Fonds couvre davantage</b> — réparations, franchise d'accident, perte de
+      revenu quand le véhicule est immobilisé, frais juridiques. Alors 20 $ se défend.
+      <br>· <b>Le montant est trop élevé</b> pour un simple dépannage, et devrait être revu.
+      <br><br>Tant que ce point n'est pas tranché, un chauffeur qui fait le calcul conclura
+      qu'il paie trop cher — et ne participera pas.</div>
+    <div class="en">At the observed rate a participating driver pays <b>$1,203 a year</b>.
+      A commercial roadside membership costs <b>$100–160 a year</b>. The Fund would take in
+      roughly <b>eight times</b> the cost of the risk it names.
+      <br><br>Two ways out, and the choice is Parliament's:
+      <br>· <b>The Fund covers more</b> — repairs, accident deductible, lost income while the
+      vehicle is off the road, legal costs. Then $20 is defensible.
+      <br>· <b>The amount is too high</b> for roadside alone and should be revisited.
+      <br><br>Until that is settled, a driver who does the arithmetic will conclude he is
+      overpaying — and will not take part.</div>
+  </div>
+
+  <div class="flag"><b>Ce que la simulation ne dit pas.</b> Elle suppose que les 50 plus
+    actifs adhèrent. Si ce sont les moins actifs qui adhèrent, le Fonds encaisse beaucoup
+    moins tout en portant le même risque. Les montants de dépannage sont des ordres de
+    grandeur du marché ontarien, non des devis. /
+    <b>What the simulation does not say.</b> It assumes the 50 busiest drivers join. If the
+    least active join instead, the Fund takes in far less while carrying the same risk.
+    Call-out costs are Ontario market orders of magnitude, not quotes.</div>
+
+  <div class="foot"><div class="g"></div>
+    <div>Concord Express Co Inc. · LoadQ</div>
+    <div style="flex:1;text-align:right">Document de travail — Annexe à l'Article 3 ·
+      Working paper — Annex to Article 3</div></div>
+</div>
+</body></html>

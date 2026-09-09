@@ -15,6 +15,8 @@ export type CfField = { id?: string; label: string; type: string; options?: stri
 export type CfGuestCandidate = {
   member_id: string; user_id: string; name: string; contact: string | null;
   color: string | null; title: string | null; from: string; here: boolean;
+  // every department / hall this person sits in, so the picker can filter by one
+  spaces: string[];
 };
 
 export type CfMeeting = {
@@ -25,6 +27,8 @@ export type CfMeeting = {
   live: boolean; called_by: string | null;
   yes: number; no: number; maybe: number; called: number;
   my_rsvp: "yes" | "no" | "maybe" | null; mine: boolean;
+  // true when the meeting has a named guest list instead of the whole space
+  restricted?: boolean;
 };
 export type CfRoom = { ok?: boolean; error?: string; room?: string; title?: string; where?: string; me?: string; starts_at?: string; duration_min?: number };
 export type CfOfficer = { user_id: string; name: string; title: string | null; color: string | null; bookable: boolean };

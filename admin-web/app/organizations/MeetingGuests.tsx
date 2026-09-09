@@ -28,6 +28,8 @@ const T = {
   count:    { en: "will be called", fr: "seront convoqués" },
   youAlways:{ en: "You are always called to a meeting you convene.", fr: "Vous êtes toujours convoqué(e) à une réunion que vous appelez." },
   loading:  { en: "Loading people…", fr: "Chargement…" },
+  filter:   { en: "Anywhere", fr: "Partout" },
+  search:   { en: "Search a name…", fr: "Chercher un nom…" },
 };
 
 const C = { ink: "#14131A", ink2: "#6B6675", faint: "#A8A29A", line: "#E3DCCB", accent: "#2F3AA3", soft: "#F4F1FB" };
@@ -42,17 +44,30 @@ export default function MeetingGuests({
   const [people, setPeople] = useState<CfGuestCandidate[] | null>(null);
   const [mode, setMode] = useState<"all" | "some">("all");
   const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [space, setSpace] = useState<string | null>(null);   // filter by department
+  const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     cf.meetingGuestCandidates(formId).then(setPeople).catch(() => setPeople([]));
   }, [formId]);
 
-  const groups = useMemo(() => {
-    const here = (people ?? []).filter((p) => p.here);
-    const above = (people ?? []).filter((p) => !p.here);
-    return { here, above };
+  // Every department / hall anyone here belongs to, so the filter row is built from the
+  // real structure rather than a hardcoded list.
+  const spaces = useMemo(() => {
+    const s = new Set<string>();
+    (people ?? []).forEach((p) => (p.spaces ?? []).forEach((x) => s.add(x)));
+    return [...s].sort((a, b) => a.localeCompare(b));
   }, [people]);
+
+  const groups = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const keep = (p: CfGuestCandidate) =>
+      (!space || (p.spaces ?? []).includes(space)) &&
+      (!needle || p.name.toLowerCase().includes(needle));
+    const shown = (people ?? []).filter(keep);
+    return { here: shown.filter((p) => p.here), above: shown.filter((p) => !p.here) };
+  }, [people, space, q]);
 
   const toggle = (id: string) =>
     setPicked((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -95,7 +110,11 @@ export default function MeetingGuests({
           {p.name}
           {p.title && <span style={{ fontWeight: 400, color: C.faint }}> · {p.title}</span>}
         </span>
-        {!p.here && <span style={{ fontSize: 10.5, color: C.faint, flex: "none" }}>{p.from}</span>}
+        {(p.spaces ?? []).length > 0 &&
+          <span style={{ fontSize: 10.5, color: C.faint, flex: "none", maxWidth: 150,
+                         overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {(p.spaces ?? []).join(" · ")}
+          </span>}
       </div>
     );
   };
@@ -148,6 +167,21 @@ export default function MeetingGuests({
             <div style={{ color: C.faint, fontSize: 12.5, padding: "18px 8px" }}>{tr(T.loading)}</div>
           ) : (
             <>
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={tr(T.search)}
+                style={{ width: "100%", border: `1.5px solid ${C.line}`, borderRadius: 9,
+                         padding: "8px 10px", fontSize: 12.5, fontFamily: "inherit", marginTop: 8 }} />
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                {[null, ...spaces].map((s) => (
+                  <span key={s ?? "*"} onClick={() => setSpace(s)}
+                    style={{ fontSize: 11, fontWeight: 800, padding: "4px 10px", borderRadius: 20,
+                             cursor: "pointer",
+                             background: space === s ? C.accent : "#fff",
+                             color: space === s ? "#fff" : C.ink2,
+                             border: `1px solid ${space === s ? C.accent : C.line}` }}>
+                    {s ?? tr(T.filter)}
+                  </span>
+                ))}
+              </div>
               {section(tr(T.here), groups.here)}
               {section(tr(T.above), groups.above)}
               <div style={{ fontSize: 11, color: C.faint, margin: "12px 2px 0" }}>{tr(T.youAlways)}</div>

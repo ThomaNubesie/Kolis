@@ -119,6 +119,10 @@ Deno.serve(async (req) => {
     let title = "", where = "", startsAt = "", mins = 30, note: string | null = null, link = "";
     let formId = "", orgId = "";
     let people: Person[] = [];
+    // `called` is everyone on the guest list; `people` is who gets the summons (the
+    // convener is dropped from their own). The convener is kept aside for the receipt.
+    let called: Person[] = [];
+    let convener: Person | null = null;
 
     if (kind === "meeting") {
       const { data: m } = await admin.from("cf_meetings")
@@ -142,6 +146,10 @@ Deno.serve(async (req) => {
       // members are excluded there, so a meeting nobody restricted behaves exactly as before.
       const { data: rows, error: rerr } = await admin.rpc("cf_meeting_recipients", { p_meeting: m.id });
       if (rerr) return json({ ok: false, error: `recipients: ${rerr.message}` }, 500);
+      // The convener is not summoned to their own meeting — but they are told it went out
+      // (see the receipt below). On a cancellation everyone is told, convener included.
+      called = rows ?? [];
+      convener = (rows ?? []).find((p: any) => p.user_id === m.created_by) ?? null;
       people = cancelled ? (rows ?? []) : (rows ?? []).filter((p: any) => p.user_id !== m.created_by);
     } else {
       const { data: b } = await admin.from("cf_bookings")
@@ -190,9 +198,34 @@ Deno.serve(async (req) => {
       }
       await sleep(120);
     }
+    // A receipt for whoever called the meeting. Without it the convener gets silence and
+    // cannot tell "everyone was told" from "nothing was sent" — which is exactly how a
+    // failed send goes unnoticed until the room is empty.
+    let receipt = false;
+    if (kind === "meeting" && !cancelled && !reminder && convener) {
+      const names = people
+        .map((p: any) => String(p.name || p.email || p.phone || "").trim())
+        .filter(Boolean);
+      const who = names.length === 0 ? "—"
+        : names.slice(0, 3).join(", ") + (names.length > 3 ? ` +${names.length - 3}` : "");
+      const rsms = `${where}\n\n✅ Convoquée / Called\n${title}\n${w.fr}\n\n`
+        + `${people.length} convoqué(s) / called: ${who}\n`
+        + `${texted} SMS · ${emailed} courriel(s)/email(s)\n\n${link}`;
+      const cph = String(convener.phone || "").replace(/[^\d+]/g, "");
+      if (cph.length >= 10) { const r = await sendSms(cph, rsms); receipt = r.ok; }
+      const cem = String(convener.email || "").trim().toLowerCase();
+      if (isEmail(cem)) {
+        const r = await sendEmail(cem, `✅ ${where} — ${title}`,
+          emailHtml({ kind, title, where, whenEn: w.en, whenFr: w.fr, mins, link,
+                      note: `${people.length} called: ${who}`, reminder: false, cancelled: false }),
+          ics);
+        receipt = receipt || r.ok;
+      }
+    }
+
     // Bill only what was actually sent: a message Twilio refused is not usage.
     if (texted > 0) await admin.rpc("cf_usage_add", { p_form: kind === "meeting" ? formId : orgId, p_n: texted });
-    return json({ ok: true, kind, recipients: people.length, emailed, texted, failed });
+    return json({ ok: true, kind, recipients: people.length, emailed, texted, receipt, failed });
   } catch (e) {
     return json({ ok: false, error: String((e as Error)?.message ?? e) }, 500);
   }

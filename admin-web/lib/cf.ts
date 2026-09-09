@@ -83,7 +83,7 @@ export function planLimitMsg(x: any, lang: "en" | "fr"): string | null {
   const [en, fr] = names[feature] || names.feature;
   return (lang === "fr" ? fr : en) + (lang === "fr" ? " Voir les forfaits sur /pricing." : " See plans at /pricing.");
 }
-export type CfDept = { id: string; name: string; description: string; group_name: string; kind: string; emoji?: string | null; features: Record<string, boolean>; election_status: string | null; is_admin: boolean; members: number; entries: number; im_member: boolean };
+export type CfDept = { id: string; name: string; description: string; group_name: string; kind: string; emoji?: string | null; prominent?: boolean; features: Record<string, boolean>; election_status: string | null; is_admin: boolean; members: number; entries: number; im_member: boolean };
 export type CfOrgTree = CfOrg & { description: string; departments: CfDept[]; error?: string; home_template?: string | null; home_content?: any };
 export type CfOrgMember = { member_id: string; id: string | null; name: string; contact: string | null; color: string | null; role: string; title: string | null; status: string; suspended?: boolean; joined_at: string | null; departments: number };
 

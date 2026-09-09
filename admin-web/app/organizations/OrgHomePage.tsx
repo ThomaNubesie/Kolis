@@ -152,15 +152,19 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
       {(tree.departments?.length ?? 0) > 0 && <>
         <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: .4, textTransform: "uppercase", color: C.faint, margin: "0 0 6px" }}>{tr(L("Departments & forms", "Départements & formulaires"))}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {tree.departments.map((d) => (
-            <div key={d.id} onClick={() => d.im_member || d.kind === "election" ? onOpen(d.id) : null} style={{ display: "flex", alignItems: "center", gap: 11, background: "#fff", border: `1px solid ${C.line}`, borderRadius: 11, padding: "10px 12px", cursor: "pointer", opacity: d.im_member || d.kind === "election" ? 1 : .6 }}>
+          {tree.departments.map((d) => {
+            // A prominent office is drawn larger — the standing of a council of elders or a
+            // presidency should be visible in the list, not inferred from its position.
+            const big = !!d.prominent;
+            return (
+            <div key={d.id} onClick={() => d.im_member || d.kind === "election" ? onOpen(d.id) : null} style={{ display: "flex", alignItems: "center", gap: big ? 13 : 11, background: "#fff", border: `1px solid ${big ? C.accent : C.line}`, borderRadius: big ? 13 : 11, padding: big ? "14px 14px" : "10px 12px", cursor: "pointer", opacity: d.im_member || d.kind === "election" ? 1 : .6 }}>
               <span
                 onClick={tree.is_admin ? (ev) => { ev.stopPropagation(); setEmojiFor(d); } : undefined}
                 title={tree.is_admin ? tr(L("Change this department's emoji", "Changer l'emoji de ce département")) : undefined}
-                style={{ width: 30, height: 30, borderRadius: 8, background: "#EEEBFA", color: C.accent, display: "flex", alignItems: "center", justifyContent: "center", flex: "none", fontSize: d.emoji ? 16 : undefined, cursor: tree.is_admin ? "pointer" : "inherit" }}>
-                <DeptMark value={d.emoji} size={15} fallback={<FileText size={15} />} />
+                style={{ width: big ? 40 : 30, height: big ? 40 : 30, borderRadius: big ? 11 : 8, background: "#EEEBFA", color: C.accent, display: "flex", alignItems: "center", justifyContent: "center", flex: "none", fontSize: d.emoji ? (big ? 21 : 16) : undefined, cursor: tree.is_admin ? "pointer" : "inherit" }}>
+                <DeptMark value={d.emoji} size={big ? 21 : 15} fallback={<FileText size={big ? 21 : 15} />} />
               </span>
-              <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: 700, fontSize: 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{dlabel(d)}</div><div style={{ fontSize: 11, color: C.faint }}>{d.members} {tr(L("members", "membres"))} · {d.entries} {tr(L("entries", "entrées"))}</div></div>
+              <div style={{ flex: 1, minWidth: 0 }}><div style={{ fontWeight: big ? 800 : 700, fontSize: big ? 16 : 13.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{dlabel(d)}</div><div style={{ fontSize: 11, color: C.faint }}>{d.members} {tr(L("members", "membres"))} · {d.entries} {tr(L("entries", "entrées"))}</div></div>
               {tree.is_admin && (
                 <span onClick={(ev) => { ev.stopPropagation(); renameDept(d); }}
                   title={tr(L("Rename this department", "Renommer ce département"))}
@@ -170,7 +174,8 @@ export default function OrgHomePage({ tree, tr, lang, mobile, onOpen, setTab, on
               )}
               <ChevronRight size={16} style={{ color: C.faint }} />
             </div>
-          ))}
+            );
+          })}
         </div>
       </>}
     </div>

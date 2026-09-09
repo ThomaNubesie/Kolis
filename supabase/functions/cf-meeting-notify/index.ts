@@ -136,10 +136,12 @@ Deno.serve(async (req) => {
       title = m.title; where = f?.name || "Quorly"; startsAt = m.starts_at; mins = m.duration_min;
       note = m.description; link = `${SITE}/m/${m.id}`;
 
-      // The roster IS the guest list — and a suspended member is not called.
-      const { data: rows } = await admin.from("cf_members")
-        .select("user_id, name, email, phone")
-        .eq("form_id", m.form_id).eq("status", "active").eq("suspended", false);
+      // Who was actually called. cf_meeting_recipients returns the named guest list when the
+      // meeting has one — guests may sit in the org or Parliament, not only in this
+      // department — and falls back to the form's own roster when it does not. Suspended
+      // members are excluded there, so a meeting nobody restricted behaves exactly as before.
+      const { data: rows, error: rerr } = await admin.rpc("cf_meeting_recipients", { p_meeting: m.id });
+      if (rerr) return json({ ok: false, error: `recipients: ${rerr.message}` }, 500);
       people = cancelled ? (rows ?? []) : (rows ?? []).filter((p: any) => p.user_id !== m.created_by);
     } else {
       const { data: b } = await admin.from("cf_bookings")

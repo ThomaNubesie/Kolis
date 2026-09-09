@@ -1,12 +1,14 @@
 "use client";
 // Meetings, inside the department that calls them.
 //
-// A meeting called in Parliament invites Parliament — the same roster that staffs its
-// offices — so there is no separate guest list to keep in step. Only an admin may call
-// one; any member may say whether they are coming.
+// Calling a meeting asks who is called to it (MeetingGuests). The default is still the
+// whole space, but a department can now name four people out of Parliament instead of
+// summoning the entire organisation. Only an admin may call one; any member may say
+// whether they are coming.
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cf, type CfMeeting } from "@/lib/cf";
+import MeetingGuests from "./MeetingGuests";
 
 const L = (en: string, fr: string) => ({ en, fr });
 const C = { ink: "#14131A", ink2: "#6B6675", faint: "#A8A29A", line: "#E3DCCB", accent: "#2F3AA3", soft: "#F4F1FB" };
@@ -30,6 +32,7 @@ export default function MeetingsPanel({ form, tr, lang }: { form: any; tr: (o: a
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState(false);
   const [f, setF] = useState({ title: "", at: localNowPlus(24), dur: 60, desc: "" });
+  const [guestFor, setGuestFor] = useState<{ id: string; title: string } | null>(null);
 
   const reload = useCallback(() => {
     cf.meetings(form.id).then(setRows).catch(() => setRows([]));
@@ -45,13 +48,12 @@ export default function MeetingsPanel({ form, tr, lang }: { form: any; tr: (o: a
     setBusy(true);
     try {
       const r = await cf.meetingCreate(form.id, f.title.trim(), new Date(f.at).toISOString(), Number(f.dur), f.desc.trim() || undefined);
-      // Telling people is separate from calling the meeting: a provider outage must not
-      // undo the meeting, so a failure here is reported, not thrown.
-      const n = await cf.meetingNotify("meeting", r.meeting_id);
-      setAdding(false); setF({ title: "", at: localNowPlus(24), dur: 60, desc: "" });
+      // The meeting exists now; who is called is asked next. Nobody is notified until that
+      // dialog is answered, so the guest list is settled before anyone's phone rings.
+      setAdding(false);
+      setGuestFor({ id: r.meeting_id, title: f.title.trim() });
+      setF({ title: "", at: localNowPlus(24), dur: 60, desc: "" });
       reload();
-      if (!n?.ok) alert(tr(L("The meeting is called, but we couldn't reach everyone — tell them directly.",
-                             "La réunion est convoquée, mais nous n'avons pas pu joindre tout le monde — prévenez-les directement.")));
     } catch (e: any) { alert(e?.message || "Failed"); }
     setBusy(false);
   };
@@ -168,6 +170,21 @@ export default function MeetingsPanel({ form, tr, lang }: { form: any; tr: (o: a
           </div>
           {showPast && past.map((m) => card(m, true))}
         </div>
+      )}
+
+      {guestFor && (
+        <MeetingGuests
+          meetingId={guestFor.id} formId={form.id} title={guestFor.title}
+          lang={lang === "fr" ? "fr" : "en"}
+          onDone={(notified) => {
+            setGuestFor(null);
+            reload();
+            // The meeting stands either way — a provider outage must not undo it — so a
+            // failure to reach people is reported rather than thrown.
+            if (!notified) alert(tr(L("The meeting is called, but we couldn't reach everyone — tell them directly.",
+                                      "La réunion est convoquée, mais nous n'avons pas pu joindre tout le monde — prévenez-les directement.")));
+          }}
+        />
       )}
     </div>
   );

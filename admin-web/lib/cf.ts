@@ -10,6 +10,13 @@ const rpc = async (fn: string, args?: any) => {
 // `label` is the canonical key answers are stored under; `label_i18n` / `options_i18n` are
 // display-only translations seeded by a built-in template (null on admin-typed fields).
 export type CfField = { id?: string; label: string; type: string; options?: string[]; required?: boolean; label_i18n?: { en: string; fr: string } | null; options_i18n?: Record<string, { en: string; fr: string }> | null };
+// `here` is true when the person already sits in the space the meeting is held in, false
+// when they are being pulled in from the org above it.
+export type CfGuestCandidate = {
+  member_id: string; user_id: string; name: string; contact: string | null;
+  color: string | null; title: string | null; from: string; here: boolean;
+};
+
 export type CfMeeting = {
   id: string; title: string; description: string | null;
   starts_at: string; ends_at: string; duration_min: number;
@@ -234,6 +241,13 @@ export const cf = {
     if (res && res.ok === false) throw new Error(res.error || "Failed");
     return res as { ok: boolean; meeting_id: string };
   },
+  // Everyone who COULD be called to a meeting held here: this space's members plus every
+  // space above it, so a department can call four names out of Parliament.
+  meetingGuestCandidates: (form: string): Promise<CfGuestCandidate[]> =>
+    rpc("cf_meeting_guest_candidates", { p_form: form }),
+  // An empty list means everyone — the same convention cf_file_audience uses.
+  meetingSetGuests: (id: string, memberIds: string[]) =>
+    rpc("cf_meeting_set_guests", { p_meeting: id, p_members: memberIds }),
   meetingRsvp: (id: string, response: "yes" | "no" | "maybe") => rpc("cf_meeting_rsvp", { p_meeting: id, p_response: response }),
   meetingCancel: (id: string) => rpc("cf_meeting_cancel", { p_meeting: id }),
   meetingRoom: (id: string): Promise<CfRoom> => rpc("cf_meeting_room", { p_meeting: id }),

@@ -1,6 +1,87 @@
 # Kolis / Concord Express — session handoff
 
-_Last updated: 2026-08-08. Snapshot so work can continue on any machine (`git pull`, start a fresh Claude session, say "continue the Kolis work")._
+_Last updated: 2026-09-11. Snapshot so work can continue on any machine (`git pull`, start a fresh Claude session, say "continue the Kolis work")._
+
+## Latest session — 2026-09-11 (LoadQ driver ride-navigation screen)
+
+**Why.** A `route_pickup` passenger ride (LQ-46B0D, 2026-09-05: Chris T, Pierrefonds → Ottawa,
+$44.50 paid via Interac, auto-assigned to Dolly Kilimba) **stalled right after the driver accepted.**
+Root cause: a driver could accept an offer (`loadq_ride_offer_respond`) but there was **no screen and
+no data to navigate to the passenger** — the offers RPC returns only a text label (no pickup
+coordinates, no passenger phone), there was no "on my way" step, and location was captured **once** at
+accept and never again (no live tracking, no ETA). The trip never advanced past `assigned`. This
+session builds that missing screen + the two backend RPCs it needed.
+
+### What was built
+
+**1. Two new DB RPCs — ALREADY APPLIED to prod (`kzjptcpjpwlxfofzhyku`) on 2026-09-11, and committed
+as a migration.** File: `supabase/migrations/20260911160000_loadq_ride_active_nav.sql`.
+- `loadq_ride_active()` → the driver's current active ride (status `assigned`/`en_route`/`picked_up`),
+  full detail incl. **pickup lat/lng, passenger name + phone, destination, fare, departure zone**;
+  gated to `driver_id = auth.uid()`. Returns `{active:false}` when none. *This is the piece that was
+  missing.*
+- `loadq_ride_start(p_request_id)` → `assigned` → `en_route` ("I'm on my way"), stamps `started_at`.
+- Both `security definer`, granted to `authenticated, anon, service_role` (same as the other ride RPCs).
+- The migration is **idempotent** (`create or replace`) — safe to re-run if `supabase db push` replays it.
+
+**2. Driver navigation screen (web).** File: `admin-web/app/ride/page.tsx` → route **`/ride`** →
+after deploy: **https://admin.loadq.ca/ride**. Single self-contained client component, no new deps.
+- ⚠ **This is a LoadQ page — it must live on LoadQ's domain, NOT Kolis.** LoadQ and Kolis are separate
+  businesses (linked only because Kolis parcels ride along LoadQ). The `admin-web` codebase builds
+  **three** independent Netlify sites — `business.kolis.ca` (Kolis), `quorly.ca` (Quorly), and
+  **`admin.loadq.ca` (LoadQ ops: /sheet, /board, /sheet/incident)**. `/ride` ships on **admin.loadq.ca**.
+  (Do NOT publish it to business.kolis.ca.)
+- Built as a **web page** (not a native app screen) on purpose: matches how offers already reach
+  drivers (SMS link + browser geolocation), deploys with no App/Play Store release, works on any phone.
+- Runs on the driver's own Supabase auth session (same `@/lib/supabase` as the LoadQ sheet). If there's
+  no session it shows a sign-in prompt (`/login`).
+- Full flow on one screen: **see offer → Accept/Decline** (`loadq_ride_driver_offers` +
+  `loadq_ride_offer_respond`) → **navigate to pickup** (`loadq_ride_active` feeds coords + passenger
+  phone; opens Google/Apple Maps) → **I'm on my way** (`loadq_ride_start`) → **live location ping every
+  15 s** (`loadq_ride_driver_ping`, auto-flips to picked-up within 50 m) → **passenger on board**
+  (`loadq_ride_mark_picked_up`) → **navigate to destination** → **Complete** (`loadq_ride_complete`).
+- One-tap **call passenger** (`tel:`), live distance readout, 4-step progress bar.
+- **3 themes** (light / medium / dark) + **FR/EN**, both remembered per device
+  (`localStorage: loadq_ride_theme`, `loadq_ride_lang`; FR + dark default). Matches the approved mockups:
+  `~/Downloads/LoadQ-Driver-Ride-Mockup.png` (dark) and `LoadQ-Driver-Ride-Mockup-Themes.png` (light+medium).
+- Typechecks clean (`cd admin-web && npx tsc --noEmit`).
+
+### Deploy on the iMac — to admin.loadq.ca (site `loadq-admin`, id `74c65dc0-8ee8-4884-a688-eb42d5eb3ea5`)
+⚠ **Deploy from THIS iMac only, and NOT with `./deploy-prod.sh`** (that publishes business.kolis.ca = Kolis).
+⚠ **The `/board` route lives only in the iMac's local unpushed code** — deploying admin-web to `loadq-admin`
+from a machine without `/board` wipes it and 404s the whole site (has happened once). The iMac has it, so
+deploy there. See `DEPLOY-NOTES-loadq-admin.md`.
+1. `git pull` (brings in `app/ride/page.tsx` + the migration) — keep your local `admin-web/app/board`.
+2. RPCs are **already live in prod** (applied via Management API this session). Nothing to run for the DB.
+   If you prefer, `supabase db push` replays the migration harmlessly (idempotent).
+3. Build + deploy admin.loadq.ca the way you already do — e.g.
+   `netlify deploy --build --prod --site 74c65dc0-8ee8-4884-a688-eb42d5eb3ea5`
+4. Verify (both must still work):
+   - `curl -sI https://admin.loadq.ca/board/ottawa-universal-grocery` → 200 image/png (proves /board survived)
+   - open **https://admin.loadq.ca/ride** on a phone while signed in as a driver.
+- Optional nicety: add a redirect on the static **loadq.ca** site so `loadq.ca/ride` → `admin.loadq.ca/ride`
+  (cleaner to text drivers). loadq.ca is the separate static marketing site (`comfy-melomakarona-e176a0`).
+
+### To test end-to-end without waiting for a real rider
+- Sign in as a driver who has a pending offer, or seed one: insert a `loadq_ride_requests` row
+  (kind `route_pickup`, `departure_zone_id='montreal-burger-king'`, pickup lat/lng set) then
+  `loadq_ride_offer_next(<request_id>)` to offer it to the front driver; open `/ride` as that driver.
+- Watch `loadq_ride_requests`: `driver_loc_at` should now update **continuously** (every ~15 s), and
+  `status` should walk assigned → en_route → picked_up → completed as the buttons are tapped. (Contrast
+  with LQ-46B0D, where `driver_loc_at` was written once and never again.)
+
+### Follow-ups (not done — need a decision or info I couldn't see locally)
+- **Wire the SMS offer to this page.** The offer SMS is sent by the deployed edge fn
+  `loadq-ride-cascade` (source is NOT in this checkout — pull it with
+  `supabase functions download loadq-ride-cascade` on the iMac). Add the driver link
+  `https://admin.loadq.ca/ride` (or `https://loadq.ca/ride` if the redirect above is added) to that SMS
+  body so drivers land here on accept. Until then drivers reach the screen by bookmark/manual open.
+- **Real map tile (optional).** The map strip is a styled placeholder with a live-distance overlay
+  (honest, not a fake route). To show a real map, drop a Google Static Maps `<img>` in `RidePage`'s
+  `.map` block using `NEXT_PUBLIC_GMAPS_KEY` + the pickup/driver coords (markers + path). Left as a stub
+  to avoid a hard maps-key dependency on first deploy.
+- **`en_route` has no other setter** — only this screen sets it. Fine today; note it if another client
+  needs it.
 
 ## Latest session — 2026-08-08 (no-percentage scrub + instant click→AI follow-up)
 

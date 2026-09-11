@@ -38,7 +38,15 @@ Deno.serve(async (req) => {
   const link = data.click?.link || null;
   const admin = createClient(SUPABASE_URL, SERVICE);
 
-  await admin.from("quorly_outreach_events").insert({ email, type, meta: { email_id: data.email_id ?? null, link } });
+  // This webhook is account-wide: Resend sends every event for every email the account
+  // sends, not just the campaign. Tag each row so campaign stats can be read without
+  // counting meeting invites and member notices as outreach opens.
+  const { data: isProspect } = await admin.from("quorly_outreach")
+    .select("email").ilike("email", email).maybeSingle();
+  await admin.from("quorly_outreach_events").insert({
+    email, type, scope: isProspect ? "outreach" : "other",
+    meta: { email_id: data.email_id ?? null, link },
+  });
 
   if (email) {
     const patch: Record<string, unknown> = {};

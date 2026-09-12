@@ -185,15 +185,41 @@ Written down because none of it is recoverable from the files.
 - Still outstanding from earlier: **roll the exposed `sk_live_` Stripe key** and **revoke the
   exposed Facebook user token**.
 
-## 5. Chris Therrier — closed pending confirmation
+## 5. Chris Therrier — one deposit, two ride requests
 
-The $44.50 Interac refund **was sent on 8 Sept 2026**. `loadq_ride_requests`
-`98b2b3f1-1bc2-47b4-9ab0-c21e590fc29a` (Pierrefonds QC → Ottawa, fare $44.49, `refund_cents`
-4450) now records it in `notes` — there is **no `refunded_at` column**, so the notes field is
-the only place that distinguishes "refund owed" from "refund sent". Worth adding a real column
-if refunds become common.
+The $44.50 Interac refund **was sent on 8 Sept 2026**. A follow-up by MMS, SMS and email went
+out on **11 Sept** asking him to confirm receipt; his answer is still outstanding.
 
-A **follow-up on 11 Sept** by MMS, SMS and email is to ask whether he received it
-(613-710-1009 · mrchrisfinances@gmail.com). It is scheduled as a session-only reminder on the
-iMac, so **it will not survive that session ending** — if nothing has gone out by 11 Sept,
-send it from here.
+**There were two ride requests, not one** — this matters because it looks like two fares:
+
+| | created | driver | status now |
+|---|---|---|---|
+| `6ba3b26e` (6BA3B) | 5 Sep 18:33 | Dolly Kilimba | **cancelled 11 Sept** (was stuck `assigned` for 6 days) |
+| `98b2b3f1` | 5 Sep 19:31 | none | cancelled 8 Sept, **refunded $44.50** |
+
+`loadq_interac_inbound` holds exactly **one** deposit — $44.50, 5 Sept 19:40, no reference,
+manually matched to `98b2b3f1`. So **only one refund is owed and it has been paid.**
+`6ba3b26e` was marked `paid` with nothing behind it; its `payment_status` is now corrected to
+`unpaid` and the reason recorded on the row, so nobody refunds him a second time.
+
+**HANDOFF.md on `loadq-incident-register` (commit 813642f) attributes the $44.50 to LQ-46B0D
+(= `6ba3b26e`).** That is the wrong record — the money matched `98b2b3f1`. The bug that session
+diagnosed is real (a driver could accept with no screen to navigate to the passenger); only the
+ride it is pinned to is wrong.
+
+**Why it mattered before deploying `/ride`:** `loadq_ride_active()` returns rides in
+`assigned`/`en_route`/`picked_up`, so Dolly would have opened the new screen to a six-day-old
+phantom pickup in Pierrefonds with a live "call passenger" button. Cancelling `6ba3b26e` cleared
+it — verified 0 open rides for her.
+
+There is **no `refunded_at` column** on `loadq_ride_requests`; `notes` is still the only thing
+distinguishing "refund owed" from "refund sent". Worth a real column.
+
+## 6. Open
+
+- **Deploy `/ride` to admin.loadq.ca from this iMac** — see HANDOFF.md on
+  `loadq-incident-register`. The `/board` route must survive the deploy; verify with
+  `curl -sI https://admin.loadq.ca/board/ottawa-universal-grocery` → 200 image/png.
+- **Roll the exposed `sk_live_` Stripe key** and **revoke the exposed Facebook user token**.
+- **Quorly outreach is unmeasured**: `quorly.ca` has no open tracking and no `link.quorly.ca`
+  CNAME, and replies land in a privateemail.com mailbox nothing reads. See the Quorly notes.

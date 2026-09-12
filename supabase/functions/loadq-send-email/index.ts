@@ -8,9 +8,12 @@ Deno.serve(async (req)=>{
   if(req.method==="OPTIONS") return new Response("ok",{headers:cors});
   try{
     if(!RESEND) return json({error:"resend_not_configured"},500);
-    const {to,subject,html,text}=await req.json();
+    // `from` is optional and defaults to the Kolis identity. LoadQ and Kolis are separate
+    // businesses sharing one verified sending domain — the visible sender must match the
+    // product the message is about, so a caller may override it.
+    const {to,subject,html,text,from}=await req.json();
     if(!to||!subject||(!html&&!text)) return json({error:"missing_fields"},400);
-    const r=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:`Bearer ${RESEND}`,"Content-Type":"application/json"},body:JSON.stringify({from:FROM,to,subject,html,text})});
+    const r=await fetch("https://api.resend.com/emails",{method:"POST",headers:{Authorization:`Bearer ${RESEND}`,"Content-Type":"application/json"},body:JSON.stringify({from:from||FROM,to,subject,html,text})});
     const t=await r.text();
     return json({ok:r.ok,status:r.status,resp:t.slice(0,300)});
   }catch(e){return json({error:String((e as Error)?.message??e)},500);}

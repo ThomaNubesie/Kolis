@@ -224,7 +224,7 @@ distinguishing "refund owed" from "refund sent". Worth a real column.
 - **Quorly outreach is unmeasured**: `quorly.ca` has no open tracking and no `link.quorly.ca`
   CNAME, and replies land in a privateemail.com mailbox nothing reads. See the Quorly notes.
 
-## 7. `/ride` — brand mark must be permanent (apply on merge)
+## 7. `/ride` — brand mark (apply on merge)
 
 The driver screen on `loadq-incident-register` wires the wordmark to the **interface**
 palette — `--logoink` and `--orange` — so it re-tints per theme:
@@ -236,23 +236,24 @@ palette — `--logoink` and `--orange` — so it re-tints per theme:
 | dark | `#F3F7FF` | `#FF8A2B` |
 | **letterhead / flyers / loadq.ca** | **`#15171C`** | **`#FF8A1A`** |
 
-Those variables are tuned for UI contrast, which is right for buttons and wrong for a logo:
-the mark is the same object everywhere it appears. User directive 2026-09-11: *"it should be
-permanent on each screen."*
+Those variables are tuned for UI contrast, which is right for a button and wrong for a logo.
+**The Q must be `#FF8A1A` in every theme** — it was shifting, and that is what stopped the
+mark reading as the letterhead one. "Load" follows contrast only: black on a light screen,
+white on a dark one. **No plate, no box** (user tried and rejected a white plate,
+2026-09-11).
 
-Apply to `admin-web/app/ride/page.tsx` (the `CSS` template literal) when the branch merges —
-black cannot sit on a dark band, so the mark rides a white plate rather than changing colour:
+Apply to `admin-web/app/ride/page.tsx` (the `CSS` template literal) when the branch merges:
 
 ```css
 .bar{position:sticky;top:0;z-index:20;backdrop-filter:saturate(140%) blur(6px)}
 .logo{color:#15171C}
 .logo span{color:#FF8A1A}
-.t-medium .logo,.t-dark .logo{
-  color:#15171C;background:#FFFFFF;padding:4px 11px 5px;border-radius:10px}
+.t-medium .logo,.t-dark .logo{color:#FFFFFF}
 .t-medium .logo span,.t-dark .logo span{color:#FF8A1A}
 ```
 
-Sticky bar so the mark stays put while the driver scrolls an address.
+Sticky bar so the mark stays on screen while the driver scrolls an address — separable from
+the colour fix if it is not wanted.
 
 Rendered proof of all 4 steps × 3 themes: `~/Downloads/loadq-ride-screens.html` — built from
 the real markup and CSS, not a redraw. Also noted there: the passenger avatar is hardcoded

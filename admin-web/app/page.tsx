@@ -2,12 +2,16 @@ import { headers } from "next/headers";
 import type { Metadata } from "next";
 import BoardsHome from "@/components/BoardsHome";
 import KolisHome from "@/components/KolisHome";
+import LoadqOpsHome from "@/components/LoadqOpsHome";
 
 // Server component: the root picks its surface by Host header so the page ships
 // as fully-rendered HTML (SEO + clean link previews), no client-side flash.
 //  · Quorly host  → the public Quorly-for-boards marketing homepage (app @ /forms)
 //  · everything else (business.kolis.ca) → the Kolis · Business landing/router
 const isQuorly = (host: string) => /quorly/i.test(host);
+// admin.loadq.ca fell through to KolisHome — the LoadQ ops site opened on a Kolis
+// marketing page. They are separate businesses sharing one codebase.
+const isLoadqOps = (host: string) => /(^|\.)admin\.loadq\.ca$/i.test(host.split(":")[0]);
 
 export function generateMetadata(): Metadata {
   const host = headers().get("host") || "";
@@ -36,5 +40,6 @@ export default function Home({ searchParams }: { searchParams?: { site?: string 
   // on the Host header, so this can never change what a real visitor sees.
   const devOverride = process.env.NODE_ENV === "development" && searchParams?.site === "quorly";
   if (devOverride || isQuorly(host)) return <BoardsHome />;
+  if (isLoadqOps(host)) return <LoadqOpsHome />;
   return <KolisHome />;
 }

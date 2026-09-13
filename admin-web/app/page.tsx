@@ -28,6 +28,17 @@ export function generateMetadata(): Metadata {
       alternates: { canonical: "https://quorly.ca" },
     };
   }
+  if (isLoadqOps(host)) {
+    // Without this the tab reads "Kolis for Business" on a LoadQ page — the default
+    // metadata comes from the root layout, and only Quorly was overriding it.
+    return {
+      metadataBase: new URL("https://admin.loadq.ca"),
+      title: "LoadQ — Operations",
+      description: "Loading sheet, operating switches and the live board for Concord Express Co Inc.",
+      robots: { index: false, follow: false },   // an ops console has no business in search
+      alternates: { canonical: "https://admin.loadq.ca" },
+    };
+  }
   return {};
 }
 

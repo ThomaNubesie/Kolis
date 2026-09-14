@@ -42,21 +42,41 @@ just records a typed reference, no PaymentIntent, no webhook — so `loadq_payou
 only cross-check Interac seats. And nothing runs the verification on a schedule; it is a gate,
 not a patrol, so an untouched payout stays unverified forever with nobody told.
 
+**Stripe is wired to seats** (added after the first commit of this work). There is no card
+reader at the pickup point, so the card button on a seat creates a **Stripe Checkout link** for
+that seat's exact fare; the passenger pays on their own phone and the seat marks *itself* paid
+when `loadq-seat-stripe-webhook` receives the confirmation. Every confirmed charge is filed in
+`loadq_card_inbound`, so `loadq_payout_verify` now asks of a card seat the same question it
+already asked of an Interac one. Marking a card seat paid **by hand** therefore fails
+verification with `card_not_backed` and blocks the driver's payout — deliberate, and the
+button warns first.
+
+**Two Stripe dashboard actions are still owed (they cannot be done from here):**
+1. Create the webhook endpoint pointing at `loadq-seat-stripe-webhook`, events
+   `checkout.session.completed` + `payment_intent.succeeded`, and set its signing secret as
+   **`STRIPE_WEBHOOK_SECRET_SEATS`** in Supabase. Stripe issues one secret per endpoint, so
+   the Kolis secret cannot be reused. **Until it exists the webhook refuses every call** —
+   links generate, passengers can pay, and no seat flips.
+2. **Roll the leaked `sk_live_` key.** Both new functions read `STRIPE_TEST_SECRET_KEY` first
+   and fall back to `STRIPE_SECRET_KEY`, so they can run on test keys meanwhile.
+
+**`/sheet` IS live on admin.loadq.ca** as of 2026-09-14 (deploy `6aa82e20`, framework=next,
+8.08 MB function, all routes 200).
+
 **Deploy warning:** `/sheet` lives on **admin.loadq.ca (site `loadq-admin`)**, which
-`./deploy-prod.sh` does **not** deploy. See `DEPLOY-NOTES-loadq-admin.md` — that mistake cost
-six deploys on 2026-09-14.
+`./deploy-prod.sh` does **not** deploy — it ships kolis-business. Six deploys went to the wrong
+domain on 2026-09-14 before that was noticed.
 
-**Deploys to admin.loadq.ca are currently BLOCKED** and the attempt took the site down for
-~3 minutes (zero-function deploy → every route 404, restored by hand). The Next plugin's
-`onBuild` fails with `403 fetching extensions for site 74c65dc0…`; auth identity, team
-ownership, Node version and the publish path have all been ruled out. Full diagnosis, the
-restore command, and the "draft first, never straight to --prod" rule are in
-`DEPLOY-NOTES-loadq-admin.md`. **Try the MacBook** — its CLI/token may not hit the 403.
+**Pin `netlify-cli` to 26.2.0.** Every 27.x fails the Next plugin's `onBuild` with `403
+fetching extensions` and ships a deploy with ZERO functions that reports `ready` and then 404s
+every route. That took admin.loadq.ca down for ~3 minutes before it was understood. **Always
+deploy a draft first** (drop `--prod`), check the function size is ~8 MB, then promote. Full
+commands in `DEPLOY-NOTES-loadq-admin.md`.
 
-Uncommitted iMac state beyond the feature code: `admin-web/package.json` gained
-`@netlify/plugin-nextjs` as a devDependency and `admin-web/.netlify/state.json` now points at
-`loadq-admin`, both from this debugging. `deploy-prod.sh` and the root `netlify.toml` also
-carry edits aimed at kolis-business that were never proven — review before keeping them.
+Also on the iMac from this work: `admin-web/package.json` gained `@netlify/plugin-nextjs` as a
+devDependency. `deploy-prod.sh` and the root `netlify.toml` carry changes aimed at
+kolis-business that are **still unproven on that site** — it has been serving its 2026-09-01
+build throughout.
 
 ## Earlier session — 2026-09-11 (LoadQ driver ride-navigation screen)
 

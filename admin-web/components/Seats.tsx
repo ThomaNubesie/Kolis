@@ -25,6 +25,10 @@ type Pal = { ink: string; ink2: string; faint: string; line: string; rule: strin
 
 export const money = (c: number) => (c / 100).toFixed(2).replace(".", ",") + " $";
 
+// Has the webhook flipped this seat yet? Asked on every refresh while a link is open.
+const seatsPaid = (car: CarSeats | null, seatId: string) =>
+  !!car?.seats.find((s) => s.id === seatId && s.status === "paid");
+
 // ── the strip that sits under a driver's name on the sheet ────────────────────────────────
 // One dot per seat the car actually has. Filled-and-paid is solid, filled-and-owing is
 // hollow amber, empty is a faint outline. At a glance: how full, and who still owes.
@@ -69,6 +73,10 @@ export function SeatPanel({ entryId, driver, C, onClose, onChanged, onDeparted }
   const [msg, setMsg] = useState<{ t: string; bad?: boolean } | null>(null);
   const [adding, setAdding] = useState<number | null>(null);
   const [name, setName] = useState(""); const [phone, setPhone] = useState("");
+  // A live Stripe payment link for one seat. Held open until the webhook flips the seat,
+  // which is why the panel polls while it is showing.
+  const [pay, setPay] = useState<{ seat: string; url: string; reference: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const load = async () => {
     const { data } = await supabase.rpc("loadq_seats_for_entry", { p_entry: entryId });
@@ -97,15 +105,55 @@ export function SeatPanel({ entryId, driver, C, onClose, onChanged, onDeparted }
   };
 
   const markPaid = async (s: Seat, method: "card" | "interac") => {
-    const ref = method === "interac"
-      ? window.prompt(`Virement reçu pour ${s.name ?? "place " + s.seat_no}.\nNuméro de référence Interac :`, s.reference)
-      : window.prompt(`Paiement par carte pour ${s.name ?? "place " + s.seat_no}.\nRéférence Stripe :`, s.reference);
+    const ref = window.prompt(
+      method === "interac"
+        ? `Virement reçu pour ${s.name ?? "place " + s.seat_no}.\nNuméro de référence Interac :`
+        : `Marquer payé à la main pour ${s.name ?? "place " + s.seat_no}.\n` +
+          `⚠ Aucune preuve Stripe ne sera attachée : le versement au chauffeur restera bloqué ` +
+          `à la vérification.\nRéférence :`,
+      s.reference);
     if (ref === null) return;
     const d = await run(() => supabase.rpc("loadq_seat_mark_paid", {
       p_seat: s.id, p_method: method, p_reference: ref.trim() || s.reference,
     }).then((r) => r.data));
     if (!d?.ok) say(errText(d?.error), true);
   };
+
+  // There is no card reader at the pickup point: the passenger pays on their own phone.
+  // Nobody types "paid" — the seat flips itself when Stripe confirms the charge.
+  const cardLink = async (s: Seat) => {
+    setBusy(true);
+    const { data, error } = await supabase.functions.invoke("loadq-seat-pay", { body: { seat_id: s.id } });
+    setBusy(false);
+    if (error || !data?.ok) return say(errText(data?.error) ?? error?.message ?? "lien impossible", true);
+    setPay({ seat: s.id, url: data.url, reference: data.reference });
+    setCopied(false);
+  };
+
+  const textLink = async (s: Seat, url: string) => {
+    if (!s.phone) return say("Aucun numéro pour ce passager.", true);
+    const { data, error } = await supabase.functions.invoke("loadq-send-sms", {
+      body: {
+        to: s.phone,
+        body: `LoadQ — votre place (${money(s.fare_cents)}). Payez ici : ${url}\n\n`
+            + `Your LoadQ seat. Pay here: ${url}`,
+      },
+    });
+    say(error || !data?.ok ? "SMS non envoyé." : `Lien envoyé au ${s.phone}.`, !!(error || !data?.ok));
+  };
+
+  // While a link is open the seat can change without us: Stripe's webhook, not this tablet,
+  // is what marks it paid.
+  useEffect(() => {
+    if (!pay) return;
+    const t = setInterval(load, 5000);
+    return () => clearInterval(t);
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [pay]);
+  useEffect(() => {
+    if (pay && seatsPaid(car, pay.seat)) { setPay(null); say("Paiement reçu — place payée."); }
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [car]);
 
   const release = async (s: Seat) => {
     if (s.status === "paid") return say("Une place payée ne se libère pas ici — il faut un remboursement.", true);
@@ -178,7 +226,9 @@ export function SeatPanel({ entryId, driver, C, onClose, onChanged, onDeparted }
               </div>
             );
             return (
-              <div key={n} style={{ display: "flex", alignItems: "center", gap: 11, padding: "11px 18px", borderBottom: `1px solid ${C.ruleSoft}` }}>
+              <div key={n}>
+                <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "11px 18px",
+                  borderBottom: pay?.seat === s.id ? "none" : `1px solid ${C.ruleSoft}` }}>
                 <Dot C={C} kind={s.status === "paid" ? "paid" : "owing"}>{s.name?.trim()?.[0]?.toUpperCase() ?? String(n)}</Dot>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -197,9 +247,33 @@ export function SeatPanel({ entryId, driver, C, onClose, onChanged, onDeparted }
                   </span>
                 ) : (
                   <div style={{ display: "flex", gap: 6 }}>
+                    <Mini C={C} title="Carte — envoyer un lien de paiement" onClick={() => cardLink(s)}><CreditCard size={15} /></Mini>
                     <Mini C={C} title="Virement Interac reçu" onClick={() => markPaid(s, "interac")}><Smartphone size={15} /></Mini>
-                    <Mini C={C} title="Payé par carte" onClick={() => markPaid(s, "card")}><CreditCard size={15} /></Mini>
                     <Mini C={C} title="Libérer la place" danger onClick={() => release(s)}><Trash2 size={15} /></Mini>
+                  </div>
+                )}
+                </div>
+                {pay?.seat === s.id && (
+                  <div style={{ padding: "11px 18px 13px 59px", background: C.strip, borderBottom: `1px solid ${C.ruleSoft}` }}>
+                    <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 7 }}>
+                      Lien de paiement — {money(s.fare_cents)}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: C.ink2, wordBreak: "break-all", background: C.sheet,
+                      border: `1px solid ${C.line}`, borderRadius: 8, padding: "8px 10px" }}>{pay.url}</div>
+                    <div style={{ display: "flex", gap: 7, marginTop: 9, flexWrap: "wrap" }}>
+                      <button onClick={() => { navigator.clipboard?.writeText(pay.url); setCopied(true); }}
+                        style={btn(C, "ghost")}><Copy size={13} style={{ marginRight: 5, verticalAlign: -2 }} />
+                        {copied ? "Copié" : "Copier"}</button>
+                      {s.phone && <button disabled={busy} onClick={() => textLink(s, pay.url)} style={btn(C, "dark")}>
+                        Texter au {s.phone}</button>}
+                      <button onClick={() => setPay(null)} style={btn(C, "ghost")}>Fermer</button>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: C.ink2, marginTop: 9, lineHeight: 1.5 }}>
+                      Le passager paie sur son téléphone. <b>Ne marquez rien à la main</b> — la place
+                      passe à « payé » d'elle-même dès que Stripe confirme, et c'est cette
+                      confirmation qui sert de preuve au moment de payer le chauffeur.
+                      Le lien expire dans 30 minutes.
+                    </div>
                   </div>
                 )}
               </div>

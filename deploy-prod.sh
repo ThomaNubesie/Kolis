@@ -31,19 +31,20 @@ if [ -z "$NETLIFY_AUTH_TOKEN" ]; then
 fi
 export NETLIFY_AUTH_TOKEN
 
-# PIN THE CLI. "@latest" was correct on 2026-08-28 and had drifted to 27.6.0 by
-# 2026-09-14, which inlines the Next runtime handler so every SSR route 502s.
-# deploy-quorly.sh already pinned 27.4.1 — both scripts now agree.
+# PIN THE CLI to 26.2.0. Every 27.x tried on 2026-09-14 (27.4.1 and 27.6.0) fails the
+# Next plugin's onBuild with "403 fetching extensions" and ships a deploy with ZERO
+# functions — reports ready, then 404s every route. 26.2.0 runs the same extensions
+# step against the same sites with the same token and succeeds; it is what put
+# admin.loadq.ca live that day. "@latest" was correct on 2026-08-28 and is not now.
 #
 # NOT @17 either: v17 bundles a function that returns nothing at runtime
 # ("invalid status code returned from lambda: 0").
 #
-# ⚠️ UNVERIFIED as of 2026-09-14: this script has not completed a healthy deploy since
-# these changes. Every attempt that day shipped zero functions, which is a plugin
-# failure (403 fetching extensions) and not a CLI-version or path problem — same
-# symptom seen on loadq-admin. See DEPLOY-NOTES-loadq-admin.md before relying on it,
-# and check the function count afterwards rather than the exit code.
-NETLIFY_CLI_VERSION="${NETLIFY_CLI_VERSION:-27.4.1}"
+# ⚠️ UNVERIFIED for THIS site: 26.2.0 is proven on loadq-admin, not yet on
+# kolis-business, which has been serving its 2026-09-01 build. Deploy a draft first
+# (drop --prod), check the function count, and only then promote. See
+# DEPLOY-NOTES-loadq-admin.md.
+NETLIFY_CLI_VERSION="${NETLIFY_CLI_VERSION:-26.2.0}"
 
 # A stale .netlify tree is how a bad bundle survives a fix: the CLI hashes what is on
 # disk, the CDN says "I have that", and the broken function is quietly reused. The 502

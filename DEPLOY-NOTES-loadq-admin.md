@@ -109,17 +109,10 @@ tell you the board is working; check the size.
 | loadq.ca | `f54300ce-683f-4110-9d05-adc9db177189` | **LoadQ** repo, `site/` (static) |
 | quorly.ca | quorly-app | Kolis repo, `admin-web/` (host-routed) |
 
-## 2026-09-14: admin.loadq.ca deploys are BLOCKED — read before trying again
+## 2026-09-14: the CLI version is the whole story — PIN 26.2.0
 
-A deploy of `admin-web/` to `loadq-admin` on 2026-09-14 **took admin.loadq.ca down for about
-three minutes**: every route 404'd, including `/sheet` and the board PNG. Restored by hand to
-the 13 Sept deploy. The `/sheet` seat-and-payment UI is therefore **still not live**.
-
-**What the deploy shipped:** `framework=next` (so the working-directory trap above was solved
-by running from `admin-web/`) but **zero functions**. With no server handler, every route
-404s.
-
-**Why:** the Next plugin's `onBuild` dies with
+**`netlify-cli` 27.4.1 and 27.6.0 cannot deploy this site. 26.2.0 can.** Both 27.x versions
+die in the Next plugin's `onBuild` with:
 
 ```
 Plugin "@netlify/plugin-nextjs" internal error
@@ -127,23 +120,36 @@ Error: Failed retrieving extensions for site 74c65dc0-…:
        Unexpected status code 403 from fetching extensions.
 ```
 
-Ruled out already, so nobody repeats it:
+and ship a deploy with **zero functions**, which reports `ready` and then 404s every route.
+26.2.0 runs the same "Installing extensions / Loading extensions" step against the same site
+with the same token and does not 403. Use it:
 
-- **Not auth identity** — `netlify status` is Derick Shalo / shaloderick, correct project
-  `loadq-admin`.
+```bash
+cd ~/…/Kolis/admin-web        # NOT the repo root
+npx --yes netlify-cli@26.2.0 deploy --build --skip-functions-cache \
+  --site=74c65dc0-8ee8-4884-a688-eb42d5eb3ea5          # draft first, no --prod
+# check the draft URL and the function size, THEN:
+npx --yes netlify-cli@26.2.0 deploy --prod --build --skip-functions-cache \
+  --site=74c65dc0-8ee8-4884-a688-eb42d5eb3ea5
+```
+
+Ruled out along the way, so nobody re-runs them:
+
+- **Not auth identity** — `netlify status` is Derick Shalo / shaloderick, correct project.
 - **Not team ownership** — loadq-admin, quorly-app and kolis-business all belong to
   `Balenton Automotive` (slug `shaloderick`), the one team this token has.
 - **Not the Node version** — the "cannot be executed with Node.js 20.19.4" line is a
-  *warning*; the plugin itself declares `node >=18`. (This machine has only Node 20.19.4 and
-  no nvm, if that ever becomes the issue.)
+  *warning*; the plugin declares `node >=18`. (This machine has only Node 20.19.4, no nvm.)
 - **Not the publish path** — run from `admin-web/`, the CLI reads the ROOT netlify.toml and
-  resolves both base and publish correctly to `Kolis/admin-web/…`. No `admin-web/netlify.toml`
-  is needed; one was created during debugging and has been deleted again.
+  resolves base and publish correctly. `admin-web/` needs no netlify.toml of its own.
 
-Worth trying next: a fresh `netlify login` (run it yourself — `! netlify login`), since the
-403 is the plugin asking the API for site extensions with a token the deploy endpoints
-otherwise accept; or a different netlify-cli version, since the extensions call is a newer
-addition. The MacBook may simply work if its CLI/token differ — try there first.
+**This cost an outage before it was understood:** a `--prod` deploy on 2026-09-14 took
+admin.loadq.ca down for about three minutes — every route 404, including the tablet's `/sheet`
+and the board PNG — and had to be restored by hand. Hence the rules below.
+
+⚠️ `deploy-quorly.sh` still pins **27.4.1**. It last succeeded on 2026-09-13; if it now fails
+the same way, this is why — but quorly-app is repo-linked and may behave differently, so it
+has not been changed without testing.
 
 ### Rules that came out of this
 

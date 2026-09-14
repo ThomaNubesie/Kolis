@@ -31,11 +31,26 @@ if [ -z "$NETLIFY_AUTH_TOKEN" ]; then
 fi
 export NETLIFY_AUTH_TOKEN
 
-echo "Building + deploying admin-web to production (business.kolis.ca)…"
-# netlify-cli@latest, NOT @17: the pinned v17 bundles the current
-# @netlify/plugin-nextjs into a function that returns nothing at runtime
-# ("error decoding lambda response: invalid status code returned from lambda: 0",
-# every SSR route 502). Verified on 2026-08-28 — v17 broke, latest worked.
+# PIN THE CLI. "@latest" was correct on 2026-08-28 and had drifted to 27.6.0 by
+# 2026-09-14, which inlines the Next runtime handler so every SSR route 502s.
+# deploy-quorly.sh already pinned 27.4.1 — both scripts now agree.
+#
+# NOT @17 either: v17 bundles a function that returns nothing at runtime
+# ("invalid status code returned from lambda: 0").
+#
+# ⚠️ UNVERIFIED as of 2026-09-14: this script has not completed a healthy deploy since
+# these changes. Every attempt that day shipped zero functions, which is a plugin
+# failure (403 fetching extensions) and not a CLI-version or path problem — same
+# symptom seen on loadq-admin. See DEPLOY-NOTES-loadq-admin.md before relying on it,
+# and check the function count afterwards rather than the exit code.
+NETLIFY_CLI_VERSION="${NETLIFY_CLI_VERSION:-27.4.1}"
+
+# A stale .netlify tree is how a bad bundle survives a fix: the CLI hashes what is on
+# disk, the CDN says "I have that", and the broken function is quietly reused. The 502
+# above was served from exactly this.
+rm -rf admin-web/.netlify/functions admin-web/.netlify/functions-internal
+
+echo "Building + deploying admin-web to production (business.kolis.ca) with netlify-cli@${NETLIFY_CLI_VERSION}…"
 #
 # This deploys business.kolis.ca ONLY. quorly.ca is a separate Netlify site
 # (quorly-app) — use ./deploy-quorly.sh for it.
@@ -46,7 +61,12 @@ echo "Building + deploying admin-web to production (business.kolis.ca)…"
 # build with no new routes in it: existing pages keep working while anything
 # added since the cached build 404s. Cost is ~30s of extra build; the
 # alternative is a green deploy that is quietly missing pages.
-npx --yes netlify-cli@latest deploy --prod --build --skip-functions-cache --site "$SITE_ID"
+# Run from admin-web, NOT the repo root. The CLI detects the framework from the
+# directory it runs in, and the root is the Expo app — from there it ships a stub
+# handler that 502s on every route. It still reads THIS repo's root netlify.toml and
+# resolves base and publish correctly from here; admin-web needs no netlify.toml of
+# its own (one was created while debugging and deliberately removed).
+( cd admin-web && npx --yes "netlify-cli@${NETLIFY_CLI_VERSION}" deploy --prod --build --skip-functions-cache --site "$SITE_ID" )
 
 # The CLI exits 0 even when the publish shipped zero functions and every route
 # 502s, so its success is not evidence. Check the live site, and roll back to the

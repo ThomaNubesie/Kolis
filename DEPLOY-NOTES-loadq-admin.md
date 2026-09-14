@@ -1,8 +1,26 @@
-# admin.loadq.ca — how it is built and deployed (updated 2026-09-08)
+# admin.loadq.ca — how it is built and deployed (updated 2026-09-14)
 
 **admin.loadq.ca is served by the KOLIS repo, from `admin-web/`.** Netlify site
 `loadq-admin`, id `74c65dc0-8ee8-4884-a688-eb42d5eb3ea5`. Not git-connected — deploys are
 manual.
+
+> ## ⚠️ `./deploy-prod.sh` DOES NOT DEPLOY THIS SITE
+>
+> It deploys **kolis-business** (`da1cce8c-…`, business.kolis.ca + admin.kolis.ca), a
+> different Netlify site that happens to build the same `admin-web/`. On 2026-09-14 the
+> `/sheet` seat-and-payment work was "deployed" six times with `deploy-prod.sh` before anyone
+> noticed it had been going to the wrong domain the entire time.
+>
+> | Domain | Site | id | Deployed by |
+> |---|---|---|---|
+> | **admin.loadq.ca** | loadq-admin | `74c65dc0-…` | **the command below, from `admin-web/`** |
+> | business.kolis.ca, admin.kolis.ca | kolis-business | `da1cce8c-…` | `./deploy-prod.sh` |
+> | quorly.ca | quorly-app | `5779f471-…` | `./deploy-quorly.sh` |
+> | business.loadq.ca | loadq-business | `836492f9-…` | nothing — stale since 2026-07-07 |
+>
+> Only quorly-app is GitHub-linked (so it alone has `base`/`dir` build settings in the UI).
+> loadq-admin and kolis-business are unlinked and depend entirely on how the CLI is invoked,
+> which is why the trap below bites them and not quorly.ca.
 
 This corrects the earlier note, which said `/board` lived only on the iMac and in no branch.
 That was wrong in a way that mattered: `/board` *was* pushed, but to the **LoadQ** repo
@@ -47,6 +65,31 @@ npx netlify-cli deploy --prod --dir=.next --site=74c65dc0-8ee8-4884-a688-eb42d5e
 does not exist, and the deploy fails. Run it from `admin-web/` and `publish = ".next"`
 resolves correctly. (Netlify's own CI does honour `base`; only the local CLI differs.)
 
+**The second trap, worse because it is silent (found 2026-09-14):** if you force past the
+first one — e.g. by setting `publish = "admin-web/.next"` so a root-run build succeeds — the
+CLI then detects the framework from the directory it runs in. The repo root is the **Expo**
+app, so it ships a **436 KB stub handler** instead of the ~8 MB Next server bundle. The deploy
+goes `ready`, the CLI exits 0, and every route 502s. Do not "fix" the publish path; fix the
+working directory.
+
+`netlify.toml`'s publish line has now been flipped three times between `.next` and
+`admin-web/.next` (f3bbc75 set it, 24345bc reverted it, 2026-09-14 nearly again). **`.next` is
+correct.** Leave it alone and run the CLI from `admin-web/`.
+
+**Green is not evidence.** Confirm what actually shipped:
+
+```bash
+curl -s -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+  "https://api.netlify.com/api/v1/sites/74c65dc0-8ee8-4884-a688-eb42d5eb3ea5/deploys?per_page=3" \
+  | python3 -c "import json,sys
+for d in json.load(sys.stdin):
+    f=(d.get('available_functions') or [{}])[0]
+    print(d['id'], d['state'], d.get('framework'), f.get('s'))"
+```
+
+A healthy admin-web deploy is `framework=next` with **1 function of ~7.8 MB**. `framework=expo`
+(stub, 502s) or zero functions (404s) means it is broken no matter what the CLI said.
+
 ## Verify after every deploy — both, every time
 
 ```bash
@@ -66,7 +109,69 @@ tell you the board is working; check the size.
 | loadq.ca | `f54300ce-683f-4110-9d05-adc9db177189` | **LoadQ** repo, `site/` (static) |
 | quorly.ca | quorly-app | Kolis repo, `admin-web/` (host-routed) |
 
+## 2026-09-14: admin.loadq.ca deploys are BLOCKED — read before trying again
+
+A deploy of `admin-web/` to `loadq-admin` on 2026-09-14 **took admin.loadq.ca down for about
+three minutes**: every route 404'd, including `/sheet` and the board PNG. Restored by hand to
+the 13 Sept deploy. The `/sheet` seat-and-payment UI is therefore **still not live**.
+
+**What the deploy shipped:** `framework=next` (so the working-directory trap above was solved
+by running from `admin-web/`) but **zero functions**. With no server handler, every route
+404s.
+
+**Why:** the Next plugin's `onBuild` dies with
+
+```
+Plugin "@netlify/plugin-nextjs" internal error
+Error: Failed retrieving extensions for site 74c65dc0-…:
+       Unexpected status code 403 from fetching extensions.
+```
+
+Ruled out already, so nobody repeats it:
+
+- **Not auth identity** — `netlify status` is Derick Shalo / shaloderick, correct project
+  `loadq-admin`.
+- **Not team ownership** — loadq-admin, quorly-app and kolis-business all belong to
+  `Balenton Automotive` (slug `shaloderick`), the one team this token has.
+- **Not the Node version** — the "cannot be executed with Node.js 20.19.4" line is a
+  *warning*; the plugin itself declares `node >=18`. (This machine has only Node 20.19.4 and
+  no nvm, if that ever becomes the issue.)
+- **Not the publish path** — run from `admin-web/`, the CLI reads the ROOT netlify.toml and
+  resolves both base and publish correctly to `Kolis/admin-web/…`. No `admin-web/netlify.toml`
+  is needed; one was created during debugging and has been deleted again.
+
+Worth trying next: a fresh `netlify login` (run it yourself — `! netlify login`), since the
+403 is the plugin asking the API for site extensions with a token the deploy endpoints
+otherwise accept; or a different netlify-cli version, since the extensions call is a newer
+addition. The MacBook may simply work if its CLI/token differ — try there first.
+
+### Rules that came out of this
+
+1. **Never deploy straight to `--prod`.** Drop `--prod` for a draft deploy on its own URL,
+   check it, and only then promote. Production paid for that lesson.
+2. **Check the function count before trusting any deploy** (command above). `fn=0` → 404s,
+   `framework=expo` → 502s. The CLI exits 0 for both.
+3. **Restore is one call** — keep it to hand:
+
+```bash
+curl -X POST -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+  "https://api.netlify.com/api/v1/sites/74c65dc0-8ee8-4884-a688-eb42d5eb3ea5/deploys/6aa6e6ac9e2cb99b2ba0a982/restore"
+```
+
+`6aa6e6ac9e2cb99b2ba0a982` (2026-09-13, framework=next, 1 function, 7.80 MB) is the last known
+good deploy of admin.loadq.ca.
+
 ## Still open
+
+- **kolis-business (business.kolis.ca) has been serving its 2026-09-01 build ever since**, and
+  its local deploy path is currently broken: every attempt on 2026-09-14 shipped either an
+  expo stub (502) or zero functions (404), and `verify-deploy.sh` rolled each one back. The
+  site is healthy on the old build. It is a *separate* problem from admin.loadq.ca — fixing it
+  probably means giving `deploy-prod.sh` the same "run from `admin-web/`" treatment as the
+  command above, then verifying through the API rather than trusting the exit code.
+- `deploy-prod.sh` still says `netlify-cli@latest`. That was fine on 2026-08-28 and is not
+  now — `@latest` drifted to 27.6.0. `deploy-quorly.sh` pins **27.4.1**; deploy-prod.sh should
+  too.
 
 - The **incident register** (`loadq-incident-register` branch, commit `a901826`,
   `admin-web/app/sheet/incident/`) has not been merged. It can now be taken into the Kolis

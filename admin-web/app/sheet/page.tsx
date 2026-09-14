@@ -22,6 +22,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { getVehicleImageUrl } from "@/lib/vehicleImage";
+import { SeatStrip, SeatPanel, DepartureReceipt, type CarSeats } from "@/components/Seats";
 import {
   Search, X, ArrowLeftRight, Undo2, LogOut, RefreshCw, KeyRound,
   UserPlus, ShieldAlert, WifiOff, Camera, Check, Sun, SunMoon, Moon,
@@ -137,6 +138,9 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
   const [toast, setToast] = useState<{ msg: string; undo?: () => void; bad?: boolean } | null>(null);
   const [newFor, setNewFor] = useState<string | null>(null);   // prefilled name for onboarding
   const [swapFrom, setSwapFrom] = useState<Row | null>(null);  // first half of a two-tap swap
+  const [seats, setSeats] = useState<Map<string, CarSeats>>(new Map());
+  const [seatFor, setSeatFor] = useState<Row | null>(null);    // car whose seats are open
+  const [receipt, setReceipt] = useState<{ r: any; entry: string } | null>(null);
 
   const say = (msg: string, opts: { undo?: () => void; bad?: boolean } = {}) => {
     setToast({ msg, ...opts });
@@ -168,14 +172,17 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
 
   const load = useCallback(async () => {
     if (!line) return;
-    const [{ data }, { data: rq }, { data: ab }] = await Promise.all([
+    const [{ data }, { data: rq }, { data: ab }, { data: st }] = await Promise.all([
       supabase.rpc("loadq_sheet", { p_zone: line.zone_id, p_dest: line.destination }),
       supabase.rpc("loadq_sheet_requests", { p_zone: line.zone_id, p_dest: line.destination }),
       supabase.rpc("loadq_list_absent_today", { p_zone: line.zone_id, p_dest: line.destination }),
+      // one call for every car's seats — a dozen round trips on a tethered tablet otherwise
+      supabase.rpc("loadq_sheet_seats", { p_zone: line.zone_id, p_dest: line.destination }),
     ]);
     setRows((data ?? []) as Row[]);
     setReqs((rq ?? []) as Req[]);
     setAbsent((ab ?? []) as Absent[]);
+    setSeats(st?.ok ? new Map((st.cars as CarSeats[]).map((c) => [c.entry_id, c])) : new Map());
   }, [line]);
 
   useEffect(() => { load(); }, [load]);
@@ -206,12 +213,21 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
   const nextPos = (rows.reduce((m, r) => Math.max(m, r.position), 0) || 0) + 1;
 
   const depart = async (r: Row) => {
+    // Money first. A car with a passenger still owing cannot leave — the database refuses it
+    // anyway, so sending the writer straight to the seats is kinder than an error.
+    const car = seats.get(r.entry_id);
+    const owing = car?.seats.filter((s) => s.status !== "paid").length ?? 0;
+    if (owing > 0) { setSeatFor(r); return say(`${owing} place(s) à encaisser avant le départ.`, { bad: true }); }
+
     if (!confirm(`Rayer ${r.name} ? Cela le marque comme parti.`)) return;
     setBusy(true);
-    const { data } = await supabase.rpc("loadq_list_depart", { p_entry: r.entry_id });
+    const paid = car?.seats.filter((s) => s.status === "paid").length;
+    const { data } = await supabase.rpc("loadq_list_depart",
+      paid ? { p_entry: r.entry_id, p_seats: paid } : { p_entry: r.entry_id });
     setBusy(false);
     if (!data?.ok) return say(err(data?.error), { bad: true });
     await load();
+    if (paid) { setReceipt({ r: data.receipt, entry: r.entry_id }); return; }
     const u = data.undo;
     say(`${r.name} — parti`, {
       undo: async () => {
@@ -416,6 +432,7 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
                       ? <span style={{ color: C.faint }}> · inscrit via l'app</span>
                       : r.added_by_name ? <span style={{ color: C.faint }}> · ajouté par {r.added_by_name}</span> : null}
                   </div>
+                  <SeatStrip car={seats.get(r.entry_id)} C={C} onOpen={() => setSeatFor(r)} />
                 </div>
                 <div style={{ display: "flex", gap: 7, padding: "0 12px" }}>
                   <IconBtn
@@ -424,6 +441,7 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
                     onClick={() => swap(r)}
                     onLongPress={() => move(r)}
                     disabled={!online}><ArrowLeftRight size={17} /></IconBtn>
+                  <IconBtn title="Places et paiements" onClick={() => setSeatFor(r)} disabled={!online}><UserRound size={17} /></IconBtn>
                   <IconBtn title="Absent — le retirer de la liste" onClick={() => markAbsent(r)} disabled={!online}><UserX size={17} /></IconBtn>
                   <IconBtn title="Rayer (parti)" danger onClick={() => depart(r)} disabled={!online}><X size={19} /></IconBtn>
                 </div>
@@ -439,6 +457,18 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
             onNew={(name) => setNewFor(name)} />
         )}
       </div>
+
+      {seatFor && (
+        <SeatPanel entryId={seatFor.entry_id} driver={seatFor.name} C={C}
+          onClose={() => setSeatFor(null)}
+          onChanged={() => load()}
+          onDeparted={(rec) => { const e = seatFor.entry_id; setSeatFor(null); load(); setReceipt({ r: rec, entry: e }); }} />
+      )}
+
+      {receipt && (
+        <DepartureReceipt receipt={receipt.r} entryId={receipt.entry} C={C}
+          onClose={() => setReceipt(null)} />
+      )}
 
       {newFor !== null && line && (
         <NewDriver initialName={newFor} line={line} nextPos={nextPos}

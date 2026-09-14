@@ -46,7 +46,20 @@ Deno.serve(async (req) => {
       return json({ matched: true, kind: "ride", ...ride });
     }
 
-    // 2) Fall back to a PICKUP request (feeder pooled pickup uses the same LQ- refs).
+    // 2) A SEAT on a car in the queue. Tried before pickups because a seat reference is
+    //    issued at the loading point and paid within minutes — the freshest thing a
+    //    deposit is likely to be for. The seat turns green on its own; the list writer
+    //    never ticks it, which is the whole point of printing a reference on the QR.
+    try {
+      const { data: seat } = await admin.rpc("loadq_seat_match_interac",
+        { p_reference: reference, p_amount_cents: amount_cents });
+      if (seat && seat.matched === true) return json({ matched: true, kind: "seat", ...seat });
+      // An amount mismatch is deliberately NOT swallowed: it is reported so a half-paid
+      // seat is visible instead of passing as unmatched noise.
+      if (seat && seat.reason === "amount_mismatch") return json({ matched: false, kind: "seat", ...seat });
+    } catch { /* no seat match */ }
+
+    // 3) Fall back to a PICKUP request (feeder pooled pickup uses the same LQ- refs).
     try {
       const { data: pickup } = await admin.rpc("loadq_pickup_mark_paid", { p_ref: reference });
       if (pickup && pickup.ok === true) return json({ matched: true, kind: "pickup", ...pickup });

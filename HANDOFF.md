@@ -1,8 +1,64 @@
 # Kolis / Concord Express — session handoff
 
-_Last updated: 2026-09-11. Snapshot so work can continue on any machine (`git pull`, start a fresh Claude session, say "continue the Kolis work")._
+_Last updated: 2026-09-14. Snapshot so work can continue on any machine (`git pull`, start a fresh Claude session, say "continue the Kolis work")._
 
-## Latest session — 2026-09-11 (LoadQ driver ride-navigation screen)
+## Latest session — 2026-09-14 (seats & money on /sheet)
+
+**The database side is LIVE. The `/sheet` UI is written and verified but NOT deployed, and is
+uncommitted on the iMac.** Do not re-implement it from scratch — pull, or rebuild from the
+notes below.
+
+Live in Supabase `kzjptcpjpwlxfofzhyku` (migrations applied, tested with rolled-back `DO`
+blocks):
+
+- `loadq_seats` — one row per seat; `EXCLUDE` constraint gives one live seat per position.
+  Cash is refused (`bad_method`); a paid seat cannot be released (`seat_is_paid`).
+- **A car cannot depart owing.** `loadq_list_depart` returns `unpaid_seats` and refuses.
+- `loadq_close_departure` **freezes** the record at departure — date, time, zone, destination,
+  driver name + phone, vehicle, plate, per-seat lines, and the money split. A receipt that
+  moves when a setting moves is not a receipt.
+- **Tax comes out of the $5, not on top.** `loadq_tax_rates` + `loadq_tax_within()`; Ontario
+  13% HST, Quebec 5% + 9.975%, chosen by the zone's city prefix. On 5 seats the $25 fee is
+  $2.88 tax + $22.12 ex-tax.
+- **Cost accounting** (added because the $5 is not revenue): `trip_cost_cents` = **12¢ per
+  departure, not per seat**, `trip_cost_taxable` (off — bank fees are exempt), and
+  `card_cost_ppm` / `card_cost_fixed_cents` **left at 0**. `platform_net_cents` = fee − tax −
+  trip − card. `loadq_revenue_summary(from,to)` gives the books split by region (ON → CRA,
+  QC → Revenu Québec remit separately).
+- **Verification gate so money is not lost.** `loadq_payout_verify` must pass before
+  `loadq_payout_mark_sent`, which also demands a transfer reference. Its real check is
+  **an Interac seat marked paid with no matching inbound deposit** — the silent way money
+  disappears. `loadq_payouts_outstanding()` is the daily list.
+- `loadq_sheet_seats(zone, dest)` — every car's seats for a line in one call.
+- `loadq_setting(key)` / `loadq_setting_int(key, default)` helpers.
+- Edge function **`loadq-driver-receipt`** deployed (SMS + email, stamps `receipt_sent_at`
+  only if something actually sent).
+
+Uncommitted on the iMac: `admin-web/components/Seats.tsx` (SeatStrip / SeatPanel /
+DepartureReceipt) and the wiring in `admin-web/app/sheet/page.tsx`. Type-checks and builds.
+
+**Two things a card seat still needs:** Stripe is **not** wired to seats at all — `method='card'`
+just records a typed reference, no PaymentIntent, no webhook — so `loadq_payout_verify` can
+only cross-check Interac seats. And nothing runs the verification on a schedule; it is a gate,
+not a patrol, so an untouched payout stays unverified forever with nobody told.
+
+**Deploy warning:** `/sheet` lives on **admin.loadq.ca (site `loadq-admin`)**, which
+`./deploy-prod.sh` does **not** deploy. See `DEPLOY-NOTES-loadq-admin.md` — that mistake cost
+six deploys on 2026-09-14.
+
+**Deploys to admin.loadq.ca are currently BLOCKED** and the attempt took the site down for
+~3 minutes (zero-function deploy → every route 404, restored by hand). The Next plugin's
+`onBuild` fails with `403 fetching extensions for site 74c65dc0…`; auth identity, team
+ownership, Node version and the publish path have all been ruled out. Full diagnosis, the
+restore command, and the "draft first, never straight to --prod" rule are in
+`DEPLOY-NOTES-loadq-admin.md`. **Try the MacBook** — its CLI/token may not hit the 403.
+
+Uncommitted iMac state beyond the feature code: `admin-web/package.json` gained
+`@netlify/plugin-nextjs` as a devDependency and `admin-web/.netlify/state.json` now points at
+`loadq-admin`, both from this debugging. `deploy-prod.sh` and the root `netlify.toml` also
+carry edits aimed at kolis-business that were never proven — review before keeping them.
+
+## Earlier session — 2026-09-11 (LoadQ driver ride-navigation screen)
 
 **Why.** A `route_pickup` passenger ride (LQ-46B0D, 2026-09-05: Chris T, Pierrefonds → Ottawa,
 $44.50 paid via Interac, auto-assigned to Dolly Kilimba) **stalled right after the driver accepted.**

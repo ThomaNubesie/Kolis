@@ -23,10 +23,11 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { getVehicleImageUrl } from "@/lib/vehicleImage";
 import { SeatStrip, SeatPanel, DepartureReceipt, type CarSeats } from "@/components/Seats";
+import { Wordmark, ConcordFooter } from "@/components/Brand";
 import {
   Search, X, ArrowLeftRight, Undo2, LogOut, RefreshCw, KeyRound,
   UserPlus, ShieldAlert, WifiOff, Camera, Check, Sun, SunMoon, Moon,
-  UserRound, Phone, UserX, UserCheck,
+  UserRound, Phone, UserX, UserCheck, CreditCard,
 } from "lucide-react";
 
 // Three themes, chosen on the tablet and remembered there. A parking lot at
@@ -45,7 +46,11 @@ const THEMES: Record<ThemeName, Palette> = {
   light: {
     ink: "#1A1917", ink2: "#6B6863", faint: "#A8A29A", line: "#EAE4DA",
     rule: "#D2601A", ruleSoft: "#F5E4D6", bg: "#F4F1EC", sheet: "#FFFFFF",
-    band: "#D2601A", bandInk: "#FFFFFF", strip: "#FDF7F2", loadRow: "#F2FAF5",
+    // The band was #D2601A. The wordmark's Q is always #FF8A1A, and orange-on-orange is a
+    // 1.6:1 contrast — the Q disappeared into the band. All three themes now carry the mark
+    // on ink, which is where the app puts it. The orange stays where it belongs: the rules
+    // between the rows, which is what makes this look like the paper form.
+    band: "#0B0C0F", bandInk: "#FFFFFF", strip: "#FDF7F2", loadRow: "#F2FAF5",
     green: "#1F8A55", red: "#B4431F", amber: "#B4801F",
   },
   medium: {
@@ -334,7 +339,7 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
       <div style={{ maxWidth: 1000, margin: "0 auto", background: C.sheet, borderRadius: 14, overflow: "hidden", boxShadow: "0 8px 30px rgba(0,0,0,.10)" }}>
 
         <div style={{ background: C.band, color: C.bandInk, padding: "13px 18px", display: "flex", alignItems: "center", gap: 13, flexWrap: "wrap" }}>
-          <div style={{ fontWeight: 900, fontSize: 20, letterSpacing: .5 }}>LOAD Q</div>
+          <Wordmark on={C.band} size={21} />
           {/* The incident register is the other thing the writer needs at the
               kerb, so it is one tap away rather than another app. */}
           <Link href="/sheet/incident" style={{ textDecoration: "none", color: "#8A909C", fontSize: 13.5, fontWeight: 700, padding: "7px 12px", borderRadius: 9, background: "rgba(255,255,255,.08)" }}>
@@ -441,7 +446,8 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
                     onClick={() => swap(r)}
                     onLongPress={() => move(r)}
                     disabled={!online}><ArrowLeftRight size={17} /></IconBtn>
-                  <IconBtn title="Places et paiements" onClick={() => setSeatFor(r)} disabled={!online}><UserRound size={17} /></IconBtn>
+                  <IconBtn title="Places et paiements — encaisser" tone="pay"
+                    onClick={() => setSeatFor(r)} disabled={!online}><CreditCard size={18} /></IconBtn>
                   <IconBtn title="Absent — le retirer de la liste" onClick={() => markAbsent(r)} disabled={!online}><UserX size={17} /></IconBtn>
                   <IconBtn title="Rayer (parti)" danger onClick={() => depart(r)} disabled={!online}><X size={19} /></IconBtn>
                 </div>
@@ -457,6 +463,8 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
             onNew={(name) => setNewFor(name)} />
         )}
       </div>
+
+      <ConcordFooter C={C} />
 
       {seatFor && (
         <SeatPanel entryId={seatFor.entry_id} driver={seatFor.name} C={C}
@@ -848,7 +856,7 @@ function SignIn() {
   const inp: any = { border: `1px solid ${C.line}`, borderRadius: 10, padding: "13px 14px", fontSize: 16, width: 290, outline: "none", background: "#fff", color: C.ink };
   return (
     <Center>
-      <div style={{ fontWeight: 900, fontSize: 23, color: C.rule, letterSpacing: .5 }}>LOAD Q</div>
+      <Wordmark on={C.bg} size={25} />
       <div style={{ color: C.ink2, margin: "6px 0 18px" }}>Feuille du jour — connectez-vous pour écrire</div>
       <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Votre courriel" disabled={sent}
         style={inp} onKeyDown={(e) => e.key === "Enter" && send()} />
@@ -875,8 +883,11 @@ function Center({ children }: { children: React.ReactNode }) {
 // `active` marks the first half of a two-tap swap. `onLongPress` is the escape
 // hatch to the older type-a-number move — a press-and-hold, not a second button,
 // because a tablet row has room for two targets and no more.
-function IconBtn({ children, onClick, danger, title, disabled, active, onLongPress }: any) {
+// `tone="pay"` marks the one button on the row that is about money. It is azure — the app's
+// action colour — so the money control is findable at a glance among four grey glyphs.
+function IconBtn({ children, onClick, danger, title, disabled, active, onLongPress, tone }: any) {
   const C = useC();
+  const pay = tone === "pay" && !active && !danger;
   const held = useRef(false);
   const timer = useRef<any>(null);
   const start = () => {
@@ -890,9 +901,9 @@ function IconBtn({ children, onClick, danger, title, disabled, active, onLongPre
     onClick={disabled ? undefined : () => { if (held.current) { held.current = false; return; } onClick?.(); }}
     style={{
       width: 42, height: 42, borderRadius: 10,
-      border: `1px solid ${active ? C.rule : danger ? "#F0D5CB" : C.line}`,
-      background: active ? C.rule : danger ? "#FDF4F1" : C.sheet,
-      color: active ? "#fff" : danger ? C.red : C.ink2,
+      border: `1px solid ${active ? C.rule : danger ? "#F0D5CB" : pay ? "#4C82F0" : C.line}`,
+      background: active ? C.rule : danger ? "#FDF4F1" : pay ? "#4C82F01A" : C.sheet,
+      color: active ? "#fff" : danger ? C.red : pay ? "#4C82F0" : C.ink2,
       display: "inline-flex", alignItems: "center", justifyContent: "center",
       cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? .45 : 1,
       touchAction: "manipulation", userSelect: "none",

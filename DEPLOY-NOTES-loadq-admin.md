@@ -109,10 +109,28 @@ tell you the board is working; check the size.
 | loadq.ca | `f54300ce-683f-4110-9d05-adc9db177189` | **LoadQ** repo, `site/` (static) |
 | quorly.ca | quorly-app | Kolis repo, `admin-web/` (host-routed) |
 
-## 2026-09-14: the CLI version is the whole story — PIN 26.2.0
+## 2026-09-14: pin 26.2.0, and expect to retry
 
-**`netlify-cli` 27.4.1 and 27.6.0 cannot deploy this site. 26.2.0 can.** Both 27.x versions
-die in the Next plugin's `onBuild` with:
+> **Corrected 2026-09-15.** The claim below — that 27.x is broken and 26.2.0 is safe — is too
+> strong. **26.2.0 hit the same 403 the next day.** The extensions call fails *intermittently*
+> on any version, and on 2026-09-15 it coincided with the account being **rate-limited**:
+> `/api/v1/user` returned **429, x-ratelimit-remaining: 0** after a day of repeated deploys,
+> which the CLI reports as the thoroughly misleading `Project not found. Please rerun
+> "netlify link"`. The state.json was fine both times.
+>
+> So: still pin 26.2.0 (it has succeeded more often), but treat a failed deploy as **retry,
+> not diagnose**. Check `/api/v1/user` first — a 429 means wait, not investigate:
+>
+> ```bash
+> curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $NETLIFY_AUTH_TOKEN" \
+>   https://api.netlify.com/api/v1/user     # 429 = rate-limited, wait for x-ratelimit-reset
+> ```
+>
+> A failed `--prod` deploy does NOT publish, so production keeps serving the last good build
+> while you retry. That is why the site stayed up through both incidents.
+
+**`netlify-cli` 27.4.1 and 27.6.0 both failed here; 26.2.0 has worked more reliably.** The 27.x
+versions die in the Next plugin's `onBuild` with:
 
 ```
 Plugin "@netlify/plugin-nextjs" internal error

@@ -12,7 +12,8 @@
 // Neither is obvious to someone holding a tablet at Universal Grocery, so both are on screen.
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { X, CreditCard, Smartphone, UserRound, Check, Trash2, Copy } from "lucide-react";
+import { X, CreditCard, Smartphone, UserRound, Check, Trash2, Copy, CircleDollarSign } from "lucide-react";
+import SeatGlyph from "./SeatGlyph";
 
 export type Seat = {
   id: string; seat_no: number; name: string | null; phone: string | null;
@@ -40,18 +41,15 @@ export function SeatStrip({ car, C, onOpen }: { car: CarSeats | undefined; C: Pa
   const takings = paid.reduce((n, s) => n + s.fare_cents, 0);
 
   return (
-    <div onClick={onOpen} style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 5, cursor: "pointer" }}>
+    <div onClick={onOpen} style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 5, cursor: "pointer" }}>
       {Array.from({ length: car.capacity }, (_, i) => {
         const s = byNo.get(i + 1);
-        const bg = !s ? "transparent" : s.status === "paid" ? C.green : "transparent";
-        const bd = !s ? C.line : s.status === "paid" ? C.green : C.amber;
         return (
-          <span key={i} title={s ? `${s.name ?? "Place " + (i + 1)} — ${s.status === "paid" ? "payé" : "à encaisser"}` : `Place ${i + 1} libre`}
-            style={{ width: 19, height: 19, borderRadius: "50%", border: `1.5px solid ${bd}`,
-              background: bg, display: "inline-flex", alignItems: "center", justifyContent: "center",
-              fontSize: 9.5, fontWeight: 800, color: s?.status === "paid" ? "#fff" : bd }}>
-            {s ? (s.name?.trim()?.[0]?.toUpperCase() ?? "•") : ""}
-          </span>
+          <SeatGlyph key={i} w={15}
+            state={!s ? "free" : s.status === "paid" ? "paid" : "owing"}
+            color={{ paid: C.green, owing: C.amber, free: C.line }}
+            title={s ? `${s.name ?? "Place " + (i + 1)} — ${s.status === "paid" ? "payé" : "à encaisser"}`
+                     : `Place ${i + 1} libre`} />
         );
       })}
       <span style={{ fontSize: 12, color: owing ? C.amber : C.faint, fontWeight: owing ? 700 : 500, marginLeft: 2 }}>
@@ -229,7 +227,7 @@ export function SeatPanel({ entryId, driver, C, onClose, onChanged, onDeparted }
               <div key={n}>
                 <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "11px 18px",
                   borderBottom: pay?.seat === s.id ? "none" : `1px solid ${C.ruleSoft}` }}>
-                <Dot C={C} kind={s.status === "paid" ? "paid" : "owing"}>{s.name?.trim()?.[0]?.toUpperCase() ?? String(n)}</Dot>
+                <Dot C={C} kind={s.status === "paid" ? "paid" : "owing"}>{n}</Dot>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 15, fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {s.name ?? `Place ${n}`}
@@ -246,10 +244,10 @@ export function SeatPanel({ entryId, driver, C, onClose, onChanged, onDeparted }
                     <Check size={15} /> {money(s.fare_cents)}
                   </span>
                 ) : (
-                  <div style={{ display: "flex", gap: 6 }}>
-                    <Mini C={C} title="Carte — envoyer un lien de paiement" onClick={() => cardLink(s)}><CreditCard size={15} /></Mini>
-                    <Mini C={C} title="Virement Interac reçu" onClick={() => markPaid(s, "interac")}><Smartphone size={15} /></Mini>
-                    <Mini C={C} title="Libérer la place" danger onClick={() => release(s)}><Trash2 size={15} /></Mini>
+                  <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
+                    <PayBtn C={C} title="Carte — créer le lien de paiement" onClick={() => cardLink(s)} />
+                    <Mini C={C} label="Interac" title="Virement Interac reçu" onClick={() => markPaid(s, "interac")}><Smartphone size={15} /></Mini>
+                    <Mini C={C} label="Libérer" title="Libérer la place" danger onClick={() => release(s)}><Trash2 size={15} /></Mini>
                   </div>
                 )}
                 </div>
@@ -372,13 +370,15 @@ function Overlay({ children, onClose }: { children: React.ReactNode; onClose: ()
     </div>
   );
 }
+// The seat number sits beside the glyph rather than inside it: the glyph is a seat, not a
+// badge, and the app draws it the same way.
 function Dot({ C, kind, children }: { C: Pal; kind: "paid" | "owing" | "empty"; children: React.ReactNode }) {
   const col = kind === "paid" ? C.green : kind === "owing" ? C.amber : C.line;
   return (
-    <span style={{ width: 30, height: 30, flex: "none", borderRadius: "50%", border: `1.5px solid ${col}`,
-      background: kind === "paid" ? C.green : "transparent", color: kind === "paid" ? "#fff" : col,
-      display: "inline-flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 12.5 }}>
-      {children}
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, flex: "none", width: 42 }}>
+      <SeatGlyph w={22} state={kind === "empty" ? "free" : kind}
+        color={{ paid: C.green, owing: C.amber, free: C.line }} />
+      <span style={{ fontWeight: 800, fontSize: 11.5, color: col }}>{children}</span>
     </span>
   );
 }
@@ -395,9 +395,32 @@ function Meta({ C, k, v }: { C: Pal; k: string; v: string }) {
   return (<div><div style={{ fontSize: 10, letterSpacing: .5, textTransform: "uppercase", color: C.faint }}>{k}</div>
     <div style={{ fontWeight: 600, marginTop: 1 }}>{v}</div></div>);
 }
-function Mini({ C, children, onClick, title, danger }: { C: Pal; children: React.ReactNode; onClick: () => void; title: string; danger?: boolean }) {
-  return (<span title={title} onClick={onClick} style={{ width: 34, height: 34, borderRadius: 9, border: `1px solid ${C.line}`,
-    display: "inline-flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: danger ? C.red : C.ink }}>{children}</span>);
+// Collecting the money is the whole job of this row, so it gets a filled green button with the
+// word on it. The other two are secondary and stay outlined — an icon alone was ambiguous
+// between "take payment" and "mark received", which are not the same act.
+function PayBtn({ C, onClick, title }: { C: Pal; onClick: () => void; title: string }) {
+  return (
+    <span title={title} onClick={onClick}
+      style={{ minWidth: 58, padding: "5px 10px 4px", borderRadius: 9, background: C.green,
+        color: "#fff", display: "inline-flex", flexDirection: "column", alignItems: "center",
+        justifyContent: "center", gap: 1, cursor: "pointer", border: `1px solid ${C.green}`,
+        boxShadow: "0 1px 0 rgba(0,0,0,.08)" }}>
+      <CircleDollarSign size={18} />
+      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: .3 }}>PAYER</span>
+    </span>
+  );
+}
+
+function Mini({ C, children, onClick, title, danger, label }: { C: Pal; children: React.ReactNode; onClick: () => void; title: string; danger?: boolean; label?: string }) {
+  return (
+    <span title={title} onClick={onClick}
+      style={{ minWidth: 52, padding: "5px 8px 4px", borderRadius: 9, border: `1px solid ${C.line}`,
+        display: "inline-flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        gap: 1, cursor: "pointer", color: danger ? C.red : C.ink }}>
+      {children}
+      {label && <span style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: .2 }}>{label}</span>}
+    </span>
+  );
 }
 function Note({ C, children, bad }: { C: Pal; children: React.ReactNode; bad?: boolean }) {
   return (<div style={{ margin: "0 18px 13px", padding: "9px 11px", borderRadius: 9, fontSize: 12.5, lineHeight: 1.5,

@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { X, CreditCard, Smartphone, UserRound, Check, Trash2, Copy } from "lucide-react";
 import SeatGlyph from "./SeatGlyph";
+import { BRAND_AZURE as AZURE } from "./Brand";
 
 export type Seat = {
   id: string; seat_no: number; name: string | null; phone: string | null;
@@ -395,10 +396,8 @@ function Meta({ C, k, v }: { C: Pal; k: string; v: string }) {
   return (<div><div style={{ fontSize: 10, letterSpacing: .5, textTransform: "uppercase", color: C.faint }}>{k}</div>
     <div style={{ fontWeight: 600, marginTop: 1 }}>{v}</div></div>);
 }
-// LoadQ's azure — the action colour from the app's constants/colors.ts, and the same value
-// the board PNG uses. Actions are azure across the product; green is reserved for a settled
-// state, which is why the button that ASKS for money is not the colour that means "paid".
-const AZURE = "#4C82F0";
+// Actions are azure across the product; green is reserved for a settled state, which is why
+// the button that ASKS for money is not the colour that means "paid".
 
 // Collecting the money is the whole job of this row, so it gets the only coloured control.
 //

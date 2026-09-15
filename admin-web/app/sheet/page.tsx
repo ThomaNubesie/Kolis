@@ -23,7 +23,7 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { getVehicleImageUrl } from "@/lib/vehicleImage";
 import { SeatStrip, SeatPanel, DepartureReceipt, type CarSeats } from "@/components/Seats";
-import { Wordmark, ConcordFooter } from "@/components/Brand";
+import { Wordmark, ConcordFooter, BRAND_AZURE } from "@/components/Brand";
 import {
   Search, X, ArrowLeftRight, Undo2, LogOut, RefreshCw, KeyRound,
   UserPlus, ShieldAlert, WifiOff, Camera, Check, Sun, SunMoon, Moon,
@@ -348,9 +348,17 @@ function Sheet({ theme, setTheme }: { theme: ThemeName; setTheme: (t: ThemeName)
           <select
             value={line ? `${line.zone_id}|${line.destination}` : ""}
             onChange={(e) => setLine(lines.find((l) => `${l.zone_id}|${l.destination}` === e.target.value) ?? null)}
-            style={{ background: "rgba(255,255,255,.16)", color: C.bandInk, border: 0, borderRadius: 9, padding: "8px 11px", fontSize: 14.5, fontWeight: 700, outline: "none", maxWidth: 380 }}>
+            // The line being written — where the cars are loading and where they are going.
+            // Azure, the action colour: it is the one control that changes what the whole
+            // sheet below is about, so it should not read as chrome.
+            style={{ background: BRAND_AZURE + "24", color: BRAND_AZURE, border: `1px solid ${BRAND_AZURE}66`,
+                     borderRadius: 9, padding: "8px 11px", fontSize: 14.5, fontWeight: 800,
+                     outline: "none", maxWidth: 380 }}>
+            {/* The options carry no colour. The dropdown is drawn by the OS and follows the
+                SYSTEM light/dark setting, not the sheet's theme — forcing C.ink painted them
+                white-on-white in the dark theme. */}
             {lines.map((l) => (
-              <option key={`${l.zone_id}|${l.destination}`} value={`${l.zone_id}|${l.destination}`} style={{ color: C.ink }}>
+              <option key={`${l.zone_id}|${l.destination}`} value={`${l.zone_id}|${l.destination}`}>
                 {(l.zone_name ?? l.zone_id)} → {l.destination_name}{l.cars ? ` (${l.cars})` : ""}
               </option>
             ))}

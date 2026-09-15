@@ -11,6 +11,9 @@
 
 export const BRAND_ORANGE = "#FF8A1A";
 export const BRAND_INK = "#15171C";
+// LoadQ's action colour, from the app's constants/colors.ts and the board PNG. Defined once
+// here so the sheet, the seat panel and the board cannot drift into three different blues.
+export const BRAND_AZURE = "#4C82F0";
 
 // Perceived lightness decides the "Load" colour, so a new theme is handled without editing
 // this file — same calculation as the app's brandInk().

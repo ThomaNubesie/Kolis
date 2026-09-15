@@ -12,7 +12,7 @@
 // Neither is obvious to someone holding a tablet at Universal Grocery, so both are on screen.
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { X, CreditCard, Smartphone, UserRound, Check, Trash2, Copy, CircleDollarSign } from "lucide-react";
+import { X, CreditCard, Smartphone, UserRound, Check, Trash2, Copy } from "lucide-react";
 import SeatGlyph from "./SeatGlyph";
 
 export type Seat = {
@@ -395,17 +395,24 @@ function Meta({ C, k, v }: { C: Pal; k: string; v: string }) {
   return (<div><div style={{ fontSize: 10, letterSpacing: .5, textTransform: "uppercase", color: C.faint }}>{k}</div>
     <div style={{ fontWeight: 600, marginTop: 1 }}>{v}</div></div>);
 }
-// Collecting the money is the whole job of this row, so it gets a filled green button with the
-// word on it. The other two are secondary and stay outlined — an icon alone was ambiguous
-// between "take payment" and "mark received", which are not the same act.
+// LoadQ's azure — the action colour from the app's constants/colors.ts, and the same value
+// the board PNG uses. Actions are azure across the product; green is reserved for a settled
+// state, which is why the button that ASKS for money is not the colour that means "paid".
+const AZURE = "#4C82F0";
+
+// Collecting the money is the whole job of this row, so it gets the only coloured control.
+//
+// The icon is a CARD, deliberately. A coin or a banknote would be the one thing this button
+// never means: LoadQ does not take cash, and loadq_seat_mark_paid rejects it outright. It
+// creates a Stripe card link, so it shows a card.
 function PayBtn({ C, onClick, title }: { C: Pal; onClick: () => void; title: string }) {
   return (
     <span title={title} onClick={onClick}
-      style={{ minWidth: 58, padding: "5px 10px 4px", borderRadius: 9, background: C.green,
-        color: "#fff", display: "inline-flex", flexDirection: "column", alignItems: "center",
-        justifyContent: "center", gap: 1, cursor: "pointer", border: `1px solid ${C.green}`,
-        boxShadow: "0 1px 0 rgba(0,0,0,.08)" }}>
-      <CircleDollarSign size={18} />
+      style={{ minWidth: 58, padding: "5px 10px 4px", borderRadius: 9,
+        background: AZURE + "1A", border: `1.5px solid ${AZURE}`, color: AZURE,
+        display: "inline-flex", flexDirection: "column", alignItems: "center",
+        justifyContent: "center", gap: 2, cursor: "pointer" }}>
+      <CreditCard size={18} />
       <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: .3 }}>PAYER</span>
     </span>
   );

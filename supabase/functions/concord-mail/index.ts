@@ -3,7 +3,7 @@
 // so branding persists across all sends. Supports custom from, reply_to,
 // PDF attachments (base64), and a { action:'domains' } status check.
 //
-// Send body: { to, subject, body|html, from?, reply_to?, attachments?, wrap? }
+// Send body: { to, subject, body|html, from?, reply_to?, cc?, bcc?, attachments?, wrap? }
 //   body  = inner HTML (recommended) -> wrapped in letterhead automatically
 //   html  = full HTML                -> wrapped unless wrap:false
 //   wrap  = false to send html verbatim (no letterhead)
@@ -58,7 +58,7 @@ Deno.serve(async (req)=>{
       const d = await r.json().catch(()=>({}));
       return j({ ok:r.ok, domains:d?.data ?? d }, r.ok?200:502);
     }
-    const { to, subject, from, reply_to, attachments } = b;
+    const { to, subject, from, reply_to, attachments, cc, bcc } = b;
     if(!to||!subject) return j({error:"to and subject required"},400);
     const inner = b.body ?? b.html ?? "";
     const wrap = b.wrap !== false; // brand by default
@@ -66,6 +66,8 @@ Deno.serve(async (req)=>{
     const payload = {
       from: from || DEFAULT_FROM,
       to, subject, html,
+      ...(cc?{cc}:{}),
+      ...(bcc?{bcc}:{}),
       ...(reply_to?{reply_to}:{}),
       ...(Array.isArray(attachments)&&attachments.length?{attachments}:{}),
     };

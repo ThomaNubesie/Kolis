@@ -1,4 +1,4 @@
-// loadq-fb-post — publishes the daily queue snapshot to the Concord CarPool Page.
+// loadq-fb-post — publishes the daily queue snapshot to the Concord Express Page.
 //
 //   POST {action:"preview"}      → the text that WOULD be posted, publishes nothing
 //   POST {action:"post"}         → publishes the text post
@@ -73,8 +73,8 @@ Deno.serve(async (req) => {
         token_identifies_as: me?.name ?? null,
         hint: isPageToken ? undefined
           : isPage
-            ? `This token belongs to "${me?.name}". In GET /me/accounts, copy the access_token from the Concord CarPool entry instead.`
-            : "This is a user token. Run GET /me/accounts and copy the access_token from the Concord CarPool entry.",
+            ? `This token belongs to "${me?.name}". In GET /me/accounts, copy the access_token for page ${PAGE_ID} instead.`
+            : `This is a user token. Run GET /me/accounts and copy the access_token for page ${PAGE_ID}.`,
       });
     }
 

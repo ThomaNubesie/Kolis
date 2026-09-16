@@ -4,6 +4,7 @@
 //   POST {action:"post"}         → publishes the text post
 //   POST {action:"post_boards"}  → publishes ONE post carrying a board image per active zone
 //   POST {action:"post_photo"}   → publishes ONE image (base64) with a caption
+//   POST {action:"post_flyer"}   → publishes ONE hosted image (image_url) with a caption
 //
 // The text is composed in the database (loadq_fb_daily_text), not here, so the wording
 // can be changed without redeploying a function, and so the same text can be previewed
@@ -90,6 +91,63 @@ Deno.serve(async (req) => {
     // request fixes it — Meta does not allow programmatic Page renames for standard apps.
     // The Page must be renamed by hand: Page > Settings > Page setup > Name, which Meta then
     // reviews. Recorded here so the next person does not rediscover it.
+
+    // What the Page actually shows. Our own log records that Facebook returned a post id, which
+    // is not the same as the post being visible — a post can be accepted and then restricted,
+    // or land somewhere the Page owner does not look. This asks the Page itself.
+    if (action === "recent") {
+      if (!PAGE_TOKEN || !PAGE_ID) return json({ error: "not configured" }, 500);
+      const r = await fetch(`${GRAPH}/${PAGE_ID}/posts?fields=id,created_time,message,is_published,is_hidden,privacy,permalink_url&limit=${b.limit ?? 6}&access_token=${encodeURIComponent(PAGE_TOKEN)}`);
+      const out = await r.json().catch(() => ({}));
+      return json({ ok: r.ok, posts: (out?.data ?? []).map((p: any) => ({
+        id: p.id, at: p.created_time, published: p.is_published, hidden: p.is_hidden,
+        privacy: p?.privacy?.value ?? null, url: p.permalink_url,
+        first_line: String(p.message ?? "").split("\n")[0].slice(0, 70),
+      })), error: out?.error ?? null }, r.ok ? 200 : 502);
+    }
+
+    // post_flyer — one hosted image with a caption.
+    //
+    // The noon cron has always called this action; the function never implemented it. An
+    // unknown action does not error here, it falls through to the plain text post, so on
+    // 16 Sept the noon slot published the auto-generated queue summary instead of the flyer
+    // and every layer reported success. That is the whole bug: a typo in an action name is
+    // indistinguishable from working, because the fall-through is itself a valid post.
+    //
+    // Differs from post_photo only in taking a URL rather than base64 — the cron cannot carry
+    // a 1.3 MB image in its body.
+    if (action === "post_flyer") {
+      if (!PAGE_TOKEN || !PAGE_ID) {
+        return json({ error: "facebook_not_configured", need: ["LOADQ_FB_PAGE_TOKEN", "LOADQ_FB_PAGE_ID"] }, 503);
+      }
+      const url = String(b.image_url || "");
+      if (!url) return json({ error: "image_url_required" }, 400);
+      const caption = String(b.caption ?? b.message ?? message);
+
+      const img = await fetch(url).catch(() => null);
+      if (!img || !img.ok) {
+        const m = `flyer fetch ${img?.status ?? "failed"}`;
+        await admin.from("loadq_fb_posts").insert({ message: caption, error: m });
+        return json({ error: m }, 502);
+      }
+      const blob = await img.blob();
+      const fd = new FormData();
+      fd.append("source", blob, url.split("/").pop() || "flyer.png");
+      fd.append("caption", caption);
+      fd.append("published", "true");
+      fd.append("access_token", PAGE_TOKEN);
+
+      const r = await fetch(`${GRAPH}/${PAGE_ID}/photos`, { method: "POST", body: fd });
+      const o = await r.json().catch(() => ({}));
+      if (!r.ok || o.error) {
+        const m = o?.error?.message ?? `http_${r.status}`;
+        await admin.from("loadq_fb_posts").insert({ message: caption, error: String(m).slice(0, 400) });
+        return json({ error: m }, 502);
+      }
+      await admin.from("loadq_fb_posts").insert({ message: caption, fb_post_id: o.post_id ?? o.id ?? null });
+      return json({ ok: true, fb_post_id: o.post_id ?? o.id ?? null, photo_id: o.id ?? null,
+                    flyer: url.split("/").pop() });
+    }
 
     if (action === "post_photo") {
       if (!PAGE_TOKEN || !PAGE_ID) {

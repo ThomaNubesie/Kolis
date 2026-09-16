@@ -202,3 +202,38 @@ good deploy of admin.loadq.ca.
   admin-web safely — `/board` will no longer be lost by doing so.
 - loadq.ca Android links were pointing at an expired Play **internal-test** URL; fixed on
   8 Sept (18 occurrences across 6 files) to the public listing.
+
+## 2026-09-16: `supabase functions deploy` silently re-enables JWT verification
+
+`npx supabase functions deploy <fn>` **defaults `verify_jwt` to TRUE**. It does not read the
+function's current setting, so redeploying anything that was originally shipped with
+`--no-verify-jwt` silently flips it back on. Nothing in the CLI output mentions it.
+
+What that cost, in one night:
+
+* `loadq-fb-post` was redeployed twice (to add, then remove, a Page-rename action). Both times
+  without the flag. At 07:00 the next morning the board post returned
+  `401 UNAUTHORIZED_NO_AUTH_HEADER` and **no Facebook post went out** — the cron sends only
+  `Content-Type` and `x-kolis-secret`, never an `Authorization` header.
+* `concord-mail` was redeployed the same way. It is `verify_jwt=true`, and the queued letter to
+  the City's by-law officer was scheduled with no `Authorization` header — it would have 401'd
+  at 08:30 and simply never arrived.
+
+**pg_cron reports `succeeded` either way.** `net.http_post` only queues the request; the job log
+records that the *SQL* ran, not that the HTTP call was accepted. A green cron history is not
+evidence a post or an email went out — the same lesson as "green is not evidence" above, one
+layer down.
+
+    -- where the truth actually is
+    select status_code, created at time zone 'America/Toronto', left(content,200)
+      from net._http_response where created > now() - interval '2 hours'
+     order by created desc;
+
+**Rules that follow:**
+
+1. Always pass `--no-verify-jwt` when redeploying a function a cron calls, every time, even for
+   a one-word comment change.
+2. Prefer sending an `Authorization: Bearer <anon>` header from the cron anyway, so the job
+   survives a future redeploy that forgets. The Pronovost letter job now does.
+3. After redeploying anything cron-driven, call it **exactly as the cron does** — no auth
+   header — and check it answers.

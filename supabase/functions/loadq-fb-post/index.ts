@@ -82,6 +82,15 @@ Deno.serve(async (req) => {
     // Bytes are passed in rather than fetched from a URL: uploading by url= let Facebook
     // mint a photo id while rendering nothing, which is how earlier posts went out as
     // text with the images silently missing.
+    // NOT renaming the Page — it cannot be done from here.
+    //
+    // Tried 2026-09-16: POST /{page-id} with `name` is refused with
+    //   (#3) Application does not have the capability to make this API call.
+    // That is an APP-level capability, not a missing scope, so no token, permission or review
+    // request fixes it — Meta does not allow programmatic Page renames for standard apps.
+    // The Page must be renamed by hand: Page > Settings > Page setup > Name, which Meta then
+    // reviews. Recorded here so the next person does not rediscover it.
+
     if (action === "post_photo") {
       if (!PAGE_TOKEN || !PAGE_ID) {
         return json({ error: "facebook_not_configured", need: ["LOADQ_FB_PAGE_TOKEN", "LOADQ_FB_PAGE_ID"] }, 503);

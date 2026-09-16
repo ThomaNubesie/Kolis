@@ -4,14 +4,12 @@ _Last updated: 2026-09-16. Snapshot so work can continue on any machine (`git pu
 
 ---
 
-# ⛔ READ THIS FIRST — one armed landmine
+# ⛔ READ THIS FIRST — 16 October 2026 is a cliff
 
-**Certifying any document, or any recompute of `drivers.verified`, locks the entire fleet out
-of the queue. 127 of 127 verified drivers would flip to unverified. Nobody is complete.**
-
-`loadq_driver_docs_complete()` requires **all seven** `loadq_doc_kinds` rows where
-`required = true`. Four of those seven have **zero** approved documents across the whole fleet —
-they have never been collected from anyone:
+**On 16 Oct every driver without all seven documents stops being able to join a line.**
+Today that is essentially the whole fleet: **117 of 127 verified drivers have no documents in
+the system at all**, and only 9 are complete even on the old three. The `verified` flag was set
+by hand under an older process; it was never derived from documents.
 
 | Required document | Approved, whole fleet |
 |---|---|
@@ -23,18 +21,25 @@ they have never been collected from anyone:
 | **charges_declaration** | **0** |
 | **safety_certificate** | **0** |
 
-`loadq_doc_certify()` ends with `update drivers set verified = loadq_driver_docs_complete(...)`.
-So the first time anyone certifies a document on `/certify`, **that driver stops being able to
-join a line** — and they had a perfectly good licence a second earlier.
+**Defused, not solved** (migration `20260918000000_loadq_docs_grace.sql`, applied):
 
-Nothing has fired yet: the 127 still carry `verified = true` from the old three-document rule,
-because nothing has recomputed them. It is armed, not detonated.
+    during grace   verified := verified OR docs_complete    -- may promote, never demote
+    after grace    verified := docs_complete
 
-**Do not ship the verification OTA and do not certify anything until this is decided.** The
-fix is the same shape as the vehicle-year rule that already has a six-month transition: give
-`loadq_doc_kinds` a `required_from date`, set the four new kinds to a future date, and have
-`loadq_driver_docs_complete()` ignore a kind until that date passes. That is a policy decision
-about compliance posture, so it needs Thomas, not a migration written on someone's initiative.
+`loadq_settings.docs_required_from = '2026-10-16'`, read by `loadq_docs_grace_active()`.
+**Change the date in that row to extend or end the window — no deploy, no migration.**
+Both writers (`loadq_doc_certify`, `loadq_recompute_driver_verified`) go through it, so they
+cannot disagree. `loadq_driver_docs_complete()` is deliberately left honest and untouched —
+the grace belongs in the gating decision, not in the measurement.
+
+Verified with rolled-back `DO` blocks: certifying a document for an incomplete driver leaves
+`verified = t` today, and leaves it `f` once the date has passed. The mechanism is real in both
+directions.
+
+**The actual work this buys time for:** ~117 drivers × 7 documents ≈ **800 documents to collect
+and certify in 30 days**, and four of the seven have never been asked for before. The machine
+reader that makes that volume survivable is **not running** — see the Anthropic credit note
+below. Fund that first or the month is spent reviewing by hand.
 
 ---
 

@@ -58,6 +58,7 @@ Deno.serve(async (req) => {
 
   try {
     let seatId: string | null = null, intent: string | null = null, amount: number | null = null, currency = "cad";
+    let email: string | null = null;
 
     if (event.type === "checkout.session.completed") {
       const s = event.data.object as Stripe.Checkout.Session;
@@ -66,6 +67,9 @@ Deno.serve(async (req) => {
       intent = typeof s.payment_intent === "string" ? s.payment_intent : s.payment_intent?.id ?? null;
       amount = s.amount_total ?? null;
       currency = s.currency ?? "cad";
+      // The ONLY passenger email we ever get. A PaymentIntent does not carry it, so if that
+      // event wins the race this is the branch that must still hand it over.
+      email = s.customer_details?.email ?? s.customer_email ?? null;
       // The session id is the fallback route home: metadata can be dropped by a hand-made
       // payment link, but the seat still remembers which sessions it asked for.
       if (!seatId && s.id) {
@@ -79,6 +83,7 @@ Deno.serve(async (req) => {
       intent = pi.id;
       amount = pi.amount_received ?? pi.amount ?? null;
       currency = pi.currency ?? "cad";
+      email = pi.receipt_email ?? null;
     } else {
       return json({ ...out, ignored: true });
     }
@@ -88,6 +93,7 @@ Deno.serve(async (req) => {
     const { data, error } = await db.rpc("loadq_seat_card_record", {
       p_seat: seatId, p_intent: intent, p_amount: amount,
       p_currency: currency, p_event: event.id, p_raw: event.data.object as unknown as Record<string, unknown>,
+      p_email: email,
     });
     if (error) return json({ ...out, error: error.message }, 500);
 

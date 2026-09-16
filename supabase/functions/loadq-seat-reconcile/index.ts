@@ -62,9 +62,30 @@ Deno.serve(async (req) => {
         p_seat: seatId, p_intent: pi.id, p_amount: pi.amount_received ?? pi.amount,
         p_currency: pi.currency ?? "cad", p_event: "manual_attach",
         p_raw: pi as unknown as Record<string, unknown>,
+        p_email: pi.receipt_email ?? null,
       });
       if (error) return json({ ok: false, error: error.message, ...info });
       return json({ ok: !!data?.ok, seat_id: seatId, result: data, ...info });
+    }
+
+    // ── backfill addresses Stripe holds but we missed ────────────────────────────────────
+    // A paid seat whose Checkout session carried an email that never reached us, because the
+    // PaymentIntent event won the race and a PaymentIntent has no customer_details.
+    if (b.backfill_emails) {
+      const { data: gaps } = await db.rpc("loadq_seats_missing_email");
+      const filled: any[] = [];
+      for (const g of (gaps ?? []) as any[]) {
+        try {
+          const cs = await stripe.checkout.sessions.retrieve(g.session_id);
+          const em = cs.customer_details?.email ?? cs.customer_email ?? null;
+          if (em) {
+            await db.rpc("loadq_seat_set_email", { p_seat: g.seat_id, p_email: em });
+            filled.push({ reference: g.reference, filled: true });
+          } else filled.push({ reference: g.reference, filled: false, reason: "stripe_has_none" });
+        } catch (e) { filled.push({ reference: g.reference, error: String((e as Error)?.message ?? e) }); }
+      }
+      return json({ ok: true, checked: (gaps ?? []).length,
+                    filled: filled.filter((f) => f.filled).length, seats: filled });
     }
 
     // ── sweep every live session of every awaiting seat ──────────────────────────────────
@@ -104,6 +125,7 @@ Deno.serve(async (req) => {
         const { data, error: re } = await db.rpc("loadq_seat_card_record", {
           p_seat: r.seat_id, p_intent: intent, p_amount: cs.amount_total,
           p_currency: cs.currency ?? "cad", p_event: "reconcile", p_raw: cs as unknown as Record<string, unknown>,
+          p_email: cs.customer_details?.email ?? cs.customer_email ?? null,
         });
         rec.action = re ? "error" : (data?.already ? "already" : data?.ok ? "marked_paid" : data?.error);
         if (re) rec.error = re.message;

@@ -28,7 +28,7 @@ function letterhead(inner){
       </td>
       <td valign="middle" style="padding-left:16px">
         <div style="font-size:21px;font-weight:800;color:#181818">Concord Express Co Inc.</div>
-        <div style="font-size:11px;color:#22A874;margin-top:3px">Intercity carpooling · Canada · France · West Africa</div>
+        <div style="font-size:11px;color:#22A874;margin-top:3px">Intercity shuttle · Canada · France · West Africa</div>
         <div style="font-size:11px;color:#9a9a9a">Transport des personnes · Expédition · Gestion de file d’attente</div>
         <div style="font-size:11px;color:#22A874;font-style:italic">Là-bas aujourd’hui !</div>
       </td>

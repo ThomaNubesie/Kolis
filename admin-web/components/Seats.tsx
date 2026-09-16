@@ -76,6 +76,8 @@ export function SeatPanel({ entryId, driver, C, onClose, onChanged, onDeparted }
   // which is why the panel polls while it is showing.
   const [pay, setPay] = useState<{ seat: string; url: string; reference: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  // A seat awaiting the passenger's yes/no, with what they are being shown.
+  const [pending, setPending] = useState<{ seat_no: number; name: string; phone: string; disclosure: any } | null>(null);
 
   const load = async () => {
     const { data } = await supabase.rpc("loadq_seats_for_entry", { p_entry: entryId });
@@ -93,14 +95,30 @@ export function SeatPanel({ entryId, driver, C, onClose, onChanged, onDeparted }
     return d;
   };
 
+  // Ottawa's PTC guide requires the passenger to be shown the driver, the vehicle, the rate and
+  // the surcharge BEFORE the trip is agreed, and requires a record of their acceptance or
+  // refusal. So selling a seat is two steps now: disclose, then record the answer.
   const openSeat = async (n: number) => {
     if (!name.trim()) return say("Le nom du passager, au moins un prénom.", true);
+    const { data: disc } = await supabase.rpc("loadq_seat_disclosure", { p_entry: entryId });
+    if (!disc?.ok) return say(errText(disc?.error), true);
+    setPending({ seat_no: n, name: name.trim(), phone: phone.trim(), disclosure: disc });
+  };
+
+  // The passenger said yes: create the seat, then stamp the acceptance with what was on screen.
+  const confirmSeat = async (accepted: boolean) => {
+    const p = pending; if (!p) return;
+    if (!accepted) { setPending(null); setAdding(null); setName(""); setPhone("");
+      return say("Refusé — aucune place créée."); }
     const d = await run(() => supabase.rpc("loadq_seat_open", {
-      p_entry: entryId, p_seat_no: n, p_name: name.trim(),
-      p_phone: phone.trim() || null, p_channel: "point",
+      p_entry: entryId, p_seat_no: p.seat_no, p_name: p.name,
+      p_phone: p.phone || null, p_channel: "point",
     }).then((r) => r.data));
-    if (!d?.ok) return say(errText(d?.error), true);
-    setAdding(null); setName(""); setPhone("");
+    if (!d?.ok) { setPending(null); return say(errText(d?.error), true); }
+    await supabase.rpc("loadq_seat_record_decision", {
+      p_seat: d.id, p_accepted: true, p_disclosed: p.disclosure,
+    });
+    setPending(null); setAdding(null); setName(""); setPhone("");
   };
 
   const markPaid = async (s: Seat, method: "card" | "interac") => {
@@ -305,8 +323,79 @@ export function SeatPanel({ entryId, driver, C, onClose, onChanged, onDeparted }
         </div>
 
         {msg && <Note C={C} bad={msg.bad}>{msg.t}</Note>}
+
+        {pending && (
+          <Disclosure C={C} p={pending} busy={busy}
+            onDecide={confirmSeat} onCancel={() => setPending(null)} />
+        )}
       </div>
     </Overlay>
+  );
+}
+
+// What the passenger must see before agreeing, and the two buttons that record their answer.
+// Refusing is a real outcome the by-law asks us to keep, not just a way to close a dialog.
+function Disclosure({ C, p, busy, onDecide, onCancel }: {
+  C: Pal; p: { seat_no: number; name: string; disclosure: any }; busy: boolean;
+  onDecide: (accepted: boolean) => void; onCancel: () => void;
+}) {
+  const d = p.disclosure;
+  const car = [d.year, d.make, d.model].filter(Boolean).join(" ");
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 70,
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 14 }}>
+      <div style={{ background: C.sheet, color: C.ink, borderRadius: 14, width: "min(420px,94vw)",
+        maxHeight: "92vh", overflowY: "auto", padding: "16px 18px" }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: C.ink2, letterSpacing: .4 }}>
+          À MONTRER AU PASSAGER · SHOW THE PASSENGER
+        </div>
+        <div style={{ fontSize: 17, fontWeight: 800, margin: "3px 0 12px" }}>
+          Place {p.seat_no} · {p.name}
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+          {d.driver_photo
+            ? <img src={d.driver_photo} alt="" width={50} height={50}
+                   style={{ borderRadius: "50%", objectFit: "cover", flex: "none" }} />
+            : <div style={{ width: 50, height: 50, borderRadius: "50%", background: C.strip,
+                border: `1px solid ${C.line}`, display: "grid", placeItems: "center",
+                flex: "none", fontWeight: 800, color: C.ink2 }}>{d.driver_first?.[0] ?? "?"}</div>}
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>{d.driver_first}</div>
+            <div style={{ color: C.ink2, fontSize: 13 }}>
+              {car}{d.colour ? ` · ${d.colour}` : ""}
+            </div>
+            {d.plate && <div style={{ display: "inline-block", marginTop: 3,
+              border: `1.5px solid ${C.ink}`, borderRadius: 4, padding: "0 7px",
+              fontWeight: 800, letterSpacing: 1, fontSize: 13 }}>{d.plate}</div>}
+          </div>
+        </div>
+
+        <div style={{ borderTop: `1px solid ${C.line}`, paddingTop: 9 }}>
+          <Row C={C} k="Tarif · Rate" v={money(d.rate_cents ?? 0)} />
+          <Row C={C} k="Supplément · Surcharge" v={money(d.surcharge_cents ?? 0)} />
+          <Row C={C} k="Trajet · Route" v={`${d.origin ?? ""} → ${d.destination ?? ""}`} />
+          {d.distance_km != null && (
+            <Row C={C} k="Distance · durée" v={`${d.distance_km} km · ${d.duration_minutes} min`} />
+          )}
+          <Row C={C} k="Total estimé · Estimate" v={money(d.estimate_cents ?? 0)} big />
+        </div>
+
+        <div style={{ display: "flex", gap: 9, marginTop: 14 }}>
+          <button disabled={busy} onClick={() => onDecide(true)}
+            style={{ ...btn(C, "dark"), flex: 2, padding: "13px 0", background: "#1F8A55",
+                     border: "1px solid #1F8A55", color: "#fff" }}>
+            Accepté · Accepted
+          </button>
+          <button disabled={busy} onClick={() => onDecide(false)}
+            style={{ ...btn(C, "ghost"), flex: 1, padding: "13px 0", color: C.red }}>
+            Refusé
+          </button>
+        </div>
+        <button onClick={onCancel} style={{ ...btn(C, "ghost"), width: "100%", marginTop: 7,
+          padding: "9px 0", border: "none", color: C.faint }}>Annuler</button>
+      </div>
+    </div>
   );
 }
 

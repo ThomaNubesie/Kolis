@@ -76,7 +76,7 @@ def build(name,cat,addr,city,hook_fr,hook_en):
     tags="".join(f'<span class="tag">{E(x)}</span>' for x in TAGS[cat])
     return f"""<!doctype html><html><head><meta charset="utf-8"><style>{CSS}</style></head><body>
 <div class="topbar"><div class="logo"><b>CX</b><span>CONCORD</span></div><div><div class="co">Concord Express Co Inc.</div>
-<div class="tl">Intercity carpooling · Canada · France · West Africa</div><div class="tl2">Transport des personnes · Expédition · Gestion de la file d'attente</div><div class="tl3">Là-bas aujourd'hui !</div></div></div>
+<div class="tl">Intercity shuttle · Canada · France · West Africa</div><div class="tl2">Transport des personnes · Expédition · Gestion de la file d'attente</div><div class="tl3">Là-bas aujourd'hui !</div></div></div>
 <div class="botbar"><div>kolis.ca · marketing@concordexpress.ca</div><div class="mid">Ottawa / Gatineau<br>(613) 862-2639</div><div>www.concordexpress.ca</div></div>
 <div class="page">
  <div class="meta"><div>{E(city)}, Canada<br>{DATE_FR} / {DATE_EN}</div><div class="rcpt"><b>{E(name)}</b><br>{E(addr)}</div></div>

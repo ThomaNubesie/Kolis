@@ -97,8 +97,15 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
 
   // No board for this zone: say so plainly rather than rendering an empty frame that
   // looks like a loading failure.
+  //
+  // This branch MUST NOT be cached. It used to return the ImageResponse directly, which keeps
+  // Next's default `immutable, max-age=31536000` — so the failure case was cached for a YEAR
+  // while the success case below was cached for two hours. One momentary empty read froze a
+  // zone's board permanently: Ottawa showed "no cars" through a morning with eight cars in
+  // the line, because the image had been rendered once at 1 a.m. when the line really was
+  // empty. An empty board is a transient state and must always be re-rendered.
   if (!b) {
-    return new ImageResponse(
+    const empty = new ImageResponse(
       (
         <div style={{ width: "100%", height: "100%", background: C.bg, color: C.t2,
                       display: "flex", flexDirection: "column", alignItems: "center",
@@ -109,6 +116,9 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
       ),
       { width: 1080, height: 1350 },
     );
+    const eout = new Response(empty.body, empty);
+    eout.headers.set("Cache-Control", "no-store, max-age=0, must-revalidate");
+    return eout;
   }
 
   const img = new ImageResponse(

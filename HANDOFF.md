@@ -1,8 +1,131 @@
 # Kolis / Concord Express — session handoff
 
-_Last updated: 2026-09-14. Snapshot so work can continue on any machine (`git pull`, start a fresh Claude session, say "continue the Kolis work")._
+_Last updated: 2026-09-16. Snapshot so work can continue on any machine (`git pull`, start a fresh Claude session, say "continue the Kolis work")._
 
-## Latest session — 2026-09-14 (seats & money on /sheet)
+---
+
+# ⛔ READ THIS FIRST — one armed landmine
+
+**Certifying any document, or any recompute of `drivers.verified`, locks the entire fleet out
+of the queue. 127 of 127 verified drivers would flip to unverified. Nobody is complete.**
+
+`loadq_driver_docs_complete()` requires **all seven** `loadq_doc_kinds` rows where
+`required = true`. Four of those seven have **zero** approved documents across the whole fleet —
+they have never been collected from anyone:
+
+| Required document | Approved, whole fleet |
+|---|---|
+| drivers_license | 11 |
+| registration | 10 |
+| insurance | 9 |
+| **police_record_check** | **0** |
+| **driving_record** | **0** |
+| **charges_declaration** | **0** |
+| **safety_certificate** | **0** |
+
+`loadq_doc_certify()` ends with `update drivers set verified = loadq_driver_docs_complete(...)`.
+So the first time anyone certifies a document on `/certify`, **that driver stops being able to
+join a line** — and they had a perfectly good licence a second earlier.
+
+Nothing has fired yet: the 127 still carry `verified = true` from the old three-document rule,
+because nothing has recomputed them. It is armed, not detonated.
+
+**Do not ship the verification OTA and do not certify anything until this is decided.** The
+fix is the same shape as the vehicle-year rule that already has a six-month transition: give
+`loadq_doc_kinds` a `required_from date`, set the four new kinds to a future date, and have
+`loadq_driver_docs_complete()` ignore a kind until that date passes. That is a policy decision
+about compliance posture, so it needs Thomas, not a migration written on someone's initiative.
+
+---
+
+## Session — 2026-09-15/16
+
+### Automated document verification (LIVE, but idle)
+
+- Migration `20260917000000_loadq_doc_machine_review.sql` — adds `machine_status`, `machine_at`,
+  `machine_notes`, `extracted`, `certified_by`, `certified_at` to `loadq_driver_documents`.
+- Edge fn **`loadq-doc-verify`** (`verify_jwt=false`, cron every 10 min, job 38). Reads each
+  pending document with `claude-opus-5`, forced tool call, cross-checks name against the account
+  and plate against the vehicle, then calls `loadq_doc_machine_review`.
+- **The machine may reject; it may never approve.** A false rejection costs one retake; a false
+  approval puts an uninspected driver in a car with passengers.
+- **It is not actually running.** `ANTHROPIC_API_KEY` on `kzjptcpjpwlxfofzhyku` has **no credit** —
+  `400 · Your credit balance is too low`. Add credits at console.anthropic.com → Plans & Billing.
+  Six other functions share the key and are also dead: `kolis-assistant`, `kolis-email-composer`,
+  `kolis-followup-ai`, `kolis-prospect-advisor`, `quorly-prospect-finder`, `cf-ai`.
+- A billing/auth/429/5xx failure **aborts the sweep and leaves documents untouched** rather than
+  marking them `error`. An unfunded account is our problem, not the driver's.
+- `'error'` is included in `loadq_docs_to_certify()`. It was not at first, which stranded such
+  documents between both queues — invisible to the machine (status set) and to the human (not a
+  clean read).
+
+### `/certify` — the human step (WRITTEN, NOT DEPLOYED)
+
+- `admin-web/app/certify/page.tsx`. Queue left (doubtful first), document large in the middle,
+  decision right. Extracted fields shown against the document; every cross-check shows **both
+  sides** (`MEKAM, JEANNE C` → *account: Symplice Mekam*) because a policy in a spouse's name is
+  a judgement call, not a red X. `A` certifies, `R` sends back, `J`/`K` move.
+- Edge fn **`loadq-doc-decide`** — runs `loadq_doc_certify` **as the caller** with their own
+  token, so the existing admin check decides; Twilio is never reachable from the browser.
+  Verified: no token → 401, anon token → `forbidden` 403 **with no SMS sent**.
+- Auto-rejections are counted in the header (`loadq_docs_auto_rejected`) — silent auto-rejection
+  is the risky half of the design.
+- Mockup: `~/Downloads/loadq-certify-mockup.html`.
+- **Not deployed.** Follow the draft-first rule in `DEPLOY-NOTES-loadq-admin.md`.
+
+### Blocked accounts (LIVE — DB + app, app not yet released)
+
+- **The real fix was underneath the screen.** `queue_entries_require_eligible` let an admin, a
+  list writer, and any caller without a JWT through *before it looked at the driver*. A driver
+  blocked for threatening someone could still be queued by a list writer or re-posted by the
+  departed→Montréal sync. `blocked` is now read **first** and applies to everyone; verification,
+  the undertaking and membership keep their bypasses, because those are administrative.
+  Proved with a rolled-back service-role insert → `refused: account is blocked`.
+- `drivers.blocked_at`, `drivers.block_kind` (`conduct` | `administrative`), `loadq_my_block()`.
+- **conduct** = safety block, screen offers no contact route at all. **administrative** =
+  fixable, offers support. Default is administrative: a wrong 'administrative' merely lets
+  someone email support; a wrong 'conduct' tells a driver with a fixable problem it is final.
+- Currently conduct: **Kimona Mavelua**, **Claude Xavier Nkolo**. Administrative: Crown O,
+  FABIO TIEM, Tony Anderson.
+- LoadQ app (branch `ship-loadq-1.2.6`, commit `7456faa`, pushed): `components/Blocked.tsx`,
+  `services/block.ts`, wired in `app/_layout.tsx` — rendered **instead of** the navigator, so
+  nothing is behind it. Checked on sign-in, on foreground, and by realtime on the driver's row.
+  Fail-safe **open** (a failed check leaves them unblocked; the DB holds the door).
+- `Wordmark` gained an optional `on` background — it derives colour from `Colors.bg`, and the
+  default theme is cream, so "Load" would have rendered dark-on-black on this screen.
+- Mockup: `~/Downloads/loadq-blocked-mockup.html`.
+
+### City of Ottawa — By-law 2016-272
+
+- **The 15 Sept deadline was met**: Thomas replied to Marc Paul Pronovost on 11 Sept. Only the
+  `support@loadq.ca` copy bounced; Pronovost's copy landed.
+- **`support@loadq.ca` is dead** — `loadq.ca 75.2.60.5: timed out`, Gmail gave up after 47 h.
+  The City sends compliance mail to that address on every message. Needs fixing.
+- **Rob Bittorf (14 Sept) asked for availability** for the PTC orientation — Thomas says the
+  orientation was already done on 4 and 9 Sept, so the reply corrects the record instead.
+- **Draft reply is written and HELD**: `~/Downloads/pronovost-reply-draft.html`. To Pronovost,
+  cc Bittorf + Louisy. Covers what is built for conformity, states plainly that re-collection
+  from existing drivers is **not yet complete**, discloses the threat matter, and asks the City
+  to use `shaloderick@concordexpress.ca`. **Not sent** — awaiting Thomas, business hours.
+- **Threat matter**: Kimona Mavelua (registered driver June 2026, *never dispatched on a trip*)
+  made death threats and on 14 Sept said that on 15 Sept — the City's enforcement date — Thomas
+  would be "dealt with and destroyed". Ottawa Police occurrence **26-268565**. Account blocked.
+- **Do not overstate compliance to the City.** 127 drivers carry `verified = true` from the old
+  three-document rule; against the by-law's seven, see the landmine above.
+- Still open: insurance certificate from HUB (Alim Hajee) naming the City as additional insured;
+  the "Intercity carpooling" letterhead contradicts a PTC application and must change.
+
+### Still open from before
+
+- Roll the leaked `sk_live_` Stripe key; revoke the Facebook token.
+- Notify the 7 over-age drivers — cron `f7429011`, Fri 25 Sept (session-only, will not survive).
+- ConcordXpress passenger agreement contradicts the PTC application in nine languages.
+- "Concord CarPool" Facebook Page must be renamed in Meta before the code changes.
+- `softwareKeyboardLayoutMode: "pan"` → `"resize"` needs a native build.
+
+---
+
+## Session — 2026-09-14 (seats & money on /sheet)
 
 **The database side is LIVE. The `/sheet` UI is written and verified but NOT deployed, and is
 uncommitted on the iMac.** Do not re-implement it from scratch — pull, or rebuild from the

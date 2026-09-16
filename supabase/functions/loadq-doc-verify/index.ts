@@ -72,12 +72,128 @@ function isOurProblem(status: number, body: string): boolean {
   return /credit balance|billing|quota|overloaded/i.test(body);
 }
 
+
+// A health probe, because "credit balance too low" can mean the key is fine and the money went
+// to a different organisation. GET /v1/models needs no credit: if it answers 200 the key is
+// live and the balance really is the problem; if it 401s the key itself is wrong or revoked.
+// Reports no part of the key beyond the public prefix everyone's key shares.
+async function probe(key: string) {
+  const r = await fetch("https://api.anthropic.com/v1/models?limit=1", {
+    headers: { "x-api-key": key, "anthropic-version": "2023-06-01" },
+  });
+  const body = (await r.text().catch(() => "")).slice(0, 300);
+  return {
+    key_present: true,
+    key_prefix: key.slice(0, 12),
+    key_length: key.length,
+    models_endpoint: r.status,
+    verdict: r.ok
+      ? "key is valid and live — the credit went to a DIFFERENT org/account than this key belongs to"
+      : r.status === 401
+        ? "key is rejected — wrong, rotated or revoked key in ANTHROPIC_API_KEY"
+        : "unexpected — see body",
+    body,
+  };
+}
+
+// One place that turns a stored document into something the API will accept.
+//
+// A driver photographs a licence with a modern phone and the file comes back 9000 px wide;
+// the API refuses anything over 8000. Supabase resizes on the way out, so the fix costs no
+// library and no CPU here — and a 1568 px image is also the largest Claude uses, so every
+// read gets cheaper as a side effect. Falls back to the original if transforms are
+// unavailable, because a large image that might work beats no image at all.
+async function loadImage(db: any, path: string):
+  Promise<{ b64: string; media: string } | { why: string }> {
+  const sign = async (transform?: unknown) => {
+    const { data } = await db.storage.from("driver-docs")
+      .createSignedUrl(path, 600, transform ? { transform } : undefined);
+    return data?.signedUrl ?? null;
+  };
+  let url = await sign({ width: 1568, height: 1568, resize: "contain" });
+  let res = url ? await fetch(url) : null;
+  if (!res?.ok) {
+    url = await sign();
+    res = url ? await fetch(url) : null;
+  }
+  if (!res?.ok) return { why: res ? `fetch_${res.status}` : "no_file" };
+  const media = res.headers.get("content-type")?.split(";")[0] || "image/jpeg";
+  if (!/^image\/(jpeg|png|webp|gif)$/.test(media)) return { why: media };
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  let bin = ""; for (const x of bytes) bin += String.fromCharCode(x);
+  return { b64: btoa(bin), media };
+}
+
 Deno.serve(async (req) => {
   if (!ANTHROPIC) return json({ ok: false, error: "anthropic_not_configured" }, 500);
   const db = createClient(URL_, SRK, { auth: { persistSession: false } });
 
   try {
     const b = await req.json().catch(() => ({} as any));
+    if (b.probe) return json({ ok: true, probe: await probe(ANTHROPIC) });
+    // {"names":true} — read approved licences we have never read, and write ONLY what was
+    // read. No status is touched: these documents are already certified by a person, and the
+    // point of the pass is to learn the name printed on the card so the account can be matched
+    // to it. Skips anything already read, so it is safe to run repeatedly.
+    if (b.names) {
+      // Two plain queries rather than an embed: the PostgREST join returned nothing and this
+      // is not the place to find out why.
+      const { data: docs, error: dErr } = await db.from("loadq_driver_documents")
+        .select("id, storage_path, driver_id")
+        .eq("doc_type", "drivers_license").eq("status", "approved")
+        .is("extracted", null).not("storage_path", "is", null).limit(b.limit ?? 25);
+      if (dErr) return json({ ok: false, error: dErr.message }, 500);
+      const ids = [...new Set((docs ?? []).map((d: any) => d.driver_id))];
+      const { data: people } = await db.from("drivers").select("id, full_name").in("id", ids);
+      const nameOf = new Map((people ?? []).map((p: any) => [p.id, p.full_name]));
+      const read: any[] = [];
+      for (const d of (docs ?? []) as any[]) {
+        const account = nameOf.get(d.driver_id) ?? null;
+        try {
+          const im = await loadImage(db, d.storage_path);
+          if ("why" in im) { read.push({ doc_id: d.id, account, why: im.why }); continue; }
+          const { b64: bin64, media } = im;
+          const res = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-api-key": ANTHROPIC!,
+                       "anthropic-version": "2023-06-01" },
+            body: JSON.stringify({
+              model: MODEL, max_tokens: 1200, tools: [SCHEMA],
+              tool_choice: { type: "tool", name: "document_reading" },
+              messages: [{ role: "user", content: [
+                { type: "image", source: { type: "base64", media_type: media, data: bin64 } },
+                { type: "text", text:
+`This is a driver's licence already on file. Read ONLY what is printed on it — the full name
+exactly as written, the expiry, and the licence number. Do not infer or correct anything; a
+field you cannot see is null.` }] }],
+            }),
+          });
+          if (!res.ok) {
+            const detail = (await res.text().catch(() => "")).slice(0, 300);
+            if (isOurProblem(res.status, detail))
+              return json({ ok: false, error: "reader_unavailable", http: res.status, detail,
+                            read }, 503);
+            read.push({ doc_id: d.id, account, why: `api_${res.status}`, detail }); continue;
+          }
+          const body = await res.json();
+          const use = (body.content ?? []).find((c: any) => c.type === "tool_use");
+          if (!use) { read.push({ doc_id: d.id, account, why: "no_reading" }); continue; }
+          const f = use.input as any;
+          const agrees = nameAgrees(f.full_name, account);
+          await db.from("loadq_driver_documents").update({
+            extracted: { ...f, name_agrees: agrees, read_only_pass: true,
+                         checked_at: new Date().toISOString() },
+            machine_at: new Date().toISOString(),
+          }).eq("id", d.id);
+          read.push({ doc_id: d.id, account, licence_name: f.full_name ?? null,
+                      expiry: f.expiry_date ?? null, agrees });
+        } catch (e) {
+          read.push({ doc_id: d.id, account, why: String((e as Error)?.message ?? e) });
+        }
+      }
+      return json({ ok: true, mode: "names", read: read.length, documents: read });
+    }
+
     const { data: q, error } = await db.rpc("loadq_docs_for_machine", { p_limit: b.doc_id ? 50 : 10 });
     if (error) return json({ ok: false, error: error.message }, 500);
     let rows = (q?.rows ?? []) as any[];
@@ -87,23 +203,19 @@ Deno.serve(async (req) => {
     for (const r of rows) {
       const rec: any = { doc_id: r.doc_id, doc_type: r.doc_type, driver: r.driver_name };
       try {
-        // A signed URL, short-lived: the image goes to the model and nowhere else.
-        const { data: signed } = await db.storage.from("driver-docs")
-          .createSignedUrl(r.storage_path, 600);
-        if (!signed?.signedUrl) { rec.action = "no_file"; out.push(rec); continue; }
-
-        const img = await fetch(signed.signedUrl);
-        if (!img.ok) { rec.action = "fetch_failed"; out.push(rec); continue; }
-        const bytes = new Uint8Array(await img.arrayBuffer());
-        let bin = ""; for (const x of bytes) bin += String.fromCharCode(x);
-        const b64 = btoa(bin);
-        const media = img.headers.get("content-type")?.split(";")[0] || "image/jpeg";
-        if (!/^image\/(jpeg|png|webp|gif)$/.test(media)) {
+        // Short-lived signed URL, resized on the way out: the image goes to the model and
+        // nowhere else.
+        const im = await loadImage(db, r.storage_path);
+        if ("why" in im) {
+          if (im.why === "no_file" || im.why.startsWith("fetch_")) {
+            rec.action = im.why; out.push(rec); continue;
+          }
           // A PDF is a perfectly good document; it just is not something to read this way.
           await db.rpc("loadq_doc_machine_review", { p_doc: r.doc_id, p_status: "uncertain",
-            p_notes: `Not an image (${media}) — needs a person to open it.` });
-          rec.action = "uncertain"; rec.why = media; out.push(rec); continue;
+            p_notes: `Not an image (${im.why}) — needs a person to open it.` });
+          rec.action = "uncertain"; rec.why = im.why; out.push(rec); continue;
         }
+        const { b64, media } = im;
 
         const res = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",

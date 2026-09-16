@@ -64,6 +64,33 @@ below. Fund that first or the month is spent reviewing by hand.
   documents between both queues — invisible to the machine (status set) and to the human (not a
   clean read).
 
+### The reader is RUNNING (credits on 2026-09-16)
+
+First trap: `Prepaid extra usage, Individual plan` on the Anthropic invoice is **Claude
+subscription** top-up, not API credits. Same org, wrong product — `/v1/models` answered 200 the
+whole time while `/v1/messages` refused. Console → Billing → **Buy credits** is the one that
+funds the key. `POST {"probe":true}` to `loadq-doc-verify` distinguishes the two without
+revealing any part of the key.
+
+Second trap, and it would have recurred across the collection: a phone photo of a licence
+exceeded `max allowed size: 8000 pixels` and the API refused it outright. Now resized through
+**Supabase's own image transform** on the signed URL (`width/height 1568, resize contain`), with
+fallback to the original if transforms are unavailable. No library, and 1568 px is the largest
+Claude uses, so every read costs less as a side effect.
+
+All 11 approved licences have been read. Outcome:
+
+- **Names: one account was wrong, not eleven.** `Laith R` → `Laith Ahmed`, `previous_name` kept.
+  Two reasons the rest were left alone, both in `20260919000000_...sql`: Ontario cards are ASCII
+  so matching would have **stripped the accent** from `Paul Roger Stéphane Diboma`; and cards
+  carry middle names that accounts do not, where given + surname is the house convention.
+  `loadq_name_mismatches()` / `loadq_driver_set_name()` keep this going as documents arrive.
+- **Expiry dates: all 11 licences now carry a real date off the card**, six of which were blank.
+  That closes the dateless-document problem the 7 SMS chased. The fill is gated on a confident
+  reading, a date not already past, and the field being blank — safe to re-run.
+- `{"names":true}` is a **read-only** pass: it writes `extracted` and never touches `status`,
+  so already-certified documents are not disturbed.
+
 ### `/certify` — the human step (WRITTEN, NOT DEPLOYED)
 
 - `admin-web/app/certify/page.tsx`. Queue left (doubtful first), document large in the middle,

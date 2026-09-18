@@ -116,6 +116,22 @@ Deno.serve(async (req) => {
     //
     // Differs from post_photo only in taking a URL rather than base64 — the cron cannot carry
     // a 1.3 MB image in its body.
+    // Removing one of our own posts. Requires the id to be passed in rather than read from the
+    // log, so this can never sweep — one post, named explicitly, or nothing.
+    if (action === "delete") {
+      if (!PAGE_TOKEN) return json({ error: "not configured" }, 500);
+      const id = String(b.post_id || "");
+      if (!id) return json({ error: "post_id_required" }, 400);
+      const r = await fetch(`${GRAPH}/${id}?access_token=${encodeURIComponent(PAGE_TOKEN)}`,
+                            { method: "DELETE" });
+      const o = await r.json().catch(() => ({}));
+      if (r.ok && o?.success) {
+        await admin.from("loadq_fb_posts").update({ error: "deleted from the Page" })
+          .eq("fb_post_id", id);
+      }
+      return json({ ok: r.ok && !!o?.success, post_id: id, response: o }, r.ok ? 200 : 502);
+    }
+
     if (action === "post_flyer") {
       if (!PAGE_TOKEN || !PAGE_ID) {
         return json({ error: "facebook_not_configured", need: ["LOADQ_FB_PAGE_TOKEN", "LOADQ_FB_PAGE_ID"] }, 503);
@@ -199,7 +215,7 @@ Deno.serve(async (req) => {
       // The lead image on a board post. Was loadq-rideshare-flyer.png, which showed only
       // MONTRÉAL → OTTAWA — half the service, and a one-way arrow on a corridor that runs
       // both ways. This one states "Daily rides, both directions" and draws the whole
-      // Toronto-to-Québec corridor.
+      // Toronto-to-Québec corridor. The store-badge variant, chosen over the QR one.
       const FLYER_URL = "https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/loadq-intercity-flyer.png";
       if (b.flyer === true) {
         const fi = await fetch(FLYER_URL).catch(() => null);

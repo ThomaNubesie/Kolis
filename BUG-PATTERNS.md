@@ -246,3 +246,58 @@ only, until the deadline.
   ask the platform what it displays.
 - **Measure before enforcing.** Count the affected population before wiring a rule to a gate.
 - **Deploy draft-first**, verify framework and artefact size, then promote.
+
+---
+
+## 19. Cancelling the timer is not cancelling the request
+
+The address autocomplete debounced with `setTimeout` and cleared it in the effect cleanup. But
+once the debounce had fired and the handler was `await`ing Google, **cleanup could no longer stop
+it**. Tapping a suggestion cleared the list, then the in-flight response returned and reopened it —
+showing the address the rider had just chosen, sitting under the now-filled field.
+
+→ **Give every async lookup a ticket and discard stale replies.** `const mine = ++seq.current` before
+the call, `if (mine !== seq.current) return` after it. Clearing a timer only helps before it fires.
+
+Second fault in the same function: a `skip` flag set before `onChangeText`, to suppress the search
+that the change would trigger. When the resolved address happened to equal the text already there,
+the value didn't change, the effect never ran, the flag was never consumed — and it silently
+swallowed the rider's next keystroke.
+
+→ **A flag consumed by a side effect must only be set when that side effect will certainly happen.**
+Guard it: `if (next !== current) skip.current = true`.
+
+---
+
+## 20. The same fix applied to one sibling and not the other
+
+`PassengerBottomNav` already added `insets.bottom` to its padding. `BottomNav` — the driver's — did
+not, so the phone's system navigation bar sat over it. One component was fixed when the bug was
+found; its twin was never opened.
+
+→ **When fixing a component, grep for its siblings.** Anything matching `*BottomNav*`, `*Header*`,
+`*Card*` is a candidate for the identical defect.
+
+---
+
+## 21. Two doors into the same room
+
+The passenger board had "Request a ride" as a prominent button and "Can't reach a loading point?"
+as a grey link. Both ran `router.push("/(passenger)/pickup-options")`. Riders reasonably read two
+different weights and two different labels as two different services.
+
+→ **One entry point per destination.** If two controls navigate to the same screen, either merge
+them or make each go somewhere that matches its label.
+
+---
+
+## 22. Asking for what you already have
+
+Door-to-door booking asked eight questions before quoting. Three weren't new information:
+**destination city** (already inside the drop-off address, which the autocomplete resolves with a
+postal code), **preferred time** (asked immediately after a time block — the same question twice),
+and **seat count** (meaningless for a whole-car booking).
+
+→ **Before adding a field, check whether an answer already on the screen contains it.** Derive and
+confirm — "✓ Destination: Montréal — taken from the address" — instead of asking again. Two fields
+asking the same thing will eventually disagree, and then neither can be trusted.

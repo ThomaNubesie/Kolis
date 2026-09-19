@@ -27,6 +27,26 @@ const C = {
   azure: "#4C82F0", orange: "#FF8A1A", yellow: "#F5C842", green: "#3FD08A",
 };
 
+// Made in Canada, short form, for the board posts.
+//
+// The leaf is drawn as a path, NOT the 🍁 emoji. Two independent reasons, either one fatal:
+// this renderer is Satori, which has no emoji font at all and would produce tofu or nothing;
+// and the emoji is orange in every emoji font that does have it, so on this red pill it
+// disappeared entirely the last time it was tried. A white path on red depends on no font.
+function MIC({ scale = 1 }: { scale?: number }) {
+  const px = (n: number) => Math.round(n * scale);
+  return (
+    <div style={{ display: "flex", alignItems: "center", background: "#F91515", color: "#fff",
+                  borderRadius: 999, padding: `${px(7)}px ${px(16)}px`,
+                  fontSize: px(20), fontWeight: 800, letterSpacing: 0.3 }}>
+      <svg width={px(20)} height={px(20)} viewBox="0 0 512 512" style={{ marginRight: px(9) }}>
+        <path fill="#fff" d="M256 48l-30 56c-3 6-9 5-15 2l-22-11 16 87c3 16-8 16-14 9l-38-43-6 22c-1 3-4 6-9 5l-48-10 13 46c3 10 5 14-3 17l-17 8 83 67c8 6 11 9 8 19l-7 24 79-9c5 0 8 2 8 7l-4 84h22l-4-84c0-5 3-7 8-7l79 9-7-24c-3-10 0-13 8-19l83-67-17-8c-8-3-6-7-3-17l13-46-48 10c-5 1-8-2-9-5l-6-22-38 43c-6 7-17 7-14-9l16-87-22 11c-6 3-12 4-15-2z" />
+      </svg>
+      M.I.C.
+    </div>
+  );
+}
+
 type Car = {
   position: number; status: string; driver: string | null;
   make: string | null; model: string | null; year: number | null; color: string | null;
@@ -91,9 +111,17 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
   const b = boards.find((x) => x.zone_id === zoneId) ?? boards[0];
 
 
-  const stamp = new Intl.DateTimeFormat("fr-CA", {
+  // Date AND time in the one pill, rather than a second timestamp lower down the image. The pill
+  // keeps its green dot, so it still reads as "this is live" while saying which day it is —
+  // which is what a reader scrolling past a board post actually needs to know.
+  const now = new Date();
+  const dayPart = new Intl.DateTimeFormat("fr-CA", {
+    weekday: "short", day: "numeric", month: "short", timeZone: "America/Toronto",
+  }).format(now);
+  const timePart = new Intl.DateTimeFormat("fr-CA", {
     hour: "2-digit", minute: "2-digit", timeZone: "America/Toronto",
-  }).format(new Date());
+  }).format(now);
+  const stamp = `${dayPart} · ${timePart}`;
 
   // No board for this zone: say so plainly rather than rendering an empty frame that
   // looks like a loading failure.
@@ -111,7 +139,9 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
                       display: "flex", flexDirection: "column", alignItems: "center",
                       justifyContent: "center", fontSize: 40, fontFamily: "sans-serif" }}>
           <div style={{ color: C.t1, fontSize: 56, fontWeight: 800 }}>Aucune voiture en file</div>
-          <div style={{ marginTop: 14 }}>No cars in line right now · loadq.ca</div>
+          <div style={{ display: "flex", marginTop: 14 }}>No cars in line right now · loadq.ca</div>
+          <div style={{ display: "flex", marginTop: 26 }}><MIC /></div>
+          <div style={{ display: "flex", marginTop: 12, fontSize: 24 }}>{stamp}</div>
         </div>
       ),
       { width: 1080, height: 1350 },
@@ -136,7 +166,7 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
                           border: `1px solid #2F8F6B`, borderRadius: 20, padding: "5px 13px",
                           fontSize: 20, fontWeight: 700, color: C.green }}>
               <svg width="9" height="9" viewBox="0 0 9 9" style={{ marginRight: 7 }}><circle cx="4.5" cy="4.5" r="4.5" fill={C.green} /></svg>
-              à jour à {stamp}
+              {stamp}
             </div>
           </div>
           <div style={{ display: "flex", fontSize: 40, fontWeight: 800, marginTop: 11 }}>
@@ -215,9 +245,12 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
               Premier arrivé, premier servi · First come, first served
             </div>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", marginLeft: "auto" }}>
-            <div style={{ display: "flex", fontSize: 22, fontWeight: 800, color: C.azure }}>loadq.ca</div>
-            <div style={{ display: "flex", fontSize: 19, fontWeight: 800, marginTop: 2 }}>613-862-2639</div>
+          <div style={{ display: "flex", alignItems: "center", gap: 18, marginLeft: "auto" }}>
+            <MIC />
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+              <div style={{ display: "flex", fontSize: 22, fontWeight: 800, color: C.azure }}>loadq.ca</div>
+              <div style={{ display: "flex", fontSize: 19, fontWeight: 800, marginTop: 2 }}>613-862-2639</div>
+            </div>
           </div>
         </div>
       </div>

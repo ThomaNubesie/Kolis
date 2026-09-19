@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { CAR_SLUGS } from "../../../lib/carSlugs";
 
 // GET /board?zone=<zone_id>  → a 1080×1350 PNG of that zone's live queue.
 //
@@ -13,9 +14,8 @@ import { ImageResponse } from "next/og";
 //
 // Driver names come back as INITIALS from the RPC — this route is public and must not
 // expose the roster. See loadq_board_public().
-// Node, not edge. This was forced by decoding vehicle PNGs, which exceeded the edge
-// function's memory; the vehicles are drawn now, so edge may be viable again — but the
-// runtime has not been re-tested and this is not the change to do it in.
+// Node, not edge: the render decodes several vehicle PNGs, which exceeded the edge
+// function's memory and returned a 500 with an empty body.
 export const runtime = "nodejs";
 
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -58,6 +58,38 @@ type Board = {
   loading: number; list: Car[];
 };
 
+// Resolves a vehicle to a pre-sized local image. Fetching cdn.imagin.studio during the
+// render killed it outright -- five foreign round trips plus decoding 1200x750 PNGs
+// returned a 500 with an empty body on both edge and node runtimes. These are fetched
+// once by scripts/fetch_cars.py, resized to 380px, and served from this origin.
+//
+// LICENSING — READ BEFORE TOUCHING THIS. scripts/fetch_cars.py uses customer="img", which is
+// imagin.studio's PUBLIC DEMO key. It stamps an "IMAGE studio" watermark across every car, and
+// those watermarked images go out on every board post to Facebook. Their terms also state the
+// images "may never be downloaded, cached on server side, distributed or modified" — which is
+// exactly what fetch_cars.py and public/cars do.
+//
+// This was replaced with drawn vehicles on 19 Sept and restored the same day at the owner's
+// explicit direction, with the above stated and understood. It is a business decision, not an
+// oversight. The clean exits are a paid licence, or driver-uploaded photos into
+// vehicles.image_url (the column exists; it is null on all 164 active vehicles).
+const MODEL_FAMILY: Record<string, string> = {
+  "hiace": "hiace", "hiace long": "hiace", "urvan": "urvan", "sprinter": "sprinter",
+  "coaster": "coaster", "land cruiser": "land-cruiser", "prado": "land-cruiser-prado",
+  "fortuner": "fortuner", "corolla": "corolla", "accord": "accord", "logan": "logan",
+  "oddessey": "odyssey", "grand  caravan": "grand-caravan", "grand caravan": "grand-caravan",
+  "town & country": "town-country", "rav4 prime (phev)": "rav4", "santa fe xl": "santa-fe",
+  "santa fe": "santa-fe", "outlander sport": "outlander", "mazda5": "mazda5",
+};
+function carSlug(make?: string | null, model?: string | null, color?: string | null) {
+  if (!make || !model) return null;
+  const m = model.toLowerCase().trim().replace(/[ ]+/g, " ");
+  const family = MODEL_FAMILY[m] || m.split(" ")[0];
+  const raw = make.toLowerCase().trim() + "-" + family + "-" + (color || "default").toLowerCase().trim();
+  const slug = raw.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return CAR_SLUGS.has(slug) ? slug : null;
+}
+
 // Paint colours, for the drawn vehicle below. Anything unrecognised falls back to a neutral
 // grey rather than guessing — a wrong colour is worse than no colour when the whole point is
 // helping someone spot their car.
@@ -84,18 +116,14 @@ const PAINT: Record<string, { body: string; ink: string }> = {
   purple: { body: "#7C5CEF", ink: "#C4B5FD" },
 };
 
-// The vehicle, drawn.
+// The vehicle, drawn — the FALLBACK when no photo matches this make/model/colour.
 //
-// This replaced photographs from cdn.imagin.studio. Those were fetched with their public demo
-// customer key, which stamps a large "IMAGE studio" watermark across every car — and those
-// watermarked photos were going out on every board post to Facebook. Removing the watermark
-// would be circumventing their licence, not fixing it; the licensed alternative is a paid
-// account. Drawing the vehicle costs nothing, carries no licence, needs no foreign fetch, and
-// is the same shuttle mark used in the app and on the flyers.
+// Briefly this replaced the photos outright, because the photos come from cdn.imagin.studio
+// under their public demo key and carry an "IMAGE studio" watermark. Restoring them is a
+// deliberate decision taken with that known. See the note above carSlug.
 //
-// The body is tinted to the vehicle's registered colour. The make, model and year are already
-// written beside it in text, so the photo was never carrying that information — colour is the
-// part that actually helps a rider pick their car out of a row of vans.
+// It still earns its place here: a vehicle with no matching slug previously rendered NOTHING,
+// leaving a blank gap in the row. A tinted outline is better than a hole.
 function Vehicle({ color }: { color?: string | null }) {
   const key = (color || "").toLowerCase().trim();
   const p = PAINT[key] ?? { body: "#9AA1AC", ink: "#4B5563" };
@@ -135,6 +163,7 @@ function Seat({ state }: { state: "boarded" | "held" | "free" }) {
 }
 
 export async function GET(req: Request, { params }: { params: { zone: string } }) {
+  const origin = new URL(req.url).origin;   // Satori needs absolute image URLs
   const zoneId = decodeURIComponent(params.zone || "");
 
   const res = await fetch(`${SB}/rest/v1/rpc/loadq_board_public`, {
@@ -245,10 +274,11 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
                     </span>
                   </div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
-                              width: 186, height: 116 }}>
-                  <Vehicle color={c.color} />
-                </div>
+                {(() => { const sl = carSlug(c.make, c.model, c.color);
+                  return sl
+                    ? <img src={origin + "/cars/" + sl + ".png"} width={186} height={116} style={{ borderRadius: 8 }} />
+                    : <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
+                                    width: 186, height: 116 }}><Vehicle color={c.color} /></div>; })()}
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
                   <div style={{ display: "flex", fontSize: 25, fontWeight: 800 }}>30 $</div>
                   <div style={{ display: "flex", marginTop: 6, fontSize: 14, fontWeight: 700,

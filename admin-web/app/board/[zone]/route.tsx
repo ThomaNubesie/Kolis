@@ -1,5 +1,4 @@
 import { ImageResponse } from "next/og";
-import { CAR_SLUGS } from "../../../lib/carSlugs";
 
 // GET /board?zone=<zone_id>  → a 1080×1350 PNG of that zone's live queue.
 //
@@ -14,8 +13,9 @@ import { CAR_SLUGS } from "../../../lib/carSlugs";
 //
 // Driver names come back as INITIALS from the RPC — this route is public and must not
 // expose the roster. See loadq_board_public().
-// Node, not edge: the render decodes several 1200x750 vehicle PNGs, which exceeded the
-// edge function's memory and returned a 500 with an empty body.
+// Node, not edge. This was forced by decoding vehicle PNGs, which exceeded the edge
+// function's memory; the vehicles are drawn now, so edge may be viable again — but the
+// runtime has not been re-tested and this is not the change to do it in.
 export const runtime = "nodejs";
 
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -58,25 +58,62 @@ type Board = {
   loading: number; list: Car[];
 };
 
-// Resolves a vehicle to a pre-sized local image. Fetching cdn.imagin.studio during the
-// render killed it outright -- five foreign round trips plus decoding 1200x750 PNGs
-// returned a 500 with an empty body on both edge and node runtimes. These are fetched
-// once by scripts/fetch_cars.py, resized to 380px, and served from this origin.
-const MODEL_FAMILY: Record<string, string> = {
-  "hiace": "hiace", "hiace long": "hiace", "urvan": "urvan", "sprinter": "sprinter",
-  "coaster": "coaster", "land cruiser": "land-cruiser", "prado": "land-cruiser-prado",
-  "fortuner": "fortuner", "corolla": "corolla", "accord": "accord", "logan": "logan",
-  "oddessey": "odyssey", "grand  caravan": "grand-caravan", "grand caravan": "grand-caravan",
-  "town & country": "town-country", "rav4 prime (phev)": "rav4", "santa fe xl": "santa-fe",
-  "santa fe": "santa-fe", "outlander sport": "outlander", "mazda5": "mazda5",
+// Paint colours, for the drawn vehicle below. Anything unrecognised falls back to a neutral
+// grey rather than guessing — a wrong colour is worse than no colour when the whole point is
+// helping someone spot their car.
+//
+// The outline is NOT simply a darker shade of the body. These sit on a #232733 card, so a dark
+// car outlined in a darker colour is two invisible things on top of each other: black rendered
+// as #2A2E37 body with #0B0C0F ink was a silhouette that could not be seen at all. Dark bodies
+// therefore get a LIGHTER outline than themselves, which is the opposite of the instinct and
+// the only thing that reads on a dark board.
+const PAINT: Record<string, { body: string; ink: string }> = {
+  white:  { body: "#F2F3F5", ink: "#8A909C" },
+  silver: { body: "#C9CDD4", ink: "#6B7280" },
+  grey:   { body: "#9AA1AC", ink: "#4B5563" },
+  gray:   { body: "#9AA1AC", ink: "#4B5563" },
+  black:  { body: "#31363F", ink: "#9AA1AC" },   // lighter ink: dark-on-dark is unreadable
+  red:    { body: "#D64545", ink: "#7F1D1D" },
+  blue:   { body: "#3B6FD4", ink: "#93B0EC" },   // ditto — navy on #232733 disappears
+  green:  { body: "#2F8F6B", ink: "#8FD9BF" },
+  brown:  { body: "#8A6A4B", ink: "#4A3728" },
+  beige:  { body: "#D9CFBC", ink: "#8A7B63" },
+  gold:   { body: "#C9A961", ink: "#7A6432" },
+  orange: { body: "#FF8A1A", ink: "#9A4A00" },
+  yellow: { body: "#E8C547", ink: "#8A6D00" },
+  purple: { body: "#7C5CEF", ink: "#C4B5FD" },
 };
-function carSlug(make?: string | null, model?: string | null, color?: string | null) {
-  if (!make || !model) return null;
-  const m = model.toLowerCase().trim().replace(/[ ]+/g, " ");
-  const family = MODEL_FAMILY[m] || m.split(" ")[0];
-  const raw = make.toLowerCase().trim() + "-" + family + "-" + (color || "default").toLowerCase().trim();
-  const slug = raw.replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return CAR_SLUGS.has(slug) ? slug : null;
+
+// The vehicle, drawn.
+//
+// This replaced photographs from cdn.imagin.studio. Those were fetched with their public demo
+// customer key, which stamps a large "IMAGE studio" watermark across every car — and those
+// watermarked photos were going out on every board post to Facebook. Removing the watermark
+// would be circumventing their licence, not fixing it; the licensed alternative is a paid
+// account. Drawing the vehicle costs nothing, carries no licence, needs no foreign fetch, and
+// is the same shuttle mark used in the app and on the flyers.
+//
+// The body is tinted to the vehicle's registered colour. The make, model and year are already
+// written beside it in text, so the photo was never carrying that information — colour is the
+// part that actually helps a rider pick their car out of a row of vans.
+function Vehicle({ color }: { color?: string | null }) {
+  const key = (color || "").toLowerCase().trim();
+  const p = PAINT[key] ?? { body: "#9AA1AC", ink: "#4B5563" };
+  return (
+    <svg width={186} height={77} viewBox="0 0 70 29">
+      <path
+        d="M3.4 20.6V10.6a3.2 3.2 0 0 1 3.2-3.2h28.9c.9 0 1.8.4 2.4 1.1l5.2 5.9h6.6
+           a7.3 7.3 0 0 1 7.3 7.3v.6a1.4 1.4 0 0 1-1.4 1.4h-4.5a4.6 4.6 0 0 0-9.2 0H21.1
+           a4.6 4.6 0 0 0-9.2 0H4.8a1.4 1.4 0 0 1-1.4-1.4z"
+        fill={p.body} stroke={p.ink} strokeWidth={1.6} strokeLinejoin="round"
+      />
+      <path d="M10.5 8.2v6.2M19.6 8.2v6.2M28.7 8.2v6.2M36.4 9.4l4.1 4.6"
+            stroke={p.ink} strokeWidth={1.3} strokeLinecap="round" opacity={0.55} fill="none" />
+      <path d="M3.4 14.4h39.7" stroke={p.ink} strokeWidth={1.3} opacity={0.55} fill="none" />
+      <circle cx={16.5} cy={23.6} r={4.3} fill="none" stroke={p.ink} strokeWidth={2} />
+      <circle cx={45.9} cy={23.6} r={4.3} fill="none" stroke={p.ink} strokeWidth={2} />
+    </svg>
+  );
 }
 
 // The seat glyph from components/SeatSvg.tsx, same five rectangles. Free seats use a
@@ -98,7 +135,6 @@ function Seat({ state }: { state: "boarded" | "held" | "free" }) {
 }
 
 export async function GET(req: Request, { params }: { params: { zone: string } }) {
-  const origin = new URL(req.url).origin;   // Satori needs absolute image URLs
   const zoneId = decodeURIComponent(params.zone || "");
 
   const res = await fetch(`${SB}/rest/v1/rpc/loadq_board_public`, {
@@ -209,8 +245,10 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
                     </span>
                   </div>
                 </div>
-                {(() => { const sl = carSlug(c.make, c.model, c.color);
-                  return sl ? <img src={origin + "/cars/" + sl + ".png"} width={186} height={116} style={{ borderRadius: 8 }} /> : null; })()}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
+                              width: 186, height: 116 }}>
+                  <Vehicle color={c.color} />
+                </div>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
                   <div style={{ display: "flex", fontSize: 25, fontWeight: 800 }}>30 $</div>
                   <div style={{ display: "flex", marginTop: 6, fontSize: 14, fontWeight: 700,

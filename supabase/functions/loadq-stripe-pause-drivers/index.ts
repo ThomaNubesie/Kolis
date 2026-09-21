@@ -15,15 +15,15 @@
 // The customer.subscription.updated event this triggers is harmless: stripe-webhook refreshes
 // status/subscription_ends_at, and access rides on waiver_until, which it never writes.
 //
-// Called like the crons: header x-kolis-secret. That secret lives in the repo, so the function
-// also refuses to run after CUTOFF — a leaked copy cannot pause anything later.
+// Only the service role may call it (Authorization: Bearer <service_role key> — the dashboard's
+// function "Test" panel sends that). It also refuses to run after CUTOFF, so a forgotten copy
+// cannot pause anything later.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@14?target=deno";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const CF_SECRET = "kolis_notify_9f3a2c7b1e6d4084";
 const RESUMES_AT = Math.floor(Date.UTC(2026, 11, 22, 5, 0, 0) / 1000); // 2026-12-22 00:00 EST
 const CUTOFF = Date.UTC(2026, 9, 1, 4, 0, 0);                           // 2026-10-01 00:00 EDT
 
@@ -36,7 +36,7 @@ const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b, null, 1), { status: s, headers: { "Content-Type": "application/json" } });
 
 Deno.serve(async (req) => {
-  if (req.headers.get("x-kolis-secret") !== CF_SECRET) return json({ error: "unauthorized" }, 401);
+  if (req.headers.get("authorization") !== `Bearer ${SERVICE}`) return json({ error: "unauthorized" }, 401);
   if (Date.now() > CUTOFF) return json({ error: "expired one-off" }, 410);
 
   const b = await req.json().catch(() => ({} as Record<string, unknown>));

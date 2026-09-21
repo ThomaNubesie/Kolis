@@ -136,33 +136,82 @@ Deno.serve(async (req) => {
       if (!PAGE_TOKEN || !PAGE_ID) {
         return json({ error: "facebook_not_configured", need: ["LOADQ_FB_PAGE_TOKEN", "LOADQ_FB_PAGE_ID"] }, 503);
       }
-      const url = String(b.image_url || "");
-      if (!url) return json({ error: "image_url_required" }, 400);
+      // One OR MORE images in a single story. `image_url` stays for the one-image case; pass
+      // `image_urls` to attach several — the landmark flyer first, then the matching destination
+      // screen, so the photo Facebook shows as the cover is the flyer.
+      //
+      // Multiple images cannot go through /photos with published=true: that creates one story
+      // per photo. They must be uploaded UNPUBLISHED to collect media ids, then attached to a
+      // single /feed post — the same shape the board post already uses.
+      const urls: string[] = Array.isArray(b.image_urls) && b.image_urls.length
+        ? b.image_urls.map((u: unknown) => String(u)).filter(Boolean)
+        : (b.image_url ? [String(b.image_url)] : []);
+      if (!urls.length) return json({ error: "image_url_or_image_urls_required" }, 400);
       const caption = String(b.caption ?? b.message ?? message);
 
-      const img = await fetch(url).catch(() => null);
-      if (!img || !img.ok) {
-        const m = `flyer fetch ${img?.status ?? "failed"}`;
+      if (urls.length === 1) {
+        const url = urls[0];
+        const img = await fetch(url).catch(() => null);
+        if (!img || !img.ok) {
+          const m = `flyer fetch ${img?.status ?? "failed"}`;
+          await admin.from("loadq_fb_posts").insert({ message: caption, error: m });
+          return json({ error: m }, 502);
+        }
+        const blob = await img.blob();
+        const fd = new FormData();
+        fd.append("source", blob, url.split("/").pop() || "flyer.png");
+        fd.append("caption", caption);
+        fd.append("published", "true");
+        fd.append("access_token", PAGE_TOKEN);
+
+        const r = await fetch(`${GRAPH}/${PAGE_ID}/photos`, { method: "POST", body: fd });
+        const o = await r.json().catch(() => ({}));
+        if (!r.ok || o.error) {
+          const m = o?.error?.message ?? `http_${r.status}`;
+          await admin.from("loadq_fb_posts").insert({ message: caption, error: String(m).slice(0, 400) });
+          return json({ error: m }, 502);
+        }
+        await admin.from("loadq_fb_posts").insert({ message: caption, fb_post_id: o.post_id ?? o.id ?? null });
+        return json({ ok: true, fb_post_id: o.post_id ?? o.id ?? null, photo_id: o.id ?? null,
+                      flyer: url.split("/").pop() });
+      }
+
+      const mediaIds: string[] = [];
+      const failed: string[] = [];
+      for (const url of urls) {
+        const img = await fetch(url).catch(() => null);
+        if (!img || !img.ok) { failed.push(`${url.split("/").pop()}: fetch ${img?.status ?? "err"}`); continue; }
+        const fd = new FormData();
+        fd.append("source", await img.blob(), url.split("/").pop() || "image.jpg");
+        fd.append("published", "false");
+        fd.append("access_token", PAGE_TOKEN);
+        const r = await fetch(`${GRAPH}/${PAGE_ID}/photos`, { method: "POST", body: fd });
+        const o = await r.json().catch(() => ({}));
+        if (r.ok && o.id) mediaIds.push(o.id);
+        else failed.push(`${url.split("/").pop()}: ${o?.error?.message ?? r.status}`);
+      }
+      // A partial upload still posts — losing the second image is far better than losing the day.
+      if (!mediaIds.length) {
+        const m = `no media uploaded — ${failed.join("; ")}`.slice(0, 400);
         await admin.from("loadq_fb_posts").insert({ message: caption, error: m });
         return json({ error: m }, 502);
       }
-      const blob = await img.blob();
-      const fd = new FormData();
-      fd.append("source", blob, url.split("/").pop() || "flyer.png");
-      fd.append("caption", caption);
-      fd.append("published", "true");
-      fd.append("access_token", PAGE_TOKEN);
 
-      const r = await fetch(`${GRAPH}/${PAGE_ID}/photos`, { method: "POST", body: fd });
-      const o = await r.json().catch(() => ({}));
-      if (!r.ok || o.error) {
-        const m = o?.error?.message ?? `http_${r.status}`;
+      const form = new URLSearchParams();
+      form.set("message", caption);
+      mediaIds.forEach((id, i) => form.set(`attached_media[${i}]`, JSON.stringify({ media_fbid: id })));
+      form.set("access_token", PAGE_TOKEN);
+      const fr = await fetch(`${GRAPH}/${PAGE_ID}/feed`, { method: "POST", body: form });
+      const fo = await fr.json().catch(() => ({}));
+      if (!fr.ok || fo.error) {
+        const m = fo?.error?.message ?? `http_${fr.status}`;
         await admin.from("loadq_fb_posts").insert({ message: caption, error: String(m).slice(0, 400) });
         return json({ error: m }, 502);
       }
-      await admin.from("loadq_fb_posts").insert({ message: caption, fb_post_id: o.post_id ?? o.id ?? null });
-      return json({ ok: true, fb_post_id: o.post_id ?? o.id ?? null, photo_id: o.id ?? null,
-                    flyer: url.split("/").pop() });
+      await admin.from("loadq_fb_posts").insert({ message: caption, fb_post_id: fo.id ?? null });
+      return json({ ok: true, fb_post_id: fo.id ?? null, images: mediaIds.length,
+                    attached: urls.map(u => u.split("/").pop()),
+                    failed: failed.length ? failed : undefined });
     }
 
     if (action === "post_photo") {

@@ -143,9 +143,16 @@ Deno.serve(async (req) => {
       // Multiple images cannot go through /photos with published=true: that creates one story
       // per photo. They must be uploaded UNPUBLISHED to collect media ids, then attached to a
       // single /feed post — the same shape the board post already uses.
-      const urls: string[] = Array.isArray(b.image_urls) && b.image_urls.length
+      // The noon cron still sends the flyer's stored JPEG — 20 files composed in orange, one per
+      // destination. Map it to the same destination drawn on demand, so the post carries the
+      // colour of the day without the cron having to change. Everything else passes through.
+      const onDemand = (u: string) => {
+        const m = u.match(/\/marketing\/loadq-flyer-([a-z0-9-]+)\.(jpe?g|png)$/i);
+        return m ? `https://admin.loadq.ca/flyer/${m[1]}` : u;
+      };
+      const urls: string[] = (Array.isArray(b.image_urls) && b.image_urls.length
         ? b.image_urls.map((u: unknown) => String(u)).filter(Boolean)
-        : (b.image_url ? [String(b.image_url)] : []);
+        : (b.image_url ? [String(b.image_url)] : [])).map(onDemand);
       if (!urls.length) return json({ error: "image_url_or_image_urls_required" }, 400);
       const caption = String(b.caption ?? b.message ?? message);
 

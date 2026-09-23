@@ -160,7 +160,11 @@ export async function GET(req: NextRequest, { params }: { params: { key: string;
   const rows = await assets();
   if (!rows.length) return new Response("no flyer assets", { status: 503 });
   const raw = decodeURIComponent(params.key || "");
-  const a = raw === "today" ? pickToday(rows, now) : rows.find(r => r.key === raw);
+  // By key ("Île d'Orléans") or by slug ("ile-d-orleans"): the Facebook function rewrites the
+  // old stored file name loadq-flyer-<slug>.jpg to this route, and it holds the slug, not the key.
+  const a = raw === "today"
+    ? pickToday(rows, now)
+    : rows.find(r => r.key === raw) ?? rows.find(r => flyerSlug(r.key) === flyerSlug(raw));
   if (!a) return new Response("unknown flyer", { status: 404 });
 
   const font = async (file: string) =>
@@ -294,12 +298,13 @@ export async function GET(req: NextRequest, { params }: { params: { key: string;
         </div>
 
         {/* The photo credit. CC BY requires it, so it belongs on the artwork itself — on the wide
-            flyer it sits on the photo, on the tall one under the buttons, on colour. */}
+            flyer it sits on the photo, on the tall one under the buttons, on colour.
+            On the photo it gets a dark chip: a shadow alone vanished against bright water. */}
         <div style={{ position: "absolute", display: "flex", fontSize: 15, fontWeight: 500,
                       ...(L.creditLeft != null
                         ? { left: L.creditLeft, top: L.creditTop!, color: p.mute }
-                        : { right: L.creditRight!, bottom: L.creditBottom!, color: "rgba(255,255,255,0.85)",
-                            textShadow: "0 1px 3px rgba(0,0,0,0.75)" }) }}>
+                        : { right: L.creditRight!, bottom: L.creditBottom!, color: "rgba(255,255,255,0.92)",
+                            background: "rgba(11,12,15,0.62)", borderRadius: 8, padding: "5px 11px" }) }}>
           Photo : {a.photo_by} · Wikimedia Commons · {a.photo_lic}
         </div>
       </div>

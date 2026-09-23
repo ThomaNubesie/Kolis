@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import type { NextRequest } from "next/server";
 import { CAR_SLUGS } from "../../../lib/carSlugs";
 
 // GET /board?zone=<zone_id>  → a 1080×1350 PNG of that zone's live queue.
@@ -180,7 +181,7 @@ function Seat({ state }: { state: "boarded" | "held" | "free" }) {
   );
 }
 
-export async function GET(req: Request, { params }: { params: { zone: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { zone: string } }) {
   const origin = new URL(req.url).origin;   // Satori needs absolute image URLs
   const zoneId = decodeURIComponent(params.zone || "");
 
@@ -207,7 +208,8 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
   const stamp = `${dayPart} · ${timePart}`;
 
   // Colour of the day. ?p=0..3 forces one, for previews only — the posts pass no p.
-  const D = dayPalette(now, new URL(req.url).searchParams.get("p"));
+  // nextUrl: Netlify hands the handler a URL with no query string (see app/flyer).
+  const D = dayPalette(now, (req.nextUrl?.searchParams ?? new URL(req.url).searchParams).get("p"));
 
   // No board for this zone: say so plainly rather than rendering an empty frame that
   // looks like a loading failure.

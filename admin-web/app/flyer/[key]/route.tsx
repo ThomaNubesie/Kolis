@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import type { NextRequest } from "next/server";
 
 // GET /flyer/<key>  → the destination flyer, drawn now, in today's colour.
 //
@@ -141,12 +142,15 @@ const van = (color: string) => (
   </svg>
 );
 
-export async function GET(req: Request, { params }: { params: { key: string } }) {
-  const url = new URL(req.url);
-  const origin = url.origin;
+export async function GET(req: NextRequest, { params }: { params: { key: string } }) {
+  // req.nextUrl, not new URL(req.url): on Netlify the raw request URL reaches the handler
+  // without its query string, so ?size=tall and ?p= were silently dropped and every request
+  // rendered the wide flyer. It works either way locally, which is how it got this far.
+  const q = req.nextUrl?.searchParams ?? new URL(req.url).searchParams;
+  const origin = new URL(req.url).origin;
   const now = new Date();
-  const p = palette(now, url.searchParams.get("p"));
-  const L = SHAPES[url.searchParams.get("size") === "tall" ? "tall" : "wide"];
+  const p = palette(now, q.get("p"));
+  const L = SHAPES[q.get("size") === "tall" ? "tall" : "wide"];
 
   const rows = await assets();
   if (!rows.length) return new Response("no flyer assets", { status: 503 });

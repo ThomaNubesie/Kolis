@@ -6,7 +6,7 @@ import { ImageResponse } from "next/og";
 //        ask    | id = card index   a question
 //        answer | id = card index   its answer
 //
-// Destinations are NOT here: /flyer/<key>?size=tall draws them, the same artwork the Facebook
+// Destinations are NOT here: /flyer/<key>/tall draws them, the same artwork the Facebook
 // flyer uses, in the same colour of the day.
 //
 // Rendered on demand rather than written out each morning by a job: a cron producing eight PNGs a

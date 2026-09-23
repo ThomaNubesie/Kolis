@@ -3,10 +3,15 @@ import type { NextRequest } from "next/server";
 
 // GET /flyer/<key>  → the destination flyer, drawn now, in today's colour.
 //
-//   key       = a loadq_flyer_assets key ("Alexandra Bridge", "Île d'Orléans", …)
-//             | "today"  → the destination of the day, so a caller needs no knowledge of the pick
-//   ?size=tall  1080×1920 for TikTok; omitted gives 1600×900 for Facebook
-//   ?p=0..3     forces a palette — previews only; the posts pass nothing.
+//   key    = a loadq_flyer_assets key ("Alexandra Bridge", "Île d'Orléans", …)
+//          | "today"  → the destination of the day, so a caller needs no knowledge of the pick
+//   /tall    1080×1920 for TikTok; without it, 1600×900 for Facebook
+//   /p0../p3 forces a palette — previews only; the posts ask for neither.
+//
+// Shape and palette are PATH segments, not query parameters, because Netlify's CDN caches this
+// route by path alone: asking for ?size=tall and then the plain URL served the tall image for
+// both, and a ?p=3 preview would have parked the cream flyer on the public URL for half an hour.
+// One URL per variant, and each caches correctly.
 //
 // One artwork, two shapes: the Facebook flyer and the TikTok frame are the same words, the same
 // photo and the same colour of the day, so a day's posts read as one set wherever they land.
@@ -142,15 +147,15 @@ const van = (color: string) => (
   </svg>
 );
 
-export async function GET(req: NextRequest, { params }: { params: { key: string } }) {
-  // req.nextUrl, not new URL(req.url): on Netlify the raw request URL reaches the handler
-  // without its query string, so ?size=tall and ?p= were silently dropped and every request
-  // rendered the wide flyer. It works either way locally, which is how it got this far.
-  const q = req.nextUrl?.searchParams ?? new URL(req.url).searchParams;
+export async function GET(req: NextRequest, { params }: { params: { key: string; opts?: string[] } }) {
+  const opts = (params.opts ?? []).map(o => decodeURIComponent(o).toLowerCase());
+  const bad = opts.filter(o => o !== "tall" && !/^p[0-3]$/.test(o));
+  if (bad.length) return new Response(`unknown option: ${bad[0]}`, { status: 404 });
+  const forced = opts.find(o => /^p[0-3]$/.test(o));
   const origin = new URL(req.url).origin;
   const now = new Date();
-  const p = palette(now, q.get("p"));
-  const L = SHAPES[q.get("size") === "tall" ? "tall" : "wide"];
+  const p = palette(now, forced ? forced.slice(1) : null);
+  const L = SHAPES[opts.includes("tall") ? "tall" : "wide"];
 
   const rows = await assets();
   if (!rows.length) return new Response("no flyer assets", { status: 503 });

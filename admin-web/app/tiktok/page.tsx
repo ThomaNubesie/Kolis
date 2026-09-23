@@ -52,7 +52,7 @@ export default async function TikTokPack() {
     { href: `/tiktok/answer/${card}`, label: "Réponse", sub: "La réponse", tag: "card" },
     ...places.filter(Boolean).map(f => (
       {
-        href: `/flyer/${encodeURIComponent(f.key)}?size=tall`,
+        href: `/flyer/${encodeURIComponent(f.key)}/tall`,
         label: f.key, sub: `${f.city_a} ⇄ ${f.city_b}`, tag: "destination",
       }
     )),

@@ -5,7 +5,9 @@ import { ImageResponse } from "next/og";
 // kind = board  | id = zone_id      the live queue for one loading point
 //        ask    | id = card index   a question
 //        answer | id = card index   its answer
-//        place  | id = flyer key    a destination
+//
+// Destinations are NOT here: /flyer/<key>?size=tall draws them, the same artwork the Facebook
+// flyer uses, in the same colour of the day.
 //
 // Rendered on demand rather than written out each morning by a job: a cron producing eight PNGs a
 // day needs somewhere to put them, a way to clean them up, and fails quietly when it breaks —
@@ -143,33 +145,6 @@ export async function GET(req: Request, { params }: { params: { kind: string; id
         <div key="body" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, paddingBottom: H - SAFE_BOTTOM }}>
           {line("fr", fr, { fontSize: isQ ? 80 : 64, fontWeight: 900, color: p.hi, lineHeight: 1.18 })}
           {line("en", en, { marginTop: 34, fontSize: isQ ? 46 : 40, fontWeight: 600, color: p.sub, lineHeight: 1.3 })}
-        </div>,
-      ]),
-      1800,
-    );
-  }
-
-  // ── a destination ─────────────────────────────────────────────────────────
-  if (kind === "place") {
-    const r = await fetch(
-      `${SB}/rest/v1/loadq_flyer_assets?key=eq.${encodeURIComponent(id)}&select=*`,
-      { headers: { apikey: ANON, Authorization: `Bearer ${ANON}` }, cache: "no-store" },
-    );
-    const rows = r.ok ? await r.json() : [];
-    const a = rows[0];
-    if (!a) return new Response("unknown place", { status: 404 });
-    return respond(
-      png([
-        wordmark(p),
-        // ⇄ has no glyph in Satori's font and renders as a tofu box; → does.
-        line("route", `${a.city_a} → ${a.city_b}`, { marginTop: 20, fontSize: 40, fontWeight: 900, color: p.hi }),
-        // The flyer whole, not re-cropped: it already carries the wording, the badge and the photo
-        // credit, and the credit is the one part that is not optional.
-        <img key="flyer" src={a.image_url} width={950} height={534} style={{ marginTop: 28, borderRadius: 22 }} />,
-        <div key="cap" style={{ display: "flex", flexDirection: "column", marginTop: 32, width: TXT }}>
-          <div style={{ width: TXT, fontSize: 31, fontWeight: 900, color: p.ink, letterSpacing: 1.2 }}>{a.cap_head}</div>
-          <div style={{ width: TXT, marginTop: 14, fontSize: 34, color: p.hi, lineHeight: 1.34 }}>{a.cap_fr}</div>
-          <div style={{ width: TXT, marginTop: 12, fontSize: 27, color: p.sub, lineHeight: 1.34 }}>{a.cap_en}</div>
         </div>,
       ]),
       1800,

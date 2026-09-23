@@ -41,18 +41,23 @@ export default async function TikTokPack() {
   // Q&A advances one card a day.
   const card = ((di % 6) + 6) % 6;
 
+  // In filming order: the question, the boards that prove it is real, the answer, then the two
+  // destinations. The destination artwork is /flyer — the same one Facebook posts that day.
   const frames = [
+    { href: `/tiktok/ask/${card}`, label: "Question", sub: "On vous demande", tag: "card" },
     ...boards.map(b => ({
       href: `/tiktok/board/${encodeURIComponent(b.zone_id)}`,
       label: b.zone, sub: `${b.from_city} → ${b.to_city} · ${b.cars} voitures`, tag: "board",
     })),
-    { href: `/tiktok/ask/${card}`, label: "Question", sub: "On vous demande", tag: "card" },
     { href: `/tiktok/answer/${card}`, label: "Réponse", sub: "La réponse", tag: "card" },
-    ...places.filter(Boolean).map(f => ({
-      href: `/tiktok/place/${encodeURIComponent(f.key)}`,
-      label: f.key, sub: `${f.city_a} ⇄ ${f.city_b}`, tag: "place",
-    })),
+    ...places.filter(Boolean).map(f => (
+      {
+        href: `/flyer/${encodeURIComponent(f.key)}?size=tall`,
+        label: f.key, sub: `${f.city_a} ⇄ ${f.city_b}`, tag: "destination",
+      }
+    )),
   ];
+  const TAG_COLOR: Record<string, string> = { board: "#3FD08A", card: "#F5C842", destination: "#4C82F0" };
 
   const fmt = new Intl.DateTimeFormat("fr-CA", { weekday: "long", day: "numeric", month: "long", timeZone: "America/Toronto" });
 
@@ -78,7 +83,7 @@ export default async function TikTokPack() {
               <div style={{ fontSize: 13, fontWeight: 800, color: "#fff" }}>{f.label}</div>
               <div style={{ fontSize: 11.5, color: "#8A909C", marginTop: 2 }}>{f.sub}</div>
               <div style={{ fontSize: 9.5, fontWeight: 800, letterSpacing: .5, textTransform: "uppercase",
-                            color: f.tag === "board" ? "#3FD08A" : f.tag === "card" ? "#F5C842" : "#4C82F0", marginTop: 6 }}>
+                            color: TAG_COLOR[f.tag], marginTop: 6 }}>
                 {f.tag}
               </div>
             </div>
@@ -90,7 +95,7 @@ export default async function TikTokPack() {
                   borderRadius: 9, padding: "13px 16px", fontSize: 12.5, lineHeight: 1.75, color: "#C6CBD4" }}>
         <b style={{ color: "#fff" }}>Ordre suggéré :</b> question → un ou deux tableaux → réponse →
         les deux destinations. La question retient, les tableaux prouvent que c&apos;est réel, la
-        réponse paie l&apos;attente, la destination donne envie.
+        réponse paie l&apos;attente, et la destination donne envie.
       </p>
     </main>
   );

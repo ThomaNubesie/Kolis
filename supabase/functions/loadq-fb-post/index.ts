@@ -261,11 +261,11 @@ Deno.serve(async (req) => {
       // cover photo, with the live boards following. It is a fixed hosted PNG (not a
       // live render), uploaded as bytes exactly like the boards. A flyer that fails to
       // fetch must never sink the post — the boards still go out — so we only warn.
-      // The lead image on a board post. Was loadq-rideshare-flyer.png, which showed only
-      // MONTRÉAL → OTTAWA — half the service, and a one-way arrow on a corridor that runs
-      // both ways. This one states "Daily rides, both directions" and draws the whole
-      // Toronto-to-Québec corridor. The store-badge variant, chosen over the QR one.
-      const FLYER_URL = "https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/loadq-intercity-flyer.png";
+      // The lead image on a board post: the destination flyer of the day, drawn on demand in
+      // the colour of the day, so the morning post, the noon post and the TikTok frames all
+      // carry one landmark and one colour. It replaces the fixed loadq-intercity-flyer.png,
+      // which was navy whatever the day and never changed landmark.
+      const FLYER_URL = "https://admin.loadq.ca/flyer/today";
       if (b.flyer === true) {
         const fi = await fetch(FLYER_URL).catch(() => null);
         if (fi && fi.ok) {

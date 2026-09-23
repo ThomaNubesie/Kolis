@@ -21,11 +21,29 @@ export const runtime = "nodejs";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+// The board's own furniture — the car cards — never changes: it stays dark on every palette so
+// the queue reads the same at a glance from a tablet at the loading point, and so a board photo
+// is recognisable whatever day it was taken.
 const C = {
   bg: "#15171C", surface: "#1B1E25", card: "#232733", cardAlt: "#2C313F",
   border: "#3E4453", t1: "#FFFFFF", t2: "#AEB6C4", t3: "#7C8697",
   azure: "#4C82F0", orange: "#FF8A1A", yellow: "#F5C842", green: "#3FD08A",
 };
+
+// What DOES change is the surround: page background, header band and the text on them. One
+// palette per day, the same four the TikTok pack and the Facebook flyer use, so everything
+// posted on a given day carries one colour. Kept in step with app/tiktok/[kind]/[id]/route.tsx.
+const DAYS = [
+  { bg: "#F2760F", head: "#15171C", on: "#FFFFFF", on2: "rgba(255,255,255,.80)", rule: "#15171C" }, // Orange
+  { bg: "#2F6FE0", head: "#15171C", on: "#FFFFFF", on2: "rgba(255,255,255,.80)", rule: "#FF8A1A" }, // Azure
+  { bg: "#15171C", head: "#1B1E25", on: "#FFFFFF", on2: "#AEB6C4",               rule: "#4C82F0" }, // Charcoal
+  { bg: "#F7EFE2", head: "#15171C", on: "#15171C", on2: "rgba(21,23,28,.72)",    rule: "#C2410C" }, // Cream
+];
+function dayPalette(d: Date, override?: string | null) {
+  const i = override != null && override !== "" ? parseInt(override, 10)
+    : Math.floor((d.getTime() - Date.UTC(2026, 0, 1)) / 86400000);
+  return DAYS[((i % DAYS.length) + DAYS.length) % DAYS.length];
+}
 
 // Made in Canada, short form, for the board posts.
 //
@@ -188,6 +206,9 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
   }).format(now);
   const stamp = `${dayPart} · ${timePart}`;
 
+  // Colour of the day. ?p=0..3 forces one, for previews only — the posts pass no p.
+  const D = dayPalette(now, new URL(req.url).searchParams.get("p"));
+
   // No board for this zone: say so plainly rather than rendering an empty frame that
   // looks like a loading failure.
   //
@@ -200,10 +221,10 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
   if (!b) {
     const empty = new ImageResponse(
       (
-        <div style={{ width: "100%", height: "100%", background: C.bg, color: C.t2,
+        <div style={{ width: "100%", height: "100%", background: D.bg, color: D.on2,
                       display: "flex", flexDirection: "column", alignItems: "center",
                       justifyContent: "center", fontSize: 40, fontFamily: "sans-serif" }}>
-          <div style={{ color: C.t1, fontSize: 56, fontWeight: 800 }}>Aucune voiture en file</div>
+          <div style={{ color: D.on, fontSize: 56, fontWeight: 800 }}>Aucune voiture en file</div>
           <div style={{ display: "flex", marginTop: 14 }}>No cars in line right now · loadq.ca</div>
           <div style={{ display: "flex", marginTop: 26 }}><MIC /></div>
           <div style={{ display: "flex", marginTop: 12, fontSize: 24 }}>{stamp}</div>
@@ -218,11 +239,11 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
 
   const img = new ImageResponse(
     (
-      <div style={{ width: "100%", height: "100%", background: C.bg, color: C.t1,
+      <div style={{ width: "100%", height: "100%", background: D.bg, color: C.t1,
                     display: "flex", flexDirection: "column", fontFamily: "sans-serif" }}>
-        {/* header */}
-        <div style={{ display: "flex", flexDirection: "column", background: C.surface,
-                      borderBottom: `3px solid ${C.azure}`, padding: "22px 30px 18px" }}>
+        {/* header — stays dark on every palette, so the wordmark and route read the same way */}
+        <div style={{ display: "flex", flexDirection: "column", background: D.head,
+                      borderBottom: `3px solid ${D.rule}`, padding: "22px 30px 18px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", fontSize: 30, fontWeight: 800 }}>
               Load<span style={{ color: C.orange }}>Q</span>
@@ -251,7 +272,9 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
             const seats = c.seats ?? 0;
             return (
               <div key={i} style={{ display: "flex", alignItems: "center", gap: 13,
-                    background: loading ? "rgba(76,130,240,.09)" : C.card,
+                    // Opaque, not a translucent azure wash: the wash picked up whatever palette
+                    // was behind it and on Cream turned near-white, hiding the driver's name.
+                    background: loading ? "#1B2436" : C.card,
                     border: `1px solid ${loading ? C.azure : C.border}`,
                     borderRadius: 14, padding: "12px 16px" }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
@@ -297,14 +320,14 @@ export async function GET(req: Request, { params }: { params: { zone: string } }
         {/* Seat key. Without it the outlines are just shapes — a viewer has no way to know
             that yellow means held and filled means boarded. */}
         <div style={{ display: "flex", alignItems: "center", gap: 22, padding: "2px 30px 0",
-                      color: C.t2, fontSize: 17 }}>
+                      color: D.on2, fontSize: 17 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}><Seat state="free" />libre / free</div>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}><Seat state="held" />réservée / held</div>
           <div style={{ display: "flex", alignItems: "center", gap: 7 }}><Seat state="boarded" />occupée / boarded</div>
         </div>
         {/* footer */}
         <div style={{ display: "flex", alignItems: "center", marginTop: "auto",
-                      background: C.surface, borderTop: `3px solid ${C.orange}`, padding: "16px 30px" }}>
+                      background: D.head, borderTop: `3px solid ${D.rule}`, padding: "16px 30px" }}>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", fontSize: 25, fontWeight: 800 }}>
               {b.cars} voitures · {b.seats_free} places libres

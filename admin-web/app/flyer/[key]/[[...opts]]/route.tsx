@@ -1,5 +1,6 @@
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
+import { torontoDayIndex } from "../../../../lib/loadqDay";
 
 // GET /flyer/<key>  → the destination flyer, drawn now, in today's colour.
 //
@@ -78,11 +79,8 @@ const DAYS = [
 ];
 type Day = (typeof DAYS)[0];
 
-function dayIndex(d: Date) {
-  return Math.floor((d.getTime() - Date.UTC(2026, 0, 1)) / 86400000);
-}
 function palette(d: Date, force: string | null): Day {
-  const i = force ? parseInt(force, 10) : dayIndex(d);
+  const i = force ? parseInt(force, 10) : torontoDayIndex(d);
   return DAYS[((i % DAYS.length) + DAYS.length) % DAYS.length];
 }
 
@@ -112,7 +110,7 @@ async function assets(): Promise<Asset[]> {
 // and the noon post still agree unless the SQL picker overrides it.
 function pickToday(rows: Asset[], now: Date): Asset | undefined {
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto" }).format(now);
-  return rows.find(r => r.last_posted_on === today) ?? rows[((dayIndex(now) % rows.length) + rows.length) % rows.length];
+  return rows.find(r => r.last_posted_on === today) ?? rows[((torontoDayIndex(now) % rows.length) + rows.length) % rows.length];
 }
 
 // The leaf, drawn: Satori has no emoji font, and 🍁 is orange in the fonts that do have it,

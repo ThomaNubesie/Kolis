@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
 import { CAR_SLUGS } from "../../../lib/carSlugs";
+import { torontoDayIndex } from "../../../lib/loadqDay";
 
 // GET /board?zone=<zone_id>  → a 1080×1350 PNG of that zone's live queue.
 //
@@ -41,8 +42,7 @@ const DAYS = [
   { bg: "#F7EFE2", head: "#15171C", on: "#15171C", on2: "rgba(21,23,28,.72)",    rule: "#C2410C" }, // Cream
 ];
 function dayPalette(d: Date, override?: string | null) {
-  const i = override != null && override !== "" ? parseInt(override, 10)
-    : Math.floor((d.getTime() - Date.UTC(2026, 0, 1)) / 86400000);
+  const i = override != null && override !== "" ? parseInt(override, 10) : torontoDayIndex(d);
   return DAYS[((i % DAYS.length) + DAYS.length) % DAYS.length];
 }
 

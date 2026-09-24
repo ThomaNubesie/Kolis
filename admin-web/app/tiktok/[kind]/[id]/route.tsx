@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { torontoDayIndex } from "../../../../lib/loadqDay";
 
 // GET /tiktok/<kind>/<id>  → a 1080×1920 PNG, ready to drop into a TikTok slideshow.
 //
@@ -43,7 +44,7 @@ const PALETTES = [
   { bg: "#F7EFE2", ink: "#C2410C", hi: "#15171C", sub: "rgba(21,23,28,0.70)" },
 ];
 function paletteFor(d: Date) {
-  const day = Math.floor((d.getTime() - Date.UTC(2026, 0, 1)) / 86400000);
+  const day = torontoDayIndex(d);
   return PALETTES[((day % PALETTES.length) + PALETTES.length) % PALETTES.length];
 }
 

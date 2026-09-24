@@ -258,54 +258,63 @@ Deno.serve(async (req) => {
       if (!list.length) return json({ ok: true, skipped: "no_active_boards" });
 
       // Facebook builds a multi-photo post in two steps: upload each image unpublished to
-      // collect its media id, then create ONE feed story that attaches them. Uploading by
-      // URL means Facebook fetches admin.loadq.ca itself — no image bytes pass through
-      // this function, which is what kept the render out of memory trouble.
+      // collect its media id, then create ONE feed story that attaches them. The BYTES are
+      // uploaded (multipart), never url= for Facebook to fetch: fetching by url let it create a
+      // photo id while silently rendering nothing, and the post showed no image.
+      //
+      // Every image is fetched FIRST, in parallel, and only then uploaded. They used to be
+      // fetched one at a time inside the upload loop; a cold board render takes 5–13 s (it draws
+      // the queue and decodes up to eight vehicle PNGs) and the lead flyer another 4 s, so five
+      // zones meant ~45 s of fetching before the first upload — long enough for a run to be cut
+      // off partway and post with only the boards it had reached. In parallel the whole set
+      // costs about as much as its slowest member.
+      //
+      // The flyer of the day leads the post, so it is fetched first and attached first: it
+      // becomes the cover photo, with the live boards following. A flyer that fails must never
+      // sink the post — the boards still go out — so a failure is only recorded.
+      const FLYER_URL = "https://admin.loadq.ca/flyer/today";
       const ids: string[] = [];
       const failed: string[] = [];
 
-      // The marketing flyer leads the post: it is attached FIRST so it appears as the
-      // cover photo, with the live boards following. It is a fixed hosted PNG (not a
-      // live render), uploaded as bytes exactly like the boards. A flyer that fails to
-      // fetch must never sink the post — the boards still go out — so we only warn.
-      // The lead image on a board post: the destination flyer of the day, drawn on demand in
-      // the colour of the day, so the morning post, the noon post and the TikTok frames all
-      // carry one landmark and one colour. It replaces the fixed loadq-intercity-flyer.png,
-      // which was navy whatever the day and never changed landmark.
-      const FLYER_URL = "https://admin.loadq.ca/flyer/today";
-      if (b.flyer === true) {
-        const fi = await fetch(FLYER_URL).catch(() => null);
-        if (fi && fi.ok) {
-          const fblob = await fi.blob();
-          const ffd = new FormData();
-          ffd.append("source", fblob, "loadq-flyer.png");
-          ffd.append("published", "false");
-          ffd.append("access_token", PAGE_TOKEN);
-          const frr = await fetch(`${GRAPH}/${PAGE_ID}/photos`, { method: "POST", body: ffd });
-          const foo = await frr.json().catch(() => ({}));
-          if (frr.ok && foo.id) ids.push(foo.id);
-          else failed.push(`flyer: ${foo?.error?.message ?? frr.status}`);
-        } else {
-          failed.push(`flyer: fetch ${fi?.status ?? "err"}`);
-        }
+      const wanted: { name: string; url: string }[] = [];
+      if (b.flyer === true) wanted.push({ name: "flyer", url: FLYER_URL });
+      for (const z of list) {
+        wanted.push({ name: z.zone, url: `https://admin.loadq.ca/board/${encodeURIComponent(z.zone_id)}` });
       }
 
-      for (const b of list) {
-        const url = `https://admin.loadq.ca/board/${encodeURIComponent(b.zone_id)}`;
-        // Upload the actual PNG BYTES (multipart), not a url= for FB to fetch. Fetching by
-        // url let Facebook create a photo id while silently rendering nothing (the post
-        // showed no image); uploading the bytes we fetched ourselves guarantees the image.
-        const img = await fetch(url).catch(() => null);
-        if (!img || !img.ok) { failed.push(`${b.zone}: board fetch ${img?.status ?? "err"}`); continue; }
-        const blob = await img.blob();
+      type Img = { name: string; ms: number; blob?: Blob; bytes?: number; error?: string };
+      const fetched: Img[] = await Promise.all(wanted.map(async (w) => {
+        const t0 = Date.now();
+        try {
+          const r = await fetch(w.url);
+          if (!r.ok) return { name: w.name, ms: Date.now() - t0, error: `fetch ${r.status}` };
+          const blob = await r.blob();
+          return { name: w.name, ms: Date.now() - t0, blob, bytes: blob.size };
+        } catch (e) {
+          return { name: w.name, ms: Date.now() - t0, error: String((e as Error).message).slice(0, 120) };
+        }
+      }));
+
+      // A rehearsal: what would be posted, how big and how slow. Publishes nothing.
+      if (b.dry === true) {
+        return json({
+          ok: true, dry: true, zones: list.length,
+          images: fetched.map((f) => ({ name: f.name, ms: f.ms, bytes: f.bytes ?? null, error: f.error ?? null })),
+        });
+      }
+
+      for (const f of fetched) {
+        if (!f.blob) { failed.push(`${f.name}: ${f.error}`); continue; }
         const fd = new FormData();
-        fd.append("source", blob, `${b.zone_id}.png`);
+        fd.append("source", f.blob, `${f.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.png`);
         fd.append("published", "false");
         fd.append("access_token", PAGE_TOKEN);
         const r = await fetch(`${GRAPH}/${PAGE_ID}/photos`, { method: "POST", body: fd });
         const o = await r.json().catch(() => ({}));
-        if (r.ok && o.id) ids.push(o.id); else failed.push(`${b.zone}: ${o?.error?.message ?? r.status}`);
+        if (r.ok && o.id) ids.push(o.id);
+        else failed.push(`${f.name}: ${o?.error?.message ?? r.status}`);
       }
+
       if (!ids.length) {
         await admin.from("loadq_fb_posts").insert({ message, error: `no images uploaded — ${failed.join(" | ")}`.slice(0, 400) });
         return json({ error: "no_images_uploaded", detail: failed }, 502);

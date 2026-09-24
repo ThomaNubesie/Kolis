@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
 import { CAR_SLUGS } from "../../../lib/carSlugs";
-import { torontoDayIndex } from "../../../lib/loadqDay";
+import { paletteIndexFor } from "../../../lib/loadqDay";
 
 // GET /board?zone=<zone_id>  → a 1080×1350 PNG of that zone's live queue.
 //
@@ -34,15 +34,15 @@ const C = {
 
 // What DOES change is the surround: page background, header band and the text on them. One
 // palette per day, the same four the TikTok pack and the Facebook flyer use, so everything
-// posted on a given day carries one colour. Kept in step with app/tiktok/[kind]/[id]/route.tsx.
+// posted on a given day carries one colour. Which day wears which: lib/loadqDay.ts.
 const DAYS = [
   { bg: "#F2760F", head: "#15171C", on: "#FFFFFF", on2: "rgba(255,255,255,.80)", rule: "#15171C" }, // Orange
   { bg: "#2F6FE0", head: "#15171C", on: "#FFFFFF", on2: "rgba(255,255,255,.80)", rule: "#FF8A1A" }, // Azure
-  { bg: "#15171C", head: "#1B1E25", on: "#FFFFFF", on2: "#AEB6C4",               rule: "#4C82F0" }, // Charcoal
+  { bg: "#2A3040", head: "#171B24", on: "#FFFFFF", on2: "rgba(255,255,255,.78)", rule: "#4C82F0" }, // Charcoal
   { bg: "#F7EFE2", head: "#15171C", on: "#15171C", on2: "rgba(21,23,28,.72)",    rule: "#C2410C" }, // Cream
 ];
 function dayPalette(d: Date, override?: string | null) {
-  const i = override != null && override !== "" ? parseInt(override, 10) : torontoDayIndex(d);
+  const i = override != null && override !== "" ? parseInt(override, 10) : paletteIndexFor(d);
   return DAYS[((i % DAYS.length) + DAYS.length) % DAYS.length];
 }
 

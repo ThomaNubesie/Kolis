@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-import { torontoDayIndex } from "../../lib/loadqDay";
+import { paletteIndexFor, torontoDayIndex } from "../../lib/loadqDay";
 
 const PALETTE_NAMES = ["Orange", "Azure", "Charcoal", "Cream"];
 
@@ -27,7 +27,7 @@ async function sb<T>(path: string, init?: RequestInit): Promise<T[]> {
 export default async function TikTokPack() {
   const today = new Date();
   const di = torontoDayIndex(today);
-  const palette = PALETTE_NAMES[((di % 4) + 4) % 4];
+  const palette = PALETTE_NAMES[paletteIndexFor(today)];
 
   const boards = await sb<Board>("rpc/loadq_board_public", { method: "POST", body: "{}" });
   const flyers = await sb<Flyer>("loadq_flyer_assets?active=eq.true&select=key,city_a,city_b,cap_head,season,mood&order=key");

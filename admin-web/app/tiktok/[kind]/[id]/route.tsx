@@ -1,5 +1,5 @@
 import { ImageResponse } from "next/og";
-import { torontoDayIndex } from "../../../../lib/loadqDay";
+import { paletteIndexFor } from "../../../../lib/loadqDay";
 
 // GET /tiktok/<kind>/<id>  → a 1080×1920 PNG, ready to drop into a TikTok slideshow.
 //
@@ -34,18 +34,17 @@ const H = 1920;
 const SAFE_BOTTOM = 1580;
 const TXT = 950;
 
-// The palette rotates by day so consecutive mornings do not look like the same post reheated.
+// The palette changes by day so consecutive mornings do not look like the same post reheated.
 // All four are already in the brand set: the orange, the azure, the charcoal the app uses at
-// night, and the cream from the flyer series.
+// night, and the cream from the flyer series. Which day wears which: lib/loadqDay.ts.
 const PALETTES = [
   { bg: "#F2760F", ink: "#15171C", hi: "#FFFFFF", sub: "rgba(21,23,28,0.78)" },
   { bg: "#2F6FE0", ink: "#0B1B3A", hi: "#FFFFFF", sub: "rgba(255,255,255,0.82)" },
-  { bg: "#15171C", ink: "#FF8A1A", hi: "#FFFFFF", sub: "rgba(255,255,255,0.70)" },
+  { bg: "#2A3040", ink: "#FF8A1A", hi: "#FFFFFF", sub: "rgba(255,255,255,0.74)" },
   { bg: "#F7EFE2", ink: "#C2410C", hi: "#15171C", sub: "rgba(21,23,28,0.70)" },
 ];
 function paletteFor(d: Date) {
-  const day = torontoDayIndex(d);
-  return PALETTES[((day % PALETTES.length) + PALETTES.length) % PALETTES.length];
+  return PALETTES[paletteIndexFor(d)];
 }
 
 // Questions riders actually ask, in the order they ask them. Bilingual, because the audience is.

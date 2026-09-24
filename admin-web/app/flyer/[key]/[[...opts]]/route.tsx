@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 import type { NextRequest } from "next/server";
-import { torontoDayIndex } from "../../../../lib/loadqDay";
+import { paletteIndexFor, torontoDayIndex } from "../../../../lib/loadqDay";
 
 // GET /flyer/<key>  → the destination flyer, drawn now, in today's colour.
 //
@@ -62,7 +62,7 @@ const SHAPES = {
 
 // One palette per day, the same four and the same order as the TikTok pack
 // (app/tiktok/[kind]/[id]/route.tsx) and the board (app/board/[zone]/route.tsx). Everything
-// posted on a given day carries one colour.
+// posted on a given day carries one colour; which day wears which is lib/loadqDay.ts.
 const DAYS = [
   { name: "orange", bg: "#F2760F", bgRGB: "242,118,15", hi: "#FFFFFF", acc: "#15171C",
     mute: "rgba(255,255,255,0.88)", rule: "rgba(21,23,28,0.45)", van: "#15171C",
@@ -70,7 +70,7 @@ const DAYS = [
   { name: "azure", bg: "#2F6FE0", bgRGB: "47,111,224", hi: "#FFFFFF", acc: "#FFB36B",
     mute: "rgba(255,255,255,0.84)", rule: "rgba(255,255,255,0.45)", van: "#FF8A1A",
     pillBg: "#E5252A", wwwBg: "#FFFFFF", wwwFg: "#1F4FB0" },
-  { name: "charcoal", bg: "#14171D", bgRGB: "20,23,29", hi: "#FFFFFF", acc: "#FF8A1A",
+  { name: "charcoal", bg: "#2A3040", bgRGB: "42,48,64", hi: "#FFFFFF", acc: "#FF8A1A",
     mute: "rgba(255,255,255,0.76)", rule: "rgba(255,255,255,0.35)", van: "#FF8A1A",
     pillBg: "#E5252A", wwwBg: "#2F6FE0", wwwFg: "#FFFFFF" },
   { name: "cream", bg: "#F7EFE2", bgRGB: "247,239,226", hi: "#15171C", acc: "#C2410C",
@@ -80,7 +80,7 @@ const DAYS = [
 type Day = (typeof DAYS)[0];
 
 function palette(d: Date, force: string | null): Day {
-  const i = force ? parseInt(force, 10) : torontoDayIndex(d);
+  const i = force ? parseInt(force, 10) : paletteIndexFor(d);
   return DAYS[((i % DAYS.length) + DAYS.length) % DAYS.length];
 }
 

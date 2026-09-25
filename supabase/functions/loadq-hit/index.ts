@@ -1,12 +1,16 @@
 // loadq-hit — counts a visit to loadq.ca, and where it came from.
 //
-//   POST { p: "/get", r: "https://l.facebook.com/", s: "fb-noon", m: "social", c: "sept-boards" }
+//   POST { v, p: "/get", r: "https://l.facebook.com/", s: "fb-noon", ... }   the page opened
+//   POST { v, t: 47 }                                                        it was left, 47 s later
 //
 // Facebook can tell you 344 engagements and 3 new followers; it cannot tell you whether anyone
 // arrived. This does: one row per page view, with the campaign tag carried in the link
 // (loadq.ca/?s=tk-board) and the referrer's HOST if there is no tag.
 //
-// What it deliberately does NOT store: no IP, no cookie, no id of any kind, no full referrer URL
+// The two calls are matched by `v`, a random id the page makes per PAGE VIEW. It is not a
+// visitor id: it is never reused, so two visits by the same person cannot be joined.
+//
+// What it deliberately does NOT store: no IP, no cookie, no persistent id, no full referrer URL
 // (only its host) and no user agent string — just "phone" or "desktop". Nothing here identifies a
 // person, which is why loadq.ca needs no consent banner for it.
 //
@@ -47,7 +51,22 @@ Deno.serve(async (req) => {
   if (refHost && /(^|\.)loadq\.ca$/.test(refHost)) refHost = null;
 
   const admin = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false } });
+  const visit = clip(b.v, 64);
+
+  // The second call: how long they stayed. It updates the row the first call wrote, and is
+  // capped at an hour — a tab left open overnight is not a reader.
+  const secs = typeof b.t === "number" && isFinite(b.t) ? Math.round(b.t) : null;
+  if (secs !== null) {
+    if (!visit) return json({ error: "visit_required" }, 400);
+    if (secs < 1 || secs > 3600) return json({ ok: true, ignored: "out_of_range" });
+    const { error: upErr } = await admin.from("loadq_hit")
+      .update({ dwell_s: secs }).eq("visit_id", visit).is("dwell_s", null);
+    if (upErr) return json({ error: upErr.message }, 500);
+    return json({ ok: true, dwell: secs });
+  }
+
   const { error } = await admin.from("loadq_hit").insert({
+    visit_id: visit,
     path: clip(b.p, 200),
     ref_host: refHost,
     source: clip(b.s, 60),

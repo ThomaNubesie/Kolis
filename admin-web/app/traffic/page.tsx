@@ -11,8 +11,13 @@ export const dynamic = "force-dynamic";
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const ANON = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
-type Row = { day: string; source: string; hits: number };
-type Totals = { hits: number; days: number; sources: number; top_source: string | null };
+type Row = { day: string; source: string; hits: number; median_s: number | null };
+type Totals = { hits: number; days: number; sources: number; top_source: string | null;
+                median_s: number | null; measured: number };
+
+// Seconds, read at a glance: "1 m 20" rather than 80.
+const dur = (s: number | null | undefined) =>
+  s == null ? "—" : s < 60 ? `${s} s` : `${Math.floor(s / 60)} m ${String(s % 60).padStart(2, "0")}`;
 
 async function rpc<T>(fn: string, body: unknown): Promise<T[]> {
   const r = await fetch(`${SB}/rest/v1/rpc/${fn}`, {
@@ -37,12 +42,21 @@ export default async function Traffic({ searchParams }: { searchParams: { days?:
   // Pivot to a grid: a row per source, a column per day, so a spike is visible along a line.
   const dayList = [...new Set(rows.map(r => r.day))].sort().reverse();
   const bySource = new Map<string, Map<string, number>>();
+  const dwellBySource = new Map<string, number[]>();
   for (const r of rows) {
     if (!bySource.has(r.source)) bySource.set(r.source, new Map());
     bySource.get(r.source)!.set(r.day, Number(r.hits));
+    if (r.median_s != null) {
+      if (!dwellBySource.has(r.source)) dwellBySource.set(r.source, []);
+      dwellBySource.get(r.source)!.push(Number(r.median_s));
+    }
   }
+  // A median of the days' medians: rough, but one unusual day cannot swamp the rest.
+  const medianOf = (xs: number[]) =>
+    xs.length ? [...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)] : null;
   const sources = [...bySource.entries()]
-    .map(([s, m]) => ({ source: s, total: [...m.values()].reduce((a, b) => a + b, 0), days: m }))
+    .map(([s, m]) => ({ source: s, total: [...m.values()].reduce((a, b) => a + b, 0), days: m,
+                        dwell: medianOf(dwellBySource.get(s) ?? []) }))
     .sort((a, b) => b.total - a.total);
   const peak = Math.max(1, ...rows.map(r => Number(r.hits)));
 
@@ -69,8 +83,8 @@ export default async function Traffic({ searchParams }: { searchParams: { days?:
       ) : (
         <>
           <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap", marginBottom: 22 }}>
-            {[["visites", t.hits], ["jours avec trafic", t.days], ["sources", t.sources],
-              ["source principale", t.top_source ?? "—"]].map(([k, v]) => (
+            {[["visites", t.hits], ["temps médian", dur(t.median_s)], ["jours avec trafic", t.days],
+              ["sources", t.sources], ["source principale", t.top_source ?? "—"]].map(([k, v]) => (
               <div key={String(k)} style={{ background: C.card, border: `1px solid ${C.line}`, borderRadius: 12,
                                             padding: "12px 18px", minWidth: 150 }}>
                 <div style={{ fontSize: 11.5, color: C.dim, textTransform: "uppercase", letterSpacing: .6 }}>{k}</div>
@@ -86,6 +100,7 @@ export default async function Traffic({ searchParams }: { searchParams: { days?:
                 <tr>
                   <th style={{ ...cell, textAlign: "left", color: C.dim, fontSize: 11.5 }}>SOURCE</th>
                   <th style={{ ...cell, textAlign: "right", color: C.dim, fontSize: 11.5 }}>TOTAL</th>
+                  <th style={{ ...cell, textAlign: "right", color: C.dim, fontSize: 11.5 }}>TEMPS</th>
                   {dayList.map(d => (
                     <th key={d} style={{ ...cell, textAlign: "right", color: C.dim, fontSize: 11.5, whiteSpace: "nowrap" }}>
                       {d.slice(5)}
@@ -98,6 +113,7 @@ export default async function Traffic({ searchParams }: { searchParams: { days?:
                   <tr key={s.source}>
                     <td style={{ ...cell, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>{s.source}</td>
                     <td style={{ ...cell, textAlign: "right", fontWeight: 800 }}>{s.total}</td>
+                    <td style={{ ...cell, textAlign: "right", color: s.dwell ? "#fff" : "#3A4150" }}>{dur(s.dwell)}</td>
                     {dayList.map(d => {
                       const n = s.days.get(d) ?? 0;
                       return (
@@ -118,6 +134,9 @@ export default async function Traffic({ searchParams }: { searchParams: { days?:
 
       <p style={{ maxWidth: "92ch", margin: "26px auto 0", background: "#0B0C0F", borderLeft: `3px solid ${C.warm}`,
                   borderRadius: 9, padding: "13px 16px", fontSize: 12.5, lineHeight: 1.75, color: "#C6CBD4" }}>
+        <b style={{ color: "#fff" }}>« temps » est la durée médiane d&apos;une visite</b> — mesurée au moment où
+        la page est quittée, donc absente quand l&apos;onglet est tué d&apos;un coup. Sous une seconde ou au-delà
+        d&apos;une heure, la mesure est ignorée.{" "}
         <b style={{ color: "#fff" }}>« direct » veut dire sans étiquette :</b> quelqu&apos;un qui tape l&apos;adresse,
         ou qui arrive d&apos;une appli qui cache la provenance — TikTok et Instagram le font. C&apos;est pourquoi
         chaque publication doit porter son lien étiqueté ; sinon tout se retrouve dans « direct ».

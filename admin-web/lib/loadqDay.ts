@@ -19,11 +19,11 @@ export function pickOfDay<T>(list: T[], d: Date = new Date()): T {
   return list[((i % list.length) + list.length) % list.length];
 }
 
-// Which palette a day wears — set by the owner, not by a cycle: Friday and Wednesday are
-// orange, Monday and Saturday blue, Sunday and Tuesday cream, Thursday charcoal. Index into
+// Which palette a day wears — set by the owner, not by a cycle: Wednesday orange, Monday and
+// Saturday blue, Tuesday, Friday and Sunday cream, Thursday charcoal. Index into
 // [orange, azure, charcoal, cream], the order every renderer holds them in.
 //                       Sun Mon Tue Wed Thu Fri Sat
-const PALETTE_BY_WEEKDAY = [3, 1, 3, 0, 2, 0, 1];
+const PALETTE_BY_WEEKDAY = [3, 1, 3, 0, 2, 3, 1];
 
 export function paletteIndexFor(d: Date = new Date()): number {
   const day = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Toronto", weekday: "short" })

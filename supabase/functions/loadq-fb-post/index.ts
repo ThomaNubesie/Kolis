@@ -31,6 +31,12 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, content-type, x-kolis-secret",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+// Every published caption carries a tagged link, so a visit that follows can be attributed on
+// admin.loadq.ca/traffic. loadq.ca/fb redirects to the site with ?s=fb-page attached. If the
+// caption already names loadq.ca, it is left alone — the SQL that writes it may have its own.
+const withLink = (caption: string, tag = "loadq.ca/fb") =>
+  /loadq\.ca/i.test(caption) ? caption : `${caption.trimEnd()}\n\n${tag}`;
+
 const json = (b: unknown, s = 200) =>
   new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
@@ -154,7 +160,7 @@ Deno.serve(async (req) => {
         ? b.image_urls.map((u: unknown) => String(u)).filter(Boolean)
         : (b.image_url ? [String(b.image_url)] : [])).map(onDemand);
       if (!urls.length) return json({ error: "image_url_or_image_urls_required" }, 400);
-      const caption = String(b.caption ?? b.message ?? message);
+      const caption = withLink(String(b.caption ?? b.message ?? message));
 
       if (urls.length === 1) {
         const url = urls[0];
@@ -323,7 +329,7 @@ Deno.serve(async (req) => {
       // attached_media MUST be a real JSON array here — FB ignores "attached_media[0]"
       // bracket-keys in a JSON body (that syntax is form-encoded only), which silently
       // produced a text-only post with the photos uploaded but never shown.
-      const body: Record<string, unknown> = { message, access_token: PAGE_TOKEN, attached_media: ids.map((id) => ({ media_fbid: id })) };
+      const body: Record<string, unknown> = { message: withLink(message), access_token: PAGE_TOKEN, attached_media: ids.map((id) => ({ media_fbid: id })) };
       const fr = await fetch(`${GRAPH}/${PAGE_ID}/feed`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

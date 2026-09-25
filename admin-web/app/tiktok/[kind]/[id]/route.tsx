@@ -176,7 +176,7 @@ export async function GET(req: Request, { params }: { params: { kind: string; id
         {line("zone", b.zone, { fontSize: 35, fontWeight: 900, color: p.ink })}
         {line("count", `${b.cars} voitures · ${b.seats_free} places libres`,
               { marginTop: 10, fontSize: 31, fontWeight: 700, color: p.hi })}
-        {line("url", "loadq.ca · 613-862-2639", { marginTop: 10, fontSize: 26, color: p.sub })}
+        {line("url", "loadq.ca/tk · 613-862-2639", { marginTop: 10, fontSize: 26, color: p.sub })}
       </div>,
     ]),
     900,

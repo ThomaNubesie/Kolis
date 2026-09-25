@@ -341,7 +341,8 @@ export async function GET(req: NextRequest, { params }: { params: { zone: string
           <div style={{ display: "flex", alignItems: "center", gap: 18, marginLeft: "auto" }}>
             <MIC />
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-              <div style={{ display: "flex", fontSize: 22, fontWeight: 800, color: C.azure }}>loadq.ca</div>
+              {/* the tagged short link, so a visit from this image is counted as such */}
+              <div style={{ display: "flex", fontSize: 22, fontWeight: 800, color: C.azure }}>loadq.ca/fb</div>
               <div style={{ display: "flex", fontSize: 19, fontWeight: 800, marginTop: 2 }}>613-862-2639</div>
             </div>
           </div>

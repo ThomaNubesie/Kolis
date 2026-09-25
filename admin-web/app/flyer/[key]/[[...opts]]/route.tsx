@@ -49,6 +49,7 @@ const SHAPES = {
     blockTop: 344, l1: 31, l2: 24, l3: 22, stripTop: 506, stripF: 21, ruleTop: 556,
     capTop: 574, capH: 21, capFr: 23, capEn: 19, btnTop: 790, www: 26,
     creditRight: 18, creditBottom: 12, creditLeft: null as number | null, creditTop: null as number | null,
+    link: "loadq.ca/fb",
   },
   tall: {
     w: 1080, h: 1920, left: 64, panel: 952, strip: 826, headMax: 77,
@@ -57,6 +58,7 @@ const SHAPES = {
     blockTop: 1004, l1: 40, l2: 30, l3: 28, stripTop: 1188, stripF: 27, ruleTop: 1258,
     capTop: 1278, capH: 26, capFr: 29, capEn: 24, btnTop: 1486, www: 33,
     creditRight: null as number | null, creditBottom: null as number | null, creditLeft: 64, creditTop: 1558,
+    link: "loadq.ca/tk",
   },
 };
 
@@ -279,7 +281,7 @@ export async function GET(req: NextRequest, { params }: { params: { key: string;
 
         <div style={{ position: "absolute", left: L.left, top: L.btnTop, display: "flex", alignItems: "center" }}>
           <div style={{ display: "flex", background: p.wwwBg, color: p.wwwFg, fontSize: L.www, fontWeight: 600,
-                        borderRadius: 999, padding: "11px 26px", marginRight: 12 }}>www.loadq.ca</div>
+                        borderRadius: 999, padding: "11px 26px", marginRight: 12 }}>{L.link}</div>
           {badge("DISPONIBLE SUR", "Google Play",
             <svg width={19} height={21} viewBox="0 0 22 24">
               <path d="M2 1.5l12 10.5L2 22.5z" fill="#34A853" />

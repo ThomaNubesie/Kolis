@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import type { NextRequest } from "next/server";
 import { paletteIndexFor } from "../../../../lib/loadqDay";
 
 // GET /tiktok/<kind>/<id>  → a 1080×1920 PNG, ready to drop into a TikTok slideshow.
@@ -43,8 +44,16 @@ const PALETTES = [
   { bg: "#2A3040", ink: "#FF8A1A", hi: "#FFFFFF", sub: "rgba(255,255,255,0.95)" },
   { bg: "#F7EFE2", ink: "#C2410C", hi: "#15171C", sub: "rgba(21,23,28,0.9)" },
 ];
-function paletteFor(d: Date) {
-  return PALETTES[paletteIndexFor(d)];
+// The teleprompter ground. A card that is READ — the question, the answer, the explainer — is
+// always black: it is text to be taken in, and a colour that changes daily fights the reading.
+// Frames built on a photograph or a board keep the colour of the day, which is what makes a
+// day's posts hang together. ?p=black forces black, ?p=day forces the day's colour.
+const BLACK = { bg: "#14171D", ink: "#FF8A1A", hi: "#FFFFFF", sub: "rgba(255,255,255,0.95)" };
+
+function paletteFor(d: Date, force?: string | null, read = false) {
+  if (force === "black") return BLACK;
+  if (force === "day") return PALETTES[paletteIndexFor(d)];
+  return read ? BLACK : PALETTES[paletteIndexFor(d)];
 }
 
 // Questions riders actually ask, in the order they ask them. Bilingual, because the audience is.
@@ -104,9 +113,13 @@ function wordmark(p: Palette) {
   );
 }
 
-export async function GET(req: Request, { params }: { params: { kind: string; id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: { kind: string; id: string } }) {
   const origin = new URL(req.url).origin;
-  const p = paletteFor(new Date());
+  const kind = params.kind;
+  // A card that is read — the question, the answer — is black; a frame built on the board keeps
+  // the colour of the day.
+  const p = paletteFor(new Date(), req.nextUrl?.searchParams?.get("p") ?? null,
+                       kind === "ask" || kind === "answer");
 
   // Satori's packed fallback has one weight. Everything asking for 800 or 900 came out thin,
   // which is why the header read as a whisper next to the board underneath it.
@@ -119,7 +132,6 @@ export async function GET(req: Request, { params }: { params: { kind: string; id
     { name: "Archivo", data: semi, weight: 600 as const, style: "normal" as const },
     { name: "Archivo", data: medium, weight: 500 as const, style: "normal" as const },
   ];
-  const kind = params.kind;
   const id = decodeURIComponent(params.id || "");
 
   const png = (children: React.ReactElement[]) =>

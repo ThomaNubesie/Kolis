@@ -41,7 +41,11 @@ const DAYS = [
   { bg: "#2A3040", head: "#171B24", on: "#FFFFFF", on2: "rgba(255,255,255,.78)", rule: "#4C82F0" }, // Charcoal
   { bg: "#F7EFE2", head: "#15171C", on: "#15171C", on2: "rgba(21,23,28,.72)",    rule: "#C2410C" }, // Cream
 ];
+// The teleprompter ground, by name: /board/<zone>?p=black.
+const BLACK = { bg: "#14171D", head: "#0E1116", on: "#FFFFFF", on2: "rgba(255,255,255,.8)", rule: "#FF8A1A" };
+
 function dayPalette(d: Date, override?: string | null) {
+  if (override === "black") return BLACK;
   const i = override != null && override !== "" ? parseInt(override, 10) : paletteIndexFor(d);
   return DAYS[((i % DAYS.length) + DAYS.length) % DAYS.length];
 }

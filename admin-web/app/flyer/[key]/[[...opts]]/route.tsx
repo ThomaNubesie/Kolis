@@ -79,6 +79,12 @@ const DAYS = [
     mute: "rgba(21,23,28,0.74)", rule: "rgba(21,23,28,0.3)", van: "#FF8A1A",
     pillBg: "#E5252A", wwwBg: "#2F6FE0", wwwFg: "#FFFFFF" },
 ];
+
+// The teleprompter ground, asked for by name: /flyer/<key>/black. Not part of the weekday
+// rotation — it is there so a whole day's set can be rendered in one colour.
+const BLACK = { name: "black", bg: "#14171D", bgRGB: "20,23,29", hi: "#FFFFFF", acc: "#FF8A1A",
+                mute: "rgba(255,255,255,0.9)", rule: "rgba(255,255,255,0.35)", van: "#FF8A1A",
+                pillBg: "#E5252A", wwwBg: "#2F6FE0", wwwFg: "#FFFFFF" };
 type Day = (typeof DAYS)[0];
 
 function palette(d: Date, force: string | null): Day {
@@ -149,12 +155,12 @@ const van = (color: string) => (
 
 export async function GET(req: NextRequest, { params }: { params: { key: string; opts?: string[] } }) {
   const opts = (params.opts ?? []).map(o => decodeURIComponent(o).toLowerCase());
-  const bad = opts.filter(o => o !== "tall" && !/^p[0-3]$/.test(o));
+  const bad = opts.filter(o => o !== "tall" && o !== "black" && !/^p[0-3]$/.test(o));
   if (bad.length) return new Response(`unknown option: ${bad[0]}`, { status: 404 });
   const forced = opts.find(o => /^p[0-3]$/.test(o));
   const origin = new URL(req.url).origin;
   const now = new Date();
-  const p = palette(now, forced ? forced.slice(1) : null);
+  const p = opts.includes("black") ? BLACK : palette(now, forced ? forced.slice(1) : null);
   const L = SHAPES[opts.includes("tall") ? "tall" : "wide"];
 
   const rows = await assets();

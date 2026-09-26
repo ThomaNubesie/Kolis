@@ -97,7 +97,7 @@ function line(key: string, text: string, style: React.CSSProperties) {
 
 function wordmark(p: Palette) {
   return (
-    <div key="wm" style={{ display: "flex", fontSize: 84, fontWeight: 900, letterSpacing: -2.4, lineHeight: 1 }}>
+    <div key="wm" style={{ display: "flex", fontSize: 100, fontWeight: 900, letterSpacing: -3.4, lineHeight: 1 }}>
       <span style={{ color: p.hi }}>Load</span>
       <span style={{ color: p.ink }}>Q</span>
     </div>
@@ -107,6 +107,18 @@ function wordmark(p: Palette) {
 export async function GET(req: Request, { params }: { params: { kind: string; id: string } }) {
   const origin = new URL(req.url).origin;
   const p = paletteFor(new Date());
+
+  // Satori's packed fallback has one weight. Everything asking for 800 or 900 came out thin,
+  // which is why the header read as a whisper next to the board underneath it.
+  const font = async (f: string) => fetch(`${origin}/fonts/${f}`).then(r => r.arrayBuffer());
+  const [black, semi, medium] = await Promise.all([
+    font("Archivo-Black.woff"), font("Archivo-SemiBold.woff"), font("Archivo-Medium.woff"),
+  ]);
+  const FONTS = [
+    { name: "Archivo", data: black, weight: 900 as const, style: "normal" as const },
+    { name: "Archivo", data: semi, weight: 600 as const, style: "normal" as const },
+    { name: "Archivo", data: medium, weight: 500 as const, style: "normal" as const },
+  ];
   const kind = params.kind;
   const id = decodeURIComponent(params.id || "");
 
@@ -117,13 +129,13 @@ export async function GET(req: Request, { params }: { params: { kind: string; id
           style={{
             width: "100%", height: "100%", background: p.bg, display: "flex",
             flexDirection: "column", alignItems: "center", padding: "54px 60px 0",
-            fontFamily: "sans-serif",
+            fontFamily: "Archivo",
           }}
         >
           {children}
         </div>
       ),
-      { width: W, height: H },
+      { width: W, height: H, fonts: FONTS },
     );
 
   const respond = (img: ImageResponse, maxAge: number) => {
@@ -141,7 +153,7 @@ export async function GET(req: Request, { params }: { params: { kind: string; id
       png([
         wordmark(p),
         line("eyebrow", isQ ? "ON VOUS DEMANDE · YOU ASKED" : "LA RÉPONSE · THE ANSWER",
-             { marginTop: 26, fontSize: 30, fontWeight: 800, letterSpacing: 3, color: p.ink }),
+             { marginTop: 28, fontSize: 36, fontWeight: 600, letterSpacing: 3.4, color: p.ink }),
         <div key="body" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, paddingBottom: H - SAFE_BOTTOM }}>
           {line("fr", fr, { fontSize: isQ ? 80 : 64, fontWeight: 900, color: p.hi, lineHeight: 1.18 })}
           {line("en", en, { marginTop: 34, fontSize: isQ ? 54 : 48, fontWeight: 700, color: p.sub, lineHeight: 1.3 })}
@@ -166,17 +178,17 @@ export async function GET(req: Request, { params }: { params: { kind: string; id
     png([
       wordmark(p),
       line("eyebrow", "EN FILE MAINTENANT · IN LINE NOW",
-           { marginTop: 20, fontSize: 29, fontWeight: 800, letterSpacing: 3, color: p.ink }),
+           { marginTop: 22, fontSize: 34, fontWeight: 600, letterSpacing: 3.4, color: p.ink }),
       line("route", `${b.from_city} → ${b.to_city}`,
-           { marginTop: 10, fontSize: 40, fontWeight: 900, color: p.hi }),
+           { marginTop: 14, fontSize: 58, fontWeight: 900, color: p.hi }),
       // The board is 4:5 and TikTok is 9:16 — it needs MORE height, not less, so it goes in whole.
       // Cropping to fit would cut cars off the bottom of the queue.
       <img key="board" src={`${origin}/board/${encodeURIComponent(b.zone_id)}`} width={840} height={1050} style={{ marginTop: 24, borderRadius: 24 }} />,
       <div key="foot" style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: 22 }}>
-        {line("zone", b.zone, { fontSize: 35, fontWeight: 900, color: p.ink })}
+        {line("zone", b.zone, { fontSize: 42, fontWeight: 900, color: p.ink })}
         {line("count", `${b.cars} voitures · ${b.seats_free} places libres`,
-              { marginTop: 10, fontSize: 31, fontWeight: 700, color: p.hi })}
-        {line("url", "loadq.ca/tk · 613-862-2639", { marginTop: 10, fontSize: 26, color: p.sub })}
+              { marginTop: 12, fontSize: 38, fontWeight: 600, color: p.hi })}
+        {line("url", "loadq.ca/tk · 613-862-2639", { marginTop: 12, fontSize: 30, fontWeight: 500, color: p.sub })}
       </div>,
     ]),
     900,

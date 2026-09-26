@@ -159,6 +159,14 @@ Deno.serve(async (req) => {
       const urls: string[] = (Array.isArray(b.image_urls) && b.image_urls.length
         ? b.image_urls.map((u: unknown) => String(u)).filter(Boolean)
         : (b.image_url ? [String(b.image_url)] : [])).map(onDemand);
+
+      // A landmark alone assumes the reader already knows what LoadQ is; most do not. Every noon
+      // post therefore carries one explainer card, and /explain advances by day — ten features,
+      // so a fortnight explains something different each time. Pass explain:false to omit it.
+      const EXPLAIN_URL = "https://admin.loadq.ca/explain";
+      if (b.explain !== false && urls.length && !urls.some(u => u.includes("/explain"))) {
+        urls.push(EXPLAIN_URL);
+      }
       if (!urls.length) return json({ error: "image_url_or_image_urls_required" }, 400);
       const caption = withLink(String(b.caption ?? b.message ?? message));
 

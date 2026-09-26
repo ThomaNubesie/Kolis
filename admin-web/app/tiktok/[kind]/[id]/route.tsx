@@ -38,10 +38,10 @@ const TXT = 950;
 // All four are already in the brand set: the orange, the azure, the charcoal the app uses at
 // night, and the cream from the flyer series. Which day wears which: lib/loadqDay.ts.
 const PALETTES = [
-  { bg: "#F2760F", ink: "#15171C", hi: "#FFFFFF", sub: "rgba(21,23,28,0.78)" },
-  { bg: "#2F6FE0", ink: "#0B1B3A", hi: "#FFFFFF", sub: "rgba(255,255,255,0.82)" },
-  { bg: "#2A3040", ink: "#FF8A1A", hi: "#FFFFFF", sub: "rgba(255,255,255,0.74)" },
-  { bg: "#F7EFE2", ink: "#C2410C", hi: "#15171C", sub: "rgba(21,23,28,0.70)" },
+  { bg: "#F2760F", ink: "#15171C", hi: "#FFFFFF", sub: "rgba(255,255,255,0.97)" },
+  { bg: "#2F6FE0", ink: "#FF8A1A", hi: "#FFFFFF", sub: "rgba(255,255,255,0.95)" },
+  { bg: "#2A3040", ink: "#FF8A1A", hi: "#FFFFFF", sub: "rgba(255,255,255,0.95)" },
+  { bg: "#F7EFE2", ink: "#C2410C", hi: "#15171C", sub: "rgba(21,23,28,0.9)" },
 ];
 function paletteFor(d: Date) {
   return PALETTES[paletteIndexFor(d)];
@@ -144,7 +144,7 @@ export async function GET(req: Request, { params }: { params: { kind: string; id
              { marginTop: 26, fontSize: 30, fontWeight: 800, letterSpacing: 3, color: p.ink }),
         <div key="body" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, paddingBottom: H - SAFE_BOTTOM }}>
           {line("fr", fr, { fontSize: isQ ? 80 : 64, fontWeight: 900, color: p.hi, lineHeight: 1.18 })}
-          {line("en", en, { marginTop: 34, fontSize: isQ ? 46 : 40, fontWeight: 600, color: p.sub, lineHeight: 1.3 })}
+          {line("en", en, { marginTop: 34, fontSize: isQ ? 54 : 48, fontWeight: 700, color: p.sub, lineHeight: 1.3 })}
         </div>,
       ]),
       1800,

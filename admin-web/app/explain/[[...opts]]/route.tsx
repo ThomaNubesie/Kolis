@@ -18,10 +18,10 @@ import { paletteIndexFor, torontoDayIndex } from "../../../lib/loadqDay";
 export const runtime = "nodejs";
 
 const DAYS = [
-  { name: "orange", bg: "#F2760F", hi: "#FFFFFF", acc: "#15171C", mute: "rgba(255,255,255,0.88)" },
-  { name: "azure", bg: "#2F6FE0", hi: "#FFFFFF", acc: "#FF8A1A", mute: "rgba(255,255,255,0.84)" },
-  { name: "charcoal", bg: "#2A3040", hi: "#FFFFFF", acc: "#FF8A1A", mute: "rgba(255,255,255,0.78)" },
-  { name: "cream", bg: "#F7EFE2", hi: "#15171C", acc: "#C2410C", mute: "rgba(21,23,28,0.74)" },
+  { name: "orange", bg: "#F2760F", hi: "#FFFFFF", acc: "#15171C", mute: "rgba(255,255,255,0.97)" },
+  { name: "azure", bg: "#2F6FE0", hi: "#FFFFFF", acc: "#FF8A1A", mute: "rgba(255,255,255,0.96)" },
+  { name: "charcoal", bg: "#2A3040", hi: "#FFFFFF", acc: "#FF8A1A", mute: "rgba(255,255,255,0.95)" },
+  { name: "cream", bg: "#F7EFE2", hi: "#15171C", acc: "#C2410C", mute: "rgba(21,23,28,0.9)" },
 ];
 
 // French large, English under it — the audience is both, and the French line is the one that
@@ -60,30 +60,10 @@ const CARDS = [
 ];
 
 const SHAPES = {
-  wide: { w: 1600, h: 900, left: 72, width: 1300, mark: 84, eyebrow: 24, fr: 76, en: 34, big: 150, footTop: 760 },
-  tall: { w: 1080, h: 1920, left: 72, width: 912, mark: 92, eyebrow: 27, fr: 84, en: 40, big: 190, footTop: 1500 },
+  wide: { w: 1600, h: 900, left: 72, width: 1300, mark: 84, eyebrow: 24, fr: 74, en: 42, big: 150, footTop: 760 },
+  tall: { w: 1080, h: 1920, left: 72, width: 912, mark: 92, eyebrow: 27, fr: 80, en: 48, big: 190, footTop: 1500 },
 };
 
-
-// The Canadian flag, drawn rather than typed: Satori has no emoji font, so 🇨🇦 renders as tofu.
-// Divs, not one SVG: Satori is dependable with boxes and shaky with nested transforms.
-function flag(h: number) {
-  const w = Math.round(h * 2);
-  const bar = Math.round(w * 0.25);
-  return (
-    <div style={{ display: "flex", width: w, height: h, borderRadius: 3, overflow: "hidden",
-                  border: "1px solid rgba(0,0,0,0.15)" }}>
-      <div style={{ display: "flex", width: bar, height: h, background: "#D52B1E" }} />
-      <div style={{ display: "flex", width: w - bar * 2, height: h, background: "#FFFFFF",
-                    alignItems: "center", justifyContent: "center" }}>
-        <svg width={Math.round(h * 0.78)} height={Math.round(h * 0.78)} viewBox="0 0 512 512">
-          <path fill="#D52B1E" d="M256 48l-30 56c-3 6-9 5-15 2l-22-11 16 87c3 16-8 16-14 9l-38-43-6 22c-1 3-4 6-9 5l-48-10 13 46c3 10 5 14-3 17l-17 8 83 67c8 6 11 9 8 19l-7 24 79-9c5 0 8 2 8 7l-4 84h22l-4-84c0-5 3-7 8-7l79 9-7-24c-3-10 0-13 8-19l83-67-17-8c-8-3-6-7-3-17l13-46-48 10c-5 1-8-2-9-5l-6-22-38 43c-6 7-17 7-14-9l16-87-22 11c-6 3-12 4-15-2z" />
-        </svg>
-      </div>
-      <div style={{ display: "flex", width: bar, height: h, background: "#D52B1E" }} />
-    </div>
-  );
-}
 
 export async function GET(req: NextRequest, { params }: { params: { opts?: string[] } }) {
   const opts = (params.opts ?? []).map(o => decodeURIComponent(o).toLowerCase());
@@ -123,16 +103,12 @@ export async function GET(req: NextRequest, { params }: { params: { opts?: strin
           {c.big
             ? <div style={{ width: L.width, fontSize: L.big, fontWeight: 900, lineHeight: 0.95, letterSpacing: -8 }}>{c.big}</div>
             : null}
-          <div style={{ display: "flex", alignItems: "flex-start" }}>
-            {flag(Math.round(L.fr * 0.34))}
-            <div style={{ width: L.width - Math.round(L.fr * 0.34) * 2 - 26, marginLeft: 26,
-                          fontSize: L.fr, fontWeight: 900, lineHeight: 1.1, letterSpacing: -1.5 }}>{c.fr}</div>
-          </div>
-          <div style={{ display: "flex", alignItems: "flex-start", marginTop: 30 }}>
-            {flag(Math.round(L.en * 0.44))}
-            <div style={{ width: L.width - Math.round(L.en * 0.44) * 2 - 26, marginLeft: 26,
-                          fontSize: L.en, fontWeight: 500, lineHeight: 1.28, color: p.mute }}>{c.en}</div>
-          </div>
+          <div style={{ width: L.width, fontSize: L.fr, fontWeight: 900, lineHeight: 1.1, letterSpacing: -1.5 }}>{c.fr}</div>
+          {/* The English used to sit at 0.78 opacity and a size below the French, which on a
+              phone read as a caption nobody finishes. Same family, close in size, nearly full
+              strength: a second language, not a footnote. */}
+          <div style={{ width: L.width, marginTop: 24, fontSize: L.en, fontWeight: 600,
+                        lineHeight: 1.26, color: p.mute }}>{c.en}</div>
         </div>
 
         <div style={{ display: "flex", width: L.width, fontSize: Math.round(L.en * 0.95), fontWeight: 600 }}>

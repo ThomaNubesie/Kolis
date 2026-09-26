@@ -301,3 +301,30 @@ and **seat count** (meaningless for a whole-car booking).
 → **Before adding a field, check whether an answer already on the screen contains it.** Derive and
 confirm — "✓ Destination: Montréal — taken from the address" — instead of asking again. Two fields
 asking the same thing will eventually disagree, and then neither can be trusted.
+
+---
+
+## 23. The keyboard covers the button that dismisses the keyboard
+
+A bottom sheet with one text field looks finished on the simulator you built it on, because the
+simulator is tall and the keyboard is short. Four independent defects hide in the same twenty
+lines, and each one alone is enough to make the sheet unusable:
+
+- **`behavior={Platform.OS === "ios" ? "padding" : undefined}`** — correct for a full-screen
+  ScrollView, wrong for a sheet. On Android `undefined` lifts nothing at all. Sheets need
+  `"height"` there.
+- **A `keyboardVerticalOffset` copied from a sibling screen.** Non-modal screens want
+  `insets.top`; inside a `<Modal>` the view already starts at the screen top, so the same value
+  pushes the content up by the height of the status bar for no reason. Modals want `0`.
+- **A `ScrollView` whose parent has no `maxHeight`.** An unbounded ScrollView measures to its
+  content, so it is a ScrollView that cannot scroll — it looks right in review and the submit
+  button is still off-screen. The scroll only becomes real with `maxHeight: "82%"` on the sheet.
+- **A sheet nested inside a full-screen `Pressable` dim.** With the keyboard up, the first tap
+  anywhere is consumed dismissing it, so the submit button appears dead — the user taps it twice
+  and reports that the button does nothing. `keyboardShouldPersistTaps="handled"` is what lets
+  that first tap through.
+
+→ **Test every text field on the shortest screen you support, with the keyboard open, on both
+platforms.** The question is never "is there a KeyboardAvoidingView" — it is "can I reach the
+submit button and does one tap press it". A `KeyboardAvoidingView` that is present and misconfigured
+reads as handled in every code review.

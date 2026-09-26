@@ -69,7 +69,7 @@ const DAYS = [
   { name: "orange", bg: "#F2760F", bgRGB: "242,118,15", hi: "#FFFFFF", acc: "#15171C",
     mute: "rgba(255,255,255,0.88)", rule: "rgba(21,23,28,0.45)", van: "#15171C",
     pillBg: "#15171C", wwwBg: "#15171C", wwwFg: "#FFFFFF" },
-  { name: "azure", bg: "#2F6FE0", bgRGB: "47,111,224", hi: "#FFFFFF", acc: "#FFB36B",
+  { name: "azure", bg: "#2F6FE0", bgRGB: "47,111,224", hi: "#FFFFFF", acc: "#FF8A1A",
     mute: "rgba(255,255,255,0.84)", rule: "rgba(255,255,255,0.45)", van: "#FF8A1A",
     pillBg: "#E5252A", wwwBg: "#FFFFFF", wwwFg: "#1F4FB0" },
   { name: "charcoal", bg: "#2A3040", bgRGB: "42,48,64", hi: "#FFFFFF", acc: "#FF8A1A",

@@ -83,7 +83,11 @@ Search in both English and French — many of these publish only in French.
 ${known.length ? `\nAlready on our list — do NOT return these:\n${known.slice(0, 200).join(", ")}` : ""}`;
 
     const body: any = {
-      model: "claude-opus-5",
+      // Sonnet 5, not Opus: $2/$10 per MTok against $5/$25, and the expensive part of this
+      // call is the web-search input it reads, not the judgement it applies. Prospect research
+      // tolerates the cheaper model; document verification does not, which is why
+      // loadq-doc-verify stays on Opus. Same web_search_20260209 tool, same effort levels.
+      model: "claude-sonnet-5",
       max_tokens: 8000,
       system,
       output_config: { effort: "high" },

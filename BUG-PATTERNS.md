@@ -328,3 +328,33 @@ lines, and each one alone is enough to make the sheet unusable:
 platforms.** The question is never "is there a KeyboardAvoidingView" — it is "can I reach the
 submit button and does one tap press it". A `KeyboardAvoidingView` that is present and misconfigured
 reads as handled in every code review.
+
+---
+
+## 24. One publish, one runtime, and a success message either way
+
+LoadQ's `app.json` sets `runtimeVersion: { policy: "appVersion" }`. An OTA update is therefore only
+offered to installs whose app version matches the version in `app.json` at publish time. Drivers are
+never all on one build — some updated from the store, some did not — so a single
+`eas update --branch production` reaches **one** of those populations and silently skips the other.
+
+What makes it a trap rather than a nuisance: **the publish that reaches nobody looks exactly like the
+publish that reaches everybody.** `✔ Published!` prints, an update group ID is minted, the dashboard
+shows a healthy entry. Nothing anywhere says "0 devices match this runtime". The only tell is the
+`Runtime version` line in the output, and you have to already know what to compare it against.
+
+The history of the channel is the evidence: every release worth shipping appears **twice** in
+`eas update:list`, once per live runtime. A release that appears once was half-shipped.
+
+→ **Publish once per live runtime, and read the runtime line, not the checkmark.**
+```
+eas update:list --branch production --limit 8   # which runtimes are actually being served
+eas build:list --limit 6                        # which app versions exist as builds
+```
+Then publish at the current version, temporarily set `app.json`'s `version` to the older live one,
+publish again, and revert. Confirm the revert with `git status` — a version bump left behind silently
+mislabels the next build.
+
+→ **The general shape:** when a delivery mechanism targets a cohort, "success" means "accepted for
+the cohort I named", never "reached the users I meant". The same reasoning as #1 — ask what the
+success message is actually a statement about, and find the thing that counts recipients.

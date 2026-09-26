@@ -71,6 +71,7 @@ type Car = {
   make: string | null; model: string | null; year: number | null; color: string | null;
   seats: number | null; seats_boarded: number; seats_taken: number; seats_left: number;
 };
+type Fare = { zone_id: string; destination_region: string; fare_cents: number };
 type Board = {
   zone_id: string; zone: string; address: string | null;
   from_city: string; to_city: string; cars: number; seats_free: number;
@@ -100,6 +101,12 @@ const MODEL_FAMILY: Record<string, string> = {
   "town & country": "town-country", "rav4 prime (phev)": "rav4", "santa fe xl": "santa-fe",
   "santa fe": "santa-fe", "outlander sport": "outlander", "mazda5": "mazda5",
 };
+// "Trois-Rivières" → "trois-rivieres": the fare table keys destinations by region slug.
+function regionOf(city: string) {
+  return city.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+}
+
 function carSlug(make?: string | null, model?: string | null, color?: string | null) {
   if (!make || !model) return null;
   const m = model.toLowerCase().trim().replace(/[ ]+/g, " ");
@@ -192,6 +199,18 @@ export async function GET(req: NextRequest, { params }: { params: { zone: string
     cache: "no-store",
   });
   const boards: Board[] = res.ok ? await res.json() : [];
+
+  // The seat price is per route, not per company: Ottawa–Montréal is 30 $, Québec–Montréal 35 $,
+  // Ottawa–Québec 65 $. This image printed 30 $ on every car in every zone, which advertised the
+  // Québec runs five dollars under their own fare. loadq_fares_public() is the read-only view of
+  // loadq_route_fares; if it ever fails the price is left off rather than guessed.
+  const fres = await fetch(`${SB}/rest/v1/rpc/loadq_fares_public`, {
+    method: "POST",
+    headers: { apikey: ANON, Authorization: `Bearer ${ANON}`, "Content-Type": "application/json" },
+    body: "{}",
+    cache: "no-store",
+  });
+  const fares: Fare[] = fres.ok ? await fres.json() : [];
   const b = boards.find((x) => x.zone_id === zoneId) ?? boards[0];
 
 
@@ -238,6 +257,10 @@ export async function GET(req: NextRequest, { params }: { params: { zone: string
     eout.headers.set("Cache-Control", "no-store, max-age=0, must-revalidate");
     return eout;
   }
+
+  // One price for this board: every car on it runs the same route.
+  const fare = fares.find(f => f.zone_id === b.zone_id && f.destination_region === regionOf(b.to_city));
+  const seatPrice = fare ? `${Math.round(fare.fare_cents / 100)} $` : "";
 
   const img = new ImageResponse(
     (
@@ -305,7 +328,7 @@ export async function GET(req: NextRequest, { params }: { params: { zone: string
                     : <div style={{ display: "flex", alignItems: "center", justifyContent: "center",
                                     width: 186, height: 116 }}><Vehicle color={c.color} /></div>; })()}
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
-                  <div style={{ display: "flex", fontSize: 25, fontWeight: 800 }}>30 $</div>
+                  <div style={{ display: "flex", fontSize: 25, fontWeight: 800 }}>{seatPrice}</div>
                   <div style={{ display: "flex", marginTop: 6, fontSize: 14, fontWeight: 700,
                         padding: "5px 11px", borderRadius: 20,
                         background: loading ? "rgba(76,130,240,.2)" : C.cardAlt,

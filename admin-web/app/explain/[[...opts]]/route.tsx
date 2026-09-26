@@ -59,6 +59,10 @@ const CARDS = [
     en: "Every day, in both directions — Ottawa, Montréal, Québec." },
 ];
 
+// The teleprompter's own colours — the ground these lines are read from.
+const TELEPROMPTER = { name: "teleprompter", bg: "#14171D", hi: "#FFFFFF", acc: "#FF8A1A",
+                       mute: "rgba(255,255,255,0.95)" };
+
 const SHAPES = {
   wide: { w: 1600, h: 900, left: 72, width: 1300, mark: 84, eyebrow: 24, fr: 74, en: 42, big: 150, footTop: 760 },
   tall: { w: 1080, h: 1920, left: 72, width: 912, mark: 92, eyebrow: 27, fr: 80, en: 48, big: 190, footTop: 1500 },
@@ -71,8 +75,12 @@ export async function GET(req: NextRequest, { params }: { params: { opts?: strin
   if (bad.length) return new Response(`unknown option: ${bad[0]}`, { status: 404 });
 
   const L = SHAPES[opts.includes("tall") ? "tall" : "wide"];
+  // The explainer does NOT wear the colour of the day. It is the teleprompter: black ground,
+  // white line, orange tag. The flyer and the boards carry the day's colour; this card carries
+  // the explanation, and keeping it constant is what makes it recognisable across a week as the
+  // bit that tells you how the thing works. /explain/p0..p3 still forces a palette for previews.
   const forced = opts.find(o => /^p[0-3]$/.test(o));
-  const p = DAYS[forced ? parseInt(forced.slice(1), 10) : paletteIndexFor(new Date())];
+  const p = forced ? DAYS[parseInt(forced.slice(1), 10)] : TELEPROMPTER;
   const picked = opts.find(o => /^\d+$/.test(o));
   // No card asked for: the day chooses, so a fortnight of noon posts explains ten different
   // things and only then comes round again.

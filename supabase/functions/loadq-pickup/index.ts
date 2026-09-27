@@ -67,6 +67,12 @@ async function rateCard() {
     perKm: await setting("ondemand_per_km_cents", 100), perMin: await setting("ondemand_per_min_cents", 30),
     flat: await setting("pickup_flat_cents", 1000), farBase: await setting("pickup_far_base_cents", 200),
     radiusKm: await setting("pickup_radius_km", 5), hst: await setting("pickup_hst_rate", 0.13),
+    // Past this there is no price worth quoting. Beyond the flat radius the fee grows with
+    // distance and never stopped, so riders hundreds of kilometres away were quoted $250 to $859
+    // for a feeder leg onto a $30 seat. Every one of them abandoned, which is the only sane
+    // response to that number — but they were never told they were out of range, they were just
+    // shown a price that meant no. Tunable in loadq_settings without a deploy.
+    maxKm: await setting("pickup_max_km", 30),
   };
 }
 async function loadingZone(dest: string): Promise<{ lat: number; lng: number; id: string } | null> {
@@ -104,6 +110,23 @@ Deno.serve(async (req) => {
       const rt = rj?.routes?.[0]; if (!rt) return json({ error: "no_route", detail: rj?.error?.message }, 502);
       const km = (rt.distanceMeters || 0) / 1000, min = durMin(rt.duration);
       const rc = await rateCard();
+      if (km > rc.maxKm) {
+        // The app alerts this string as-is, so it has to read like a sentence rather than a code,
+        // and it carries both languages because the quote call does not send a locale.
+        const far = Math.round(km);
+        return json({
+          error:
+            `Vous êtes à environ ${far} km du point de chargement. C'est trop loin pour qu'un ` +
+            `chauffeur vienne vous prendre — on dessert jusqu'à ${rc.maxKm} km. Rapprochez-vous ` +
+            `du trajet ou choisissez un autre point de chargement.\n\n` +
+            `You are about ${far} km from the loading point. That is too far for a driver to ` +
+            `collect you — we cover up to ${rc.maxKm} km. Move closer to the route or pick a ` +
+            `different loading point.`,
+          code: "too_far",
+          distance_km: far,
+          max_km: rc.maxKm,
+        }, 422);
+      }
       const within = km <= rc.radiusKm;
       const reserve = within ? rc.flat : Math.round(rc.farBase + rc.perKm * km + rc.perMin * min);
       const tax = Math.round(reserve * rc.hst), total = reserve + tax;

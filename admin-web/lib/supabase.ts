@@ -50,6 +50,8 @@ export const api = {
   pendingMembers: () => r<any[]>("kolis_admin_pending_members"),
   contactRequests: () => r<any[]>("kolis_admin_contact_requests"),
   reviewContact: (id: string, approve: boolean) => r("kolis_admin_review_contact_request", { p_id: id, p_approve: approve }),
+  abandonedPickups: (days = 180) => r<any[]>("loadq_abandoned_pickups", { p_days: days }),
+  pickupFollowup: (id: string, note?: string) => r<boolean>("loadq_pickup_followup", { p_id: id, p_note: note ?? null }),
   callRequests: (status: string | null = null) => r<any[]>("kolis_call_requests_list", { p_status: status }),
   callRequestStatus: (id: string, status: string) => r("kolis_call_request_set_status", { p_id: id, p_status: status }),
   freight: (status: string | null = null) => r<any[]>("kolis_freight_list", { p_status: status }),

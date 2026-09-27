@@ -72,7 +72,7 @@ async function rateCard() {
     // for a feeder leg onto a $30 seat. Every one of them abandoned, which is the only sane
     // response to that number — but they were never told they were out of range, they were just
     // shown a price that meant no. Tunable in loadq_settings without a deploy.
-    maxKm: await setting("pickup_max_km", 30),
+    maxKm: await setting("pickup_max_km", 15),
   };
 }
 async function loadingZone(dest: string): Promise<{ lat: number; lng: number; id: string } | null> {

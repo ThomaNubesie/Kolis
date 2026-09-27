@@ -114,6 +114,19 @@ Deno.serve(async (req) => {
         // The app alerts this string as-is, so it has to read like a sentence rather than a code,
         // and it carries both languages because the quote call does not send a locale.
         const far = Math.round(km);
+        // A refused rider leaves no request row, so the demand being declined would otherwise be
+        // invisible and the ceiling could only be argued about. Logged before the return, and
+        // deliberately not awaited into a failure path: a logging problem must not turn a clean
+        // refusal into a 500 the rider cannot act on.
+        try {
+          await admin.from("loadq_pickup_refusals").insert({
+            pickup_address: address, pickup_lat: geo.lat, pickup_lng: geo.lng,
+            destination_region: dest, drop_zone_id: lz.id,
+            distance_km: far, max_km: rc.maxKm,
+            contact_name: b.name || null, contact_phone: b.phone || null,
+            passenger_id: b.passenger_id || null,
+          });
+        } catch (_) { /* the refusal still stands */ }
         return json({
           error:
             `Vous êtes à environ ${far} km du point de chargement. C'est trop loin pour qu'un ` +

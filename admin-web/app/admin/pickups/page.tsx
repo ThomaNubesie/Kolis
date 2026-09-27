@@ -27,7 +27,16 @@ const TABS: [string, string, string][] = [
   ["out_of_range", "Out of range", "Hors zone"],
   ["done", "Followed up", "Relancés"],
   ["all", "All", "Tous"],
+  ["refused", "Refused (too far)", "Refusés (trop loin)"],
 ];
+
+// Refused quotes are demand we turned away. Grouped by how far over the ceiling they were,
+// because "within 5 km of the ceiling" and "over 100 km" argue for opposite decisions: the first
+// says the ceiling is costing real trips, the second says it is doing its job.
+type Refusal = {
+  id: string; asked_at: string; distance_km: number; max_km: number; over_by: number;
+  destination: string | null; pickup_address: string | null; client: string | null; phone: string | null;
+};
 
 export default function AbandonedPickups() {
   const { lang } = useLang();
@@ -36,6 +45,8 @@ export default function AbandonedPickups() {
   const [tab, setTab] = useState("callable");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [refusals, setRefusals] = useState<Refusal[]>([]);
+  const [bands, setBands] = useState<{ band: string; refusals: number }[]>([]);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -45,6 +56,10 @@ export default function AbandonedPickups() {
       .finally(() => setLoading(false));
   }, []);
   useEffect(load, [load]);
+  useEffect(() => {
+    api.pickupRefusals(90).then((d) => setRefusals((d as Refusal[]) || [])).catch(() => setRefusals([]));
+    api.pickupRefusalBands(90).then((d) => setBands((d as any[]) || [])).catch(() => setBands([]));
+  }, []);
 
   const shown = useMemo(() => rows.filter((r) => {
     if (tab === "all") return true;
@@ -80,6 +95,7 @@ export default function AbandonedPickups() {
         <Stat label={fr ? "À rappeler" : "Worth a call"} value={String(callable.filter((r) => !r.followed_up_at).length)} />
         <Stat label={fr ? "Valeur récupérable" : "Recoverable value"} value={money(recoverable)} />
         <Stat label={fr ? "Hors zone (prix cassé)" : "Out of range (broken quote)"} value={String(junk)} tone="#b45309" />
+        <Stat label={fr ? "Refusés · 90 j" : "Refused · 90d"} value={String(refusals.length)} tone="#6b7280" />
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
@@ -98,7 +114,53 @@ export default function AbandonedPickups() {
         ))}
       </div>
 
-      {loading ? (
+      {tab === "refused" ? (
+        <div>
+          {bands.length > 0 && (
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 14 }}>
+              {bands.map((b) => (
+                <div key={b.band} style={{
+                  border: "1px solid #e5e7eb", borderRadius: 10, padding: "8px 13px", fontSize: 12.5,
+                }}>
+                  <b>{b.refusals}</b> · {b.band}
+                </div>
+              ))}
+            </div>
+          )}
+          <p style={{ color: "#667", fontSize: 13, margin: "0 0 12px", lineHeight: 1.5, maxWidth: 680 }}>
+            {fr
+              ? "Des demandes refusées faute de distance. Si beaucoup se trouvent juste au-delà du plafond, c'est le plafond qui coûte des courses — pas les clients."
+              : "Requests refused on distance. If many sit just past the ceiling, it is the ceiling costing you trips, not the customers."}
+          </p>
+          {refusals.length === 0 ? (
+            <p style={{ color: "#889" }}>{fr ? "Aucun refus enregistré." : "No refusals logged yet."}</p>
+          ) : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {refusals.map((f) => (
+                <div key={f.id} style={{ border: "1px solid #e5e7eb", borderRadius: 10, padding: 12 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>
+                      {f.client || (fr ? "(nom non donné)" : "(no name given)")}
+                      {f.phone && (
+                        <> · <a href={`tel:${tel(f.phone)}`} style={{ color: "#2563eb" }}>{f.phone}</a></>
+                      )}
+                    </div>
+                    <div style={{ fontWeight: 800, fontSize: 14, color: "#b45309" }}>
+                      {f.distance_km} km <span style={{ color: "#889", fontWeight: 600 }}>
+                        ({fr ? "dépasse de " : "over by "}{f.over_by} km)
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 12.5, color: "#667", marginTop: 5 }}>
+                    {when(f.asked_at)} · {f.destination || "—"}
+                    {f.pickup_address ? " · " + f.pickup_address : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : loading ? (
         <p style={{ color: "#889" }}>{fr ? "Chargement…" : "Loading…"}</p>
       ) : shown.length === 0 ? (
         <p style={{ color: "#889" }}>{fr ? "Rien ici." : "Nothing here."}</p>

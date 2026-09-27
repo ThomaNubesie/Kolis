@@ -4,7 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { supabase, api } from "@/lib/supabase";
 import { useLang, LangToggle } from "@/lib/i18n";
-import { LayoutDashboard, Building2, CircleDollarSign, Package, ShieldCheck, Users, Target, Phone, Truck, KeyRound, LogOut, BellOff, Store, Tags, CarTaxiFront } from "lucide-react";
+import { LayoutDashboard, Building2, CircleDollarSign, Package, ShieldCheck, Users, Target, Phone, Truck, KeyRound, LogOut, BellOff, Store, Tags, CarTaxiFront, MapPinOff, FileCheck2, BookMarked, Activity } from "lucide-react";
 
 // `cap` = the capability a section requires; `owner` = owner-only (Team & access).
 const NAV = [
@@ -18,6 +18,10 @@ const NAV = [
   { href: "/admin/prospects", Icon: Target, label: "Prospects", fr: "Prospects", owner: true },
   { href: "/admin/call-requests", Icon: Phone, label: "Call requests", fr: "Demandes d'appel", owner: true },
   { href: "/admin/pickups", Icon: CarTaxiFront, label: "Abandoned pickups", fr: "Ramassages abandonnés", owner: true },
+  { href: "/admin/refusals", Icon: MapPinOff, label: "Refused pickups", fr: "Ramassages refusés", owner: true },
+  { href: "/admin/verification", Icon: FileCheck2, label: "Driver verification", fr: "Vérification chauffeurs", owner: true },
+  { href: "/admin/documents", Icon: BookMarked, label: "Driver documents", fr: "Documents chauffeurs", owner: true },
+  { href: "/admin/traffic", Icon: Activity, label: "Site traffic", fr: "Trafic du site", owner: true },
   { href: "/admin/notifications", Icon: BellOff, label: "Failed notifications", fr: "Notifications échouées", owner: true },
   { href: "/admin/freight", Icon: Truck, label: "Freight", fr: "Fret", owner: true },
   { href: "/admin/team", Icon: KeyRound, label: "Team & access", fr: "Équipe et accès", owner: true },

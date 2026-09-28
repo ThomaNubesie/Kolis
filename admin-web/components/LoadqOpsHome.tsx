@@ -11,6 +11,13 @@ const LINKS = [
   { href: "/sheet",    title: "Loading sheet",  sub: "The tablet at the loading point — build the line, depart cars, record incidents." },
   { href: "/settings", title: "Operating switches", sub: "The engagement, the $100 contribution, grace periods, dispatch floor." },
   { href: "/board/ottawa-universal-grocery", title: "Live board", sub: "The public board image used by the Facebook posts." },
+  // These live under /admin, which this page never linked to — so they were reachable only by
+  // typing the URL. Same sign-in as the switches.
+  { href: "/admin/verification", title: "Driver verification", sub: "Documents waiting on a decision — approve, or reject with a reason the driver sees." },
+  { href: "/admin/documents", title: "Driver documents", sub: "Where a driver gets each document, by province and town. Fix a wrong fee here." },
+  { href: "/admin/pickups", title: "Abandoned pickups", sub: "Quotes priced and never paid, with who to call back." },
+  { href: "/admin/refusals", title: "Refused pickups", sub: "Riders turned away for distance — and whether the ceiling is costing trips." },
+  { href: "/admin/traffic", title: "Site traffic", sub: "Who arrived at loadq.ca, and what sent them." },
 ];
 
 export default function LoadqOpsHome() {

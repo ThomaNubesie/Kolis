@@ -13,7 +13,7 @@ export default function Privacy() {
       <h1 style={{ color: "#E11D6B" }}>Kolis Privacy Policy</h1>
       <p style={{ color: "#6B6675" }}>Last updated: {UPDATED}</p>
 
-      <p>Kolis is a parcel-delivery service operated by <b>Concord Express Inc.</b> (&ldquo;Kolis&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;). This policy explains what we collect, how we use it, and your choices. It covers the Kolis mobile app and our web portals (business.kolis.ca, admin.kolis.ca).</p>
+      <p>Kolis is a parcel-delivery service operated by <b>Concord Express Co Inc.</b> (&ldquo;Kolis&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;). This policy explains what we collect, how we use it, and your choices. It covers the Kolis mobile app and our web portals (business.kolis.ca, admin.kolis.ca).</p>
 
       <h2>Information we collect</h2>
       <ul>
@@ -59,7 +59,7 @@ export default function Privacy() {
       <p>We may update this policy and will revise the date above. Material changes will be communicated in the app or by email.</p>
 
       <h2>Contact</h2>
-      <p>Concord Express Inc. — <a href="mailto:privacy@kolis.ca" style={{ color: "#E11D6B" }}>privacy@kolis.ca</a> · <a href="https://www.concordexpress.ca" style={{ color: "#E11D6B" }}>www.concordexpress.ca</a></p>
+      <p>Concord Express Co Inc. — <a href="mailto:privacy@kolis.ca" style={{ color: "#E11D6B" }}>privacy@kolis.ca</a> · <a href="https://www.concordexpress.ca" style={{ color: "#E11D6B" }}>www.concordexpress.ca</a></p>
     </main>
   );
 }

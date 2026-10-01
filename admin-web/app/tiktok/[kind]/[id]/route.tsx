@@ -53,6 +53,11 @@ const BLACK = { bg: "#14171D", ink: "#FF8A1A", hi: "#FFFFFF", sub: "rgba(255,255
 function paletteFor(d: Date, force?: string | null, read = false) {
   if (force === "black") return BLACK;
   if (force === "day") return PALETTES[paletteIndexFor(d)];
+  // ?p=0..3 names a palette outright, the same numbering /flyer takes as p0..p3.
+  // The midday pack uses it to carry YESTERDAY's colour: the noon Facebook flyer went out in
+  // it, and a TikTok cut of that post has to match the post it came from rather than the
+  // morning it happens to be edited on.
+  if (force && /^[0-3]$/.test(force)) return PALETTES[Number(force)];
   return read ? BLACK : PALETTES[paletteIndexFor(d)];
 }
 
@@ -84,6 +89,46 @@ const CARDS: { q: [string, string]; a: [string, string] }[] = [
     a: ["Sur l'appli LoadQ, en quelques secondes.", "On the LoadQ app, in seconds."],
   },
 ];
+
+// A second deck, for the midday post. The morning cards answer what a rider wants to know before
+// they trust the service at all — price, departure, booking. These answer "what does it actually
+// do", one feature at a time, which is the question a destination post leaves you with.
+// ?deck=feature selects them; without it the rider deck above is served, so every existing URL
+// keeps rendering exactly what it rendered before.
+const FEATURES: { q: [string, string]; a: [string, string] }[] = [
+  {
+    q: ["C'est quoi, le tableau en direct ?", "What is the live board?"],
+    a: ["La file, voiture par voiture, places libres comprises. Vous partez de chez vous en sachant.",
+        "The queue, car by car, seats left included. You leave home already knowing."],
+  },
+  {
+    q: ["Je n'ai pas de voiture pour me rendre au départ.", "I have no way to get to the departure point."],
+    a: ["On passe vous prendre. Quatre façons, dès 12,99 $, jusqu'à 15 km.",
+        "We come and get you. Four ways, from $12.99, up to 15 km."],
+  },
+  {
+    q: ["Vous desservez quelles villes ?", "Which towns do you serve?"],
+    a: ["64 villes en porte-à-porte, sur réservation — bien au-delà du corridor.",
+        "64 towns door-to-door, booked ahead — well past the corridor."],
+  },
+  {
+    q: ["Je peux envoyer un colis sans voyager ?", "Can I send a parcel without travelling?"],
+    a: ["Oui. Kolis prend le même départ, le même jour, avec un code à la livraison.",
+        "Yes. Kolis rides the same departure, same day, with a code at delivery."],
+  },
+  {
+    q: ["Comment je garde ma place ?", "How do I hold my seat?"],
+    a: ["Réservée et payée dans l'appli. Votre place vous attend.",
+        "Booked and paid in the app. Your seat waits for you."],
+  },
+  {
+    q: ["Je peux suivre la voiture ?", "Can I follow the car?"],
+    a: ["Un lien de suivi, de la prise en charge jusqu'à l'arrivée.",
+        "A tracking link, from pickup through to arrival."],
+  },
+];
+
+const DECKS: Record<string, typeof CARDS> = { rider: CARDS, feature: FEATURES };
 
 type Board = {
   zone_id: string; zone: string; from_city: string; to_city: string;
@@ -158,13 +203,20 @@ export async function GET(req: NextRequest, { params }: { params: { kind: string
 
   // ── a question, or its answer ─────────────────────────────────────────────
   if (kind === "ask" || kind === "answer") {
-    const i = Math.max(0, Math.min(CARDS.length - 1, parseInt(id, 10) || 0));
+    const deckName = req.nextUrl?.searchParams?.get("deck") ?? "";
+    const deck = DECKS[deckName] ?? CARDS;
+    const i = Math.max(0, Math.min(deck.length - 1, parseInt(id, 10) || 0));
     const isQ = kind === "ask";
-    const [fr, en] = isQ ? CARDS[i].q : CARDS[i].a;
+    const [fr, en] = isQ ? deck[i].q : deck[i].a;
+    // The answer side of a feature card says so, so a viewer who joins at the second frame knows
+    // they are being shown a capability rather than a price.
+    const eyebrow = isQ
+      ? "ON VOUS DEMANDE · YOU ASKED"
+      : deck === FEATURES ? "LA FONCTION · THE FEATURE" : "LA RÉPONSE · THE ANSWER";
     return respond(
       png([
         wordmark(p),
-        line("eyebrow", isQ ? "ON VOUS DEMANDE · YOU ASKED" : "LA RÉPONSE · THE ANSWER",
+        line("eyebrow", eyebrow,
              { marginTop: 28, fontSize: 36, fontWeight: 600, letterSpacing: 3.4, color: p.ink }),
         <div key="body" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", flex: 1, paddingBottom: H - SAFE_BOTTOM }}>
           {line("fr", fr, { fontSize: isQ ? 80 : 64, fontWeight: 900, color: p.hi, lineHeight: 1.18 })}

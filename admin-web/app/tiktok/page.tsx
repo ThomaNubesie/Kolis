@@ -95,6 +95,10 @@ export default async function TikTokPack() {
         <b style={{ color: "#fff" }}>Ordre suggéré :</b> question → un ou deux tableaux → réponse →
         les deux destinations. La question retient, les tableaux prouvent que c&apos;est réel, la
         réponse paie l&apos;attente, et la destination donne envie.
+        <br />
+        <b style={{ color: "#fff" }}>À midi :</b> le pack tiré de la publication Facebook de midi est
+        au <a href="/tiktok/midi" style={{ color: "#FF8A1A" }}>/tiktok/midi</a> — destination du jour,
+        une fonction en question et sa réponse, dans la couleur d&apos;hier.
       </p>
     </main>
   );

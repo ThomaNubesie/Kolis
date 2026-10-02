@@ -97,7 +97,42 @@ const BOARD = [
     en: "The board is open. Look before you go — loadq.ca/tk" },
 ];
 
-const DECKS: Record<string, typeof CARDS> = { board: BOARD };
+// The same board, but as a walkthrough: the six taps between opening the app and reading the
+// queue. Steps are taken from the app itself — app/(app)/zone-select.tsx and app/(app)/queue.tsx
+// in the LoadQ repo — not from memory, so the button names match what is actually on screen.
+//
+// Note that "Watch" and "Join" are the real labels and are in ENGLISH in the app, on a screen that
+// is otherwise not localised. The slides quote them as they appear rather than translating them,
+// because a viewer following along is looking for that exact word. If zone-select is ever
+// localised, these two slides have to change with it.
+const WALK = [
+  { eyebrow: "VOIR AVANT DE PARTIR · SEE BEFORE YOU GO",
+    fr: "Le tableau en direct, en six gestes.",
+    en: "The live board, in six taps." },
+  { eyebrow: "ÉTAPE 1 · STEP 1", big: "1",
+    fr: "Ouvrez LoadQ. Votre région est détectée toute seule.",
+    en: "Open LoadQ. Your region is detected for you." },
+  { eyebrow: "ÉTAPE 2 · STEP 2", big: "2",
+    fr: "Choisissez la région : Ottawa, Gatineau, Montréal, Québec, Laval, Toronto.",
+    en: "Pick the region — Ottawa, Gatineau, Montréal, Québec, Laval, Toronto." },
+  { eyebrow: "ÉTAPE 3 · STEP 3", big: "3",
+    fr: "Choisissez le point de chargement. Nom, adresse et distance s’affichent.",
+    en: "Pick the loading point. Name, address and distance are shown." },
+  { eyebrow: "ÉTAPE 4 · STEP 4", big: "4",
+    fr: "Touchez « Watch ». Pas besoin d’être sur place pour regarder.",
+    en: "Tap “Watch”. You don’t have to be there to look." },
+  { eyebrow: "ÉTAPE 5 · STEP 5", big: "5",
+    fr: "Le tableau s’ouvre, groupé par destination.",
+    en: "The board opens, grouped by destination." },
+  { eyebrow: "ÉTAPE 6 · STEP 6", big: "6",
+    fr: "Trouvez votre destination : les voitures en file et les places libres.",
+    en: "Find your destination — the cars in line and the seats still free." },
+  { eyebrow: "C’EST TOUT · THAT’S IT",
+    fr: "Vous savez avant même de sortir de chez vous.",
+    en: "You know before you even leave the house — loadq.ca/tk" },
+];
+
+const DECKS: Record<string, typeof CARDS> = { board: BOARD, walk: WALK };
 
 // The teleprompter's own colours — the ground these lines are read from.
 const TELEPROMPTER = { name: "teleprompter", bg: "#14171D", hi: "#FFFFFF", acc: "#FF8A1A",

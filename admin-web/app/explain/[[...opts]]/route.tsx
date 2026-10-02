@@ -61,6 +61,44 @@ const CARDS = [
     en: "Every day, in both directions — Ottawa, Montréal, Québec." },
 ];
 
+// A sequence, not a rotation. The deck above explains LoadQ one card a day; this one is meant to
+// be posted in order as a single slideshow about the board — what it is, how to read it, and why
+// turning up beats holding a reservation. /explain/board/0/tall … /explain/board/7/tall.
+//
+// Card 6 says what is REQUIRED of a driver, not what has been verified of every driver. Those are
+// different claims and only the first is currently true: the document system opened in September
+// 2026 with a grace period, and the file is not complete. Do not "tighten" this line into "every
+// driver is verified" until it is — the same sentence appears, qualified, in the insurance
+// application's Appendix A, and the two must not contradict each other.
+const BOARD = [
+  { eyebrow: "LE TABLEAU · THE BOARD",
+    fr: "Le tableau, c’est la file des voitures. En direct.",
+    en: "The board is the queue of cars. Live, right now." },
+  { eyebrow: "CE QU’IL MONTRE · WHAT IT SHOWS",
+    fr: "Les voitures en file, et les places libres dans chacune.",
+    en: "The cars in line, and the free seats in each one." },
+  { eyebrow: "COMMENT S’EN SERVIR · HOW TO USE IT",
+    fr: "Ouvrez l’appli, regardez le tableau, présentez-vous.",
+    en: "Open the app, look at the board, turn up." },
+  { eyebrow: "SANS PRESSION · NO PRESSURE",
+    fr: "Aucune réservation à tenir. Vous venez quand ça vous convient.",
+    en: "No booking to keep. You come when it suits you." },
+  { eyebrow: "PAS D’HORAIRE · NO TIMETABLE",
+    fr: "La voiture part quand elle est pleine. Rien à manquer.",
+    en: "The car leaves when it fills. Nothing to miss." },
+  { eyebrow: "VOUS VOYEZ AVANT · YOU SEE FIRST",
+    fr: "La voiture, le chauffeur, les places : tout est là avant de partir.",
+    en: "The car, the driver, the seats — all there before you leave." },
+  { eyebrow: "CE QU’ON EXIGE · WHAT WE REQUIRE",
+    big: "7", fr: "Sept documents exigés de chaque chauffeur LoadQ.",
+    en: "Seven documents required of every LoadQ driver — licence, insurance, registration and more." },
+  { eyebrow: "ESSAYEZ · TRY IT",
+    fr: "Le tableau est ouvert. Regardez avant de partir.",
+    en: "The board is open. Look before you go — loadq.ca/tk" },
+];
+
+const DECKS: Record<string, typeof CARDS> = { board: BOARD };
+
 // The teleprompter's own colours — the ground these lines are read from.
 const TELEPROMPTER = { name: "teleprompter", bg: "#14171D", hi: "#FFFFFF", acc: "#FF8A1A",
                        mute: "rgba(255,255,255,0.95)" };
@@ -73,7 +111,7 @@ const SHAPES = {
 
 export async function GET(req: NextRequest, { params }: { params: { opts?: string[] } }) {
   const opts = (params.opts ?? []).map(o => decodeURIComponent(o).toLowerCase());
-  const bad = opts.filter(o => o !== "tall" && !/^p[0-3]$/.test(o) && !/^\d+$/.test(o));
+  const bad = opts.filter(o => o !== "tall" && !/^p[0-3]$/.test(o) && !/^\d+$/.test(o) && !(o in DECKS));
   if (bad.length) return new Response(`unknown option: ${bad[0]}`, { status: 404 });
 
   const L = SHAPES[opts.includes("tall") ? "tall" : "wide"];
@@ -84,11 +122,14 @@ export async function GET(req: NextRequest, { params }: { params: { opts?: strin
   const forced = opts.find(o => /^p[0-3]$/.test(o));
   const p = forced ? DAYS[parseInt(forced.slice(1), 10)] : TELEPROMPTER;
   const picked = opts.find(o => /^\d+$/.test(o));
+  // A named deck is a sequence meant to be posted in order; without one the daily rotation below
+  // applies to the general deck.
+  const deck = DECKS[opts.find(o => o in DECKS) ?? ""] ?? CARDS;
   // No card asked for: the day chooses, so a fortnight of noon posts explains ten different
   // things and only then comes round again.
-  const i = picked ? Math.min(CARDS.length - 1, parseInt(picked, 10))
-                   : ((torontoDayIndex() % CARDS.length) + CARDS.length) % CARDS.length;
-  const c = CARDS[i];
+  const i = picked ? Math.min(deck.length - 1, parseInt(picked, 10))
+                   : ((torontoDayIndex() % deck.length) + deck.length) % deck.length;
+  const c = deck[i];
 
   const origin = new URL(req.url).origin;
   const font = async (f: string) => fetch(`${origin}/fonts/${f}`).then(r => r.arrayBuffer());

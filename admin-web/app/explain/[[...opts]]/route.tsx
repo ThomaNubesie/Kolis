@@ -112,9 +112,12 @@ const WALK = [
   { eyebrow: "ÉTAPE 1 · STEP 1", big: "1",
     fr: "Ouvrez LoadQ. Votre région est détectée toute seule.",
     en: "Open LoadQ. Your region is detected for you." },
+  // Only the regions that actually have an active loading zone. The constant in the app lists
+  // Laval and Toronto as well, but naming a region that answers "No zones in this region yet"
+  // stops a tutorial dead at step two.
   { eyebrow: "ÉTAPE 2 · STEP 2", big: "2",
-    fr: "Choisissez la région : Ottawa, Gatineau, Montréal, Québec, Laval, Toronto.",
-    en: "Pick the region — Ottawa, Gatineau, Montréal, Québec, Laval, Toronto." },
+    fr: "Choisissez la région : Ottawa, Gatineau, Montréal, Québec.",
+    en: "Pick the region — Ottawa, Gatineau, Montréal, Québec." },
   { eyebrow: "ÉTAPE 3 · STEP 3", big: "3",
     fr: "Choisissez le point de chargement. Nom, adresse et distance s’affichent.",
     en: "Pick the loading point. Name, address and distance are shown." },
@@ -146,7 +149,8 @@ const SHAPES = {
 
 export async function GET(req: NextRequest, { params }: { params: { opts?: string[] } }) {
   const opts = (params.opts ?? []).map(o => decodeURIComponent(o).toLowerCase());
-  const bad = opts.filter(o => o !== "tall" && !/^p[0-3]$/.test(o) && !/^\d+$/.test(o) && !(o in DECKS));
+  const bad = opts.filter(o => o !== "tall" && o !== "en" && !/^p[0-3]$/.test(o)
+                               && !/^\d+$/.test(o) && !(o in DECKS));
   if (bad.length) return new Response(`unknown option: ${bad[0]}`, { status: 404 });
 
   const L = SHAPES[opts.includes("tall") ? "tall" : "wide"];
@@ -166,6 +170,21 @@ export async function GET(req: NextRequest, { params }: { params: { opts?: strin
                    : ((torontoDayIndex() % deck.length) + deck.length) % deck.length;
   const c = deck[i];
 
+  // /explain/.../en leads with English instead of French. Both lines are always on the card —
+  // what changes is which one is large and which one sits under it. The eyebrow is stored
+  // "FRENCH · ENGLISH", so it is reversed too, and the footer line follows.
+  //
+  // This exists because the lead language is an audience decision, not a translation: a set aimed
+  // at Ontario should open in English, and the French-lead set is the same slides the other way
+  // round rather than a second deck to keep in step.
+  const enLead = opts.includes("en");
+  const lead = enLead ? c.en : c.fr;
+  const second = enLead ? c.fr : c.en;
+  const eyebrow = enLead
+    ? c.eyebrow.split(" · ").reverse().join(" · ")
+    : c.eyebrow;
+  const footLabel = enLead ? "The live board — " : "Le tableau en direct — ";
+
   const origin = new URL(req.url).origin;
   const font = async (f: string) => fetch(`${origin}/fonts/${f}`).then(r => r.arrayBuffer());
   const [black, semi, medium] = await Promise.all([
@@ -182,23 +201,23 @@ export async function GET(req: NextRequest, { params }: { params: { opts?: strin
             <span>Load</span><span style={{ color: p.acc }}>Q</span>
           </div>
           <div style={{ width: L.width, marginTop: 14, fontSize: L.eyebrow, fontWeight: 600,
-                        letterSpacing: 5, color: p.acc }}>{c.eyebrow}</div>
+                        letterSpacing: 5, color: p.acc }}>{eyebrow}</div>
         </div>
 
         <div style={{ display: "flex", flexDirection: "column", width: L.width }}>
           {c.big
             ? <div style={{ width: L.width, fontSize: L.big, fontWeight: 900, lineHeight: 0.95, letterSpacing: -8 }}>{c.big}</div>
             : null}
-          <div style={{ width: L.width, fontSize: L.fr, fontWeight: 900, lineHeight: 1.1, letterSpacing: -1.5 }}>{c.fr}</div>
+          <div style={{ width: L.width, fontSize: L.fr, fontWeight: 900, lineHeight: 1.1, letterSpacing: -1.5 }}>{lead}</div>
           {/* The English used to sit at 0.78 opacity and a size below the French, which on a
               phone read as a caption nobody finishes. Same family, close in size, nearly full
               strength: a second language, not a footnote. */}
           <div style={{ width: L.width, marginTop: 24, fontSize: L.en, fontWeight: 600,
-                        lineHeight: 1.26, color: p.mute }}>{c.en}</div>
+                        lineHeight: 1.26, color: p.mute }}>{second}</div>
         </div>
 
         <div style={{ display: "flex", width: L.width, fontSize: Math.round(L.en * 0.95), fontWeight: 600 }}>
-          <span>Le tableau en direct — </span>
+          <span>{footLabel}</span>
           <span style={{ color: p.acc, fontWeight: 900 }}>{opts.includes("tall") ? "loadq.ca/tk" : "loadq.ca/fb"}</span>
         </div>
       </div>

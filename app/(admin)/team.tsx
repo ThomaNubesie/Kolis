@@ -1,6 +1,6 @@
 // Team & access (owner only): staff roles, email invites, hashed API keys.
-import { useCallback, useState } from "react";
-import { View, Text, Pressable, ScrollView, Modal, TextInput, RefreshControl, Alert, KeyboardAvoidingView, Platform } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { View, Text, Pressable, ScrollView, Modal, TextInput, RefreshControl, Alert, Keyboard, Platform } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
@@ -18,6 +18,18 @@ export default function AdminTeam() {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<string>("dispatcher");
   const [newKey, setNewKey] = useState<string | null>(null);
+
+  // KeyboardAvoidingView does nothing inside a native <Modal> on iOS — the Modal is
+  // its own window, so KAV measures a keyboard that never overlaps it. Both modals
+  // below are CENTRED, so track the height and shift the card up by half of it.
+  const [kb, setKb] = useState(0);
+  useEffect(() => {
+    const show = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hide = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const a = Keyboard.addListener(show, (e) => setKb(e.endCoordinates?.height ?? 0));
+    const b = Keyboard.addListener(hide, () => setKb(0));
+    return () => { a.remove(); b.remove(); };
+  }, []);
   const [keyName, setKeyName] = useState("");
   const [keyModal, setKeyModal] = useState(false);
 
@@ -85,8 +97,8 @@ export default function AdminTeam() {
 
       {/* Invite */}
       <Modal visible={invite} transparent animationType="fade" onRequestClose={() => setInvite(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
-          <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
+        <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
+          <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18, transform: [{ translateY: -kb / 2 }] }}>
             <Pressable onPress={() => setInvite(false)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
               <X size={22} color={Colors.t3} strokeWidth={2} />
             </Pressable>
@@ -103,13 +115,13 @@ export default function AdminTeam() {
               <Pressable onPress={sendInvite} style={{ flex: 1, padding: 12, alignItems: "center", backgroundColor: Colors.accent, borderRadius: 11 }}><Text style={{ color: "#fff", fontWeight: "800" }}>Send invite</Text></Pressable>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       {/* Create key */}
       <Modal visible={keyModal} transparent animationType="fade" onRequestClose={() => setKeyModal(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
-          <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
+        <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
+          <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18, transform: [{ translateY: -kb / 2 }] }}>
             <Pressable onPress={() => setKeyModal(false)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
               <X size={22} color={Colors.t3} strokeWidth={2} />
             </Pressable>
@@ -121,7 +133,7 @@ export default function AdminTeam() {
               <Pressable onPress={createKey} style={{ flex: 1, padding: 12, alignItems: "center", backgroundColor: Colors.accent, borderRadius: 11 }}><Text style={{ color: "#fff", fontWeight: "800" }}>Create</Text></Pressable>
             </View>
           </View>
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       {/* Show key once */}

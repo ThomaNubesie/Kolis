@@ -1,6 +1,6 @@
 // Insurance claims — approve (Stripe refund, policy-capped) or deny.
-import { useCallback, useState } from "react";
-import { View, Text, Pressable, ScrollView, Modal, TextInput, RefreshControl, Alert, ActivityIndicator, KeyboardAvoidingView, Platform } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { View, Text, Pressable, ScrollView, Modal, TextInput, RefreshControl, Alert, ActivityIndicator, Keyboard, Platform } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { X } from "lucide-react-native";
@@ -16,6 +16,20 @@ export default function AdminClaims() {
   const [amount, setAmount] = useState("");
   const [method, setMethod] = useState<"card" | "interac">("card");
   const [busy, setBusy] = useState(false);
+
+  // KeyboardAvoidingView does not work inside a native <Modal> on iOS — the Modal is
+  // its own window, so KAV measures a keyboard that never overlaps it and lifts
+  // nothing. The refund amount field sat under the keyboard as a result. Track the
+  // height ourselves instead; this modal is CENTRED, so the card shifts up by half
+  // the keyboard rather than padding the bottom.
+  const [kb, setKb] = useState(0);
+  useEffect(() => {
+    const show = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hide = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const a = Keyboard.addListener(show, (e) => setKb(e.endCoordinates?.height ?? 0));
+    const b = Keyboard.addListener(hide, () => setKb(0));
+    return () => { a.remove(); b.remove(); };
+  }, []);
 
   const load = useCallback((s = status) => {
     setLoading(true);
@@ -70,9 +84,10 @@ export default function AdminClaims() {
       </ScrollView>
 
       <Modal visible={!!active} transparent animationType="fade" onRequestClose={() => setActive(null)}>
-        <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
+        <View style={{ flex: 1, backgroundColor: "rgba(15,26,23,0.5)", justifyContent: "center", padding: 24 }}>
           {active && (
-            <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18 }}>
+            <View style={{ backgroundColor: "#fff", borderRadius: 18, padding: 18,
+                           transform: [{ translateY: -kb / 2 }] }}>
               <Pressable onPress={() => setActive(null)} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }} style={{ position: "absolute", top: 12, right: 12 }}>
                 <X size={22} color={Colors.t3} strokeWidth={2} />
               </Pressable>
@@ -97,7 +112,7 @@ export default function AdminClaims() {
               )}
             </View>
           )}
-        </KeyboardAvoidingView>
+        </View>
       </Modal>
     </SafeAreaView>
   );

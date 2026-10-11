@@ -925,3 +925,53 @@ the change under test was something else.
 The same symptom as pattern 32, reached a different way: there, a call into an API nobody
 wrote; here, a reference to a variable nobody passed. Both are silent to the user and loud in
 the console. Read the console on the live site, once, after any UI change.
+
+
+## 34 — A view is a hole in the RLS you just turned on
+
+**Symptom.** `drivers` is protected: fetched directly with the publishable key it returns an
+empty list, exactly as RLS intends. A view over it returns the whole roster — real names,
+phone numbers, email addresses — to the same anonymous caller.
+
+```
+GET /rest/v1/drivers?select=full_name,phone          -> 200 []          RLS works
+GET /rest/v1/loadq_undertaking_status?select=...     -> 200 [ ...all of them... ]
+```
+
+**Cause.** A Postgres view runs as its **owner** unless it is declared `security_invoker`.
+The owner is `postgres`, which bypasses RLS, so every row of the base table is in scope. The
+`GRANT` on the view is then the only access control left — and Supabase grants `ALL` on every
+new public object to `anon` and `authenticated` by default. Enabling RLS on the table does
+nothing about it.
+
+→ **Auditing "which tables have RLS off" misses this entirely.** The table has RLS *on*; that
+is why the check passes and the data still leaks. The question has to be asked of views
+separately:
+
+```sql
+select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
+ where n.nspname = 'public' and c.relkind = 'v'
+   and has_table_privilege('anon', c.oid, 'SELECT')
+   and (c.reloptions is null or not ('security_invoker=true' = any(c.reloptions)));
+```
+
+→ **Decide definer-vs-invoker deliberately, per view.** Both are legitimate. An aggregate that
+is meant to show more than any one caller could read row by row — seven-day trip counts by
+zone — should stay a definer view and be fixed with the grant; making it invoker silently
+changes what the app's own screen shows. A view that just reshapes a protected table should be
+`security_invoker = true` so the table's policies keep applying.
+
+→ **`revoke` on the view is the half that actually closes it**, whichever you choose. In one
+case here the migration that created the view had already written `grant select to
+authenticated` — the author's intent was right, and the default grant to `anon` sat alongside
+it, unnoticed, doing the damage.
+
+→ **Enabling RLS with no policies locks out `authenticated` too, not only `anon`.** Of twelve
+tables closed in this pass, eleven had no client reader and were fine with no policy at all;
+one was read directly by a signed-in screen and needed a real policy
+(`driver_id = auth.uid()`). Doing the set by rote would have broken that screen. Check each
+table for a direct client read before assuming "no policy" is safe.
+
+→ **Verify with the key an attacker has.** The publishable key ships inside the web page.
+Every claim above was checked by calling PostgREST with it, before and after — not by reading
+`pg_policies` and reasoning about what ought to happen.

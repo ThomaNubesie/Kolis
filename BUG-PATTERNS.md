@@ -975,3 +975,50 @@ table for a direct client read before assuming "no policy" is safe.
 → **Verify with the key an attacker has.** The publishable key ships inside the web page.
 Every claim above was checked by calling PostgREST with it, before and after — not by reading
 `pg_policies` and reasoning about what ought to happen.
+
+
+## 35 — Two ways a name was already taken
+
+Both of these landed in one afternoon's work, from the same root: writing a name without
+asking what it already meant.
+
+**A function name that was not free.** A new migration declared
+
+```sql
+create or replace function public.bal_next_work_order_number(p_shop uuid) ...
+```
+
+believing it was introducing a generator that did not exist. It had existed since June, and
+another function had been calling it the whole time. `create or replace` does not warn — that
+is its job — so the new body silently became the one every existing caller used. The
+replacement was also *worse*: the original serialised numbering with `perform 1 from shops
+where id = p_shop for update`, which the author of the replacement had assumed was missing.
+
+→ **`create or replace` is a destructive write to a shared namespace.** Before using it on a
+name you believe is new, grep the migrations for the name. One line of checking against a
+function you then overwrite for everybody.
+
+→ **The failure surfaced three functions away**, in a test about estimates, as a CHECK
+violation on an unrelated table. Nothing pointed at the new work. Had the test suite been
+thinner, this reaches production as "accepting an estimate stopped working".
+
+**A column name that was not free inside its own function.** The same work added
+
+```sql
+create function ... returns table (id uuid, code text, status text, name text, ...)
+...
+  select coalesce(x, 60) into v_turn from public.shops where id = p_shop;   -- boom
+```
+
+`column reference "id" is ambiguous`, on every call. An OUT parameter of a `RETURNS TABLE`
+function is a plpgsql variable, so `id` now means both the output column and `shops.id`.
+
+→ **`RETURNS TABLE (id ..., name ..., status ...)` makes those words radioactive for the whole
+body.** Every unqualified column reference of that name, anywhere in the function, is a
+landmine — including the trivial one-line lookup that looks too simple to need an alias. Alias
+every table and qualify every column, or name the outputs something no table uses.
+
+→ **Both were found by running the thing, not by reading it.** The first by a full suite that
+happened to cover a neighbouring path; the second by calling the new function at all. A review
+of either diff reads as correct, because the defect is in what the name already meant
+elsewhere — which is not in the diff.

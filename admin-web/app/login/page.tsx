@@ -36,8 +36,11 @@ export default function Login() {
 
   const send = async () => {
     setBusy(true); setErr("");
+    // Pass the current origin so the brand-aware auth-send-email hook knows whether this login
+    // came from Kolis (business.kolis.ca) or LoadQ (admin.loadq.ca) and brands the email to match.
+    const origin = typeof window !== "undefined" ? window.location.origin : undefined;
     const { error } = mode === "email"
-      ? await supabase.auth.signInWithOtp({ email: email.trim() })
+      ? await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: origin } })
       : await supabase.auth.signInWithOtp({ phone: e164(phone) });
     setBusy(false);
     if (error) { setErr(error.message); return; }

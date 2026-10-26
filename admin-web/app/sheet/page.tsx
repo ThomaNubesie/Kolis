@@ -854,7 +854,8 @@ function SignIn() {
   const [email, setEmail] = useState(""); const [code, setCode] = useState("");
   const [sent, setSent] = useState(false); const [msg, setMsg] = useState("");
   const send = async () => {
-    const { error } = await supabase.auth.signInWithOtp({ email: email.trim() });
+    const origin = typeof window !== "undefined" ? window.location.origin : undefined;
+    const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: origin } });
     if (error) setMsg(error.message); else { setSent(true); setMsg(""); }
   };
   const verify = async () => {

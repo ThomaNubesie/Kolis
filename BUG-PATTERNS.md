@@ -358,3 +358,32 @@ mislabels the next build.
 → **The general shape:** when a delivery mechanism targets a cohort, "success" means "accepted for
 the cohort I named", never "reached the users I meant". The same reasoning as #1 — ask what the
 success message is actually a statement about, and find the thing that counts recipients.
+
+---
+
+## 25. A pinned `search_path` that excludes the schema the function reaches
+
+`SECURITY DEFINER` functions must pin `search_path` so a caller can't shadow a table, so they all
+carry `set search_path = 'public'`. But `loadq_raffle_ensure_round` generates the round's seed with
+`gen_random_bytes()` and `digest()` — those are **pgcrypto**, and Supabase installs pgcrypto in the
+**`extensions`** schema, not `public`. With `public` alone on the path the calls resolve to nothing:
+`function gen_random_bytes(integer) does not exist`. The round insert threw, so **no round was ever
+created** during the 6:00–7:15 window and the Morning Raffle simply wasn't there when drivers went to
+play.
+
+It stayed hidden for the feature's whole life. The only paths exercised before a real play morning
+were the admin test-taps, which return a fake number and **never generate a seed**; and outside the
+window `ensure_round` returns early, *before* the crypto line, so the once-a-minute cron logged
+`succeeded` on every run that wasn't inside the window. The failure lived on one branch, 75 minutes a
+day — and `cron.job_run_details` was green on either side of it (see #1). The only tell was the red
+rows in the exact window minutes.
+
+→ **When a function pins `search_path`, list every schema it actually calls into — `public,
+extensions` — or schema-qualify the extension call (`extensions.gen_random_bytes(...)`).** The pin is
+mandatory for `SECURITY DEFINER`; the trap is pinning it too narrow. pgcrypto (`gen_random_bytes`,
+`digest`, `crypt`, `gen_salt`), `uuid-ossp`, `pg_trgm` all live in `extensions` on Supabase.
+→ **A call that runs on only one code path, inside a time window, is proven by nothing that doesn't
+hit that exact path at that exact time.** Exercise the real branch — force a round inside the window
+and read it back — not the demo that skips it.
+→ Same shape as #16's environment traps: it compiles, it deploys, it's green; it fails only the one
+time it is finally asked to do the thing.

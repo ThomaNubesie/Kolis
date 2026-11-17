@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE, { auth: { autoRefreshToken: false, persistSession: false } });
     const { data: p } = await admin.from("kolis_parcels")
-      .select("code, to_city, recipient_email, recipient_phone, status, delivery_code, pickup_code, pickup_eta_minutes, pickup_eta_at, org_id, sender_id, contents_description, recipient_lang").eq("id", parcel_id).maybeSingle();
+      .select("code, to_city, recipient_email, recipient_phone, status, delivery_code, pickup_code, pickup_eta_minutes, pickup_eta_at, org_id, sender_id, contents_description, recipient_lang, scan_token, delivery_proof").eq("id", parcel_id).maybeSingle();
     if (!p) return json({ error: "not found" }, 404);
 
     const code = p.code as string;
@@ -90,6 +90,19 @@ Deno.serve(async (req) => {
     const bodyLine = rlang === "fr" ? frLine : enLine;
     const dlText = rlang === "fr" ? "Envoyé via Kolis — obtenez l'appli : kolis.ca" : "Sent via Kolis — get the app: kolis.ca";
     let emailed = false, texted = false;
+
+    // Branded card for the two moments that have one. Built on demand by the Next
+    // route on business.kolis.ca from this parcel's scan_token, so the card that used
+    // to be drawn by hand and MMS'd one at a time now rides along automatically.
+    // Delivered cards wait for the courier's proof photo; without one the plain text
+    // goes out rather than a half-empty card.
+    const CARD_BASE = Deno.env.get("KOLIS_CARD_BASE") || "https://business.kolis.ca";
+    let cardUrl: string | null = null;
+    if (p.scan_token) {
+      if (status === "picked_up") cardUrl = `${CARD_BASE}/card/${p.scan_token}?kind=pickup`;
+      else if (status === "delivered" && (p.delivery_proof as any)?.url) cardUrl = `${CARD_BASE}/card/${p.scan_token}`;
+    }
+
 
     // White-label: if this parcel belongs to a business with email branding on,
     // wear their name/color/logo; otherwise plain Kolis.
@@ -133,6 +146,7 @@ Deno.serve(async (req) => {
             ${bLogo ? `<img src="${bLogo}" alt="${bName}" style="max-height:46px;margin-bottom:8px"/>` : `<img src="https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand/kolis-logo.png" width="46" height="46" alt="Kolis" style="border-radius:11px;margin-bottom:10px;display:block"/>`}
             <h2 style="color:${bColor}">${subj}</h2>
             <p>${strip(bodyLine)}</p>
+            ${cardUrl ? `<img src="${cardUrl}" alt="${strip(subj)}" style="width:100%;border-radius:12px;margin:4px 0 14px;display:block"/>` : ""}
             ${pin ? `<div style="background:${bColor}14;border:1px solid ${bColor};border-radius:12px;padding:14px 18px;margin:6px 0 14px;text-align:center">
               <div style="color:${bColor};font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px">${pinLabel}</div>
               <div style="color:${bColor};font-size:34px;font-weight:800;letter-spacing:6px">${pin}</div>
@@ -168,6 +182,9 @@ Deno.serve(async (req) => {
       let to = String(toPhone).replace(/[^\d+]/g, "");
       if (!to.startsWith("+")) to = to.length === 10 ? "+1" + to : "+" + to;
       const body = new URLSearchParams({ To: to, Body: `${bodyLine}\n${link}\n${dlText}` });
+      // MMS to Canadian numbers fails silently often enough that the text above still
+      // carries everything the card shows — the image is an addition, never the message.
+      if (cardUrl) body.append("MediaUrl", cardUrl);
       // KOLIS_TWILIO_FROM may be a Messaging Service SID (MG…) or a from-number.
       if (TW_FROM.startsWith("MG")) body.set("MessagingServiceSid", TW_FROM);
       else body.set("From", TW_FROM);

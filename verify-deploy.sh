@@ -34,11 +34,16 @@ code() {             # HTTP status, or 000 when the request never landed
   echo "${c:-000}"
 }
 
-healthy() {          # healthy <base> — every path must answer 200
+# A 3xx is a working site: /forms answers 307/308 by design, and treating that as
+# "down" made this script roll back two perfectly good deploys on 2026-11-17. Only
+# 4xx/5xx (and 000, a request that never landed) mean broken.
+ok_code() { case "$1" in 2??|3??) return 0 ;; *) return 1 ;; esac; }
+
+healthy() {          # healthy <base> — every path must answer 2xx or 3xx
   local base="$1" p c
   for p in "${PATHS[@]}"; do
     c="$(code "$base$p")"
-    [ "$c" = "200" ] || { echo "   $base$p -> $c" >&2; return 1; }
+    ok_code "$c" || { echo "   $base$p -> $c" >&2; return 1; }
   done
   return 0
 }
@@ -47,7 +52,7 @@ echo "Verifying $BASE …"
 # A fresh publish needs a moment to propagate; don't cry rollback on the first miss.
 for attempt in 1 2 3 4 5 6; do
   if healthy "$BASE"; then
-    echo "✅ $BASE is healthy (${PATHS[*]} all 200)."
+    echo "✅ $BASE is healthy (${PATHS[*]} all answering)."
     exit 0
   fi
   [ "$attempt" -lt 6 ] && { echo "   not healthy yet — retry $attempt/5 in 10s"; sleep 10; }
@@ -72,7 +77,7 @@ while IFS=$'\t' read -r id title; do
   [ -n "$id" ] || continue
   c="$(code "https://$id--$SITE_NAME.netlify.app$PROBE_PATH")"
   echo "   $id  $c  $title" >&2
-  if [ "$c" = "200" ]; then
+  if ok_code "$c"; then
     echo "↩️  Restoring $id — $title" >&2
     # VERIFY_DRY_RUN=1 exercises everything except the publish, so this path can be
     # rehearsed against a live site without moving production.

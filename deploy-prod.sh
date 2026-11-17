@@ -46,7 +46,19 @@ echo "Building + deploying admin-web to production (business.kolis.ca)…"
 # build with no new routes in it: existing pages keep working while anything
 # added since the cached build 404s. Cost is ~30s of extra build; the
 # alternative is a green deploy that is quietly missing pages.
-npx --yes netlify-cli@latest deploy --prod --build --skip-functions-cache --site "$SITE_ID"
+# Pin the CLI, like deploy-quorly.sh does — this same app deploys fine from this
+# same config on 27.4.1. On @latest the publish path resolves from the repo root
+# instead of base: the deploy either cannot find .next, or ships a server handler
+# that 502s on `ENOENT /run-config.json`. (@17 is separately broken — see above.)
+# 27.14.2 was the current CLI on 2026-10-26, the last deploy of this site that
+# actually served traffic. Newer CLIs resolve netlify.toml's `publish` from the
+# config file rather than from `base`, which breaks this repo-root/admin-web
+# split — see the failed deploys of 2026-11-17.
+NETLIFY_CLI_VERSION="${NETLIFY_CLI_VERSION:-27.14.2}"
+# Run from INSIDE admin-web, letting the CLI walk up to the repo-root netlify.toml
+# (do NOT add a second toml in admin-web — without `base` the Next runtime plugin
+# ships no server function and every route 404s).
+(cd admin-web && npx --yes "netlify-cli@${NETLIFY_CLI_VERSION}" deploy --prod --build --skip-functions-cache --site "$SITE_ID")
 
 # The CLI exits 0 even when the publish shipped zero functions and every route
 # 502s, so its success is not evidence. Check the live site, and roll back to the

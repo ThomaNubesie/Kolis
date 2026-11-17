@@ -115,29 +115,35 @@ export default function Carrying() {
     setBusyId(null);
     if (res !== "ok") { Alert.alert("Kolis", res === "bad_code" ? t("badPickupCode") : t("badCode")); return; }
     setPcodes((c) => ({ ...c, [p.id]: "" }));
+    // Pickup photo: it goes on the pickup card the recipient receives. Same rule as
+    // the drop-off shot — asked, never blocking.
+    const took = await captureProof(p, "picked_up");
     load();
+    if (took) router.push(`/(app)/card?parcel=${p.id}&kind=picked_up&recipient=${encodeURIComponent(p.recipient_name || "")}` as never);
   };
 
-  // Camera prompt for the proof shot. Returns once the courier has taken one or
-  // declined twice.
-  const captureProof = async (p: CourierParcel) => {
+  // Camera prompt for the pickup / drop-off shot. Returns true once a photo is
+  // stored, false if the courier declined twice or the camera failed.
+  const captureProof = async (p: CourierParcel, kind: "picked_up" | "delivered"): Promise<boolean> => {
+    const atPickup = kind === "picked_up";
     try {
       const perm = await ImagePicker.requestCameraPermissionsAsync();
-      if (!perm.granted) return;
+      if (!perm.granted) return false;
       for (let attempt = 0; attempt < 2; attempt++) {
         const shot = await ImagePicker.launchCameraAsync({ quality: 0.6, exif: false });
         if (!shot.canceled && shot.assets?.[0]?.uri) {
-          const url = await CourierAPI.uploadProof(p.id, p.code, shot.assets[0].uri);
-          if (!url) Alert.alert("Kolis", fr ? "Photo non envoyée — la livraison reste enregistrée." : "Photo upload failed — the delivery is still recorded.");
-          return;
+          const url = await CourierAPI.uploadProof(p.id, p.code, shot.assets[0].uri, kind);
+          if (!url) Alert.alert("Kolis", fr ? `Photo non envoyée — ${atPickup ? "le ramassage" : "la livraison"} reste enregistré${atPickup ? "" : "e"}.` : `Photo upload failed — the ${atPickup ? "pickup" : "delivery"} is still recorded.`);
+          return !!url;
         }
         if (attempt === 0) {
-          Alert.alert("Kolis", fr
-            ? "Une photo du colis livré est demandée comme preuve de livraison."
-            : "A photo of the delivered parcel is required as proof of delivery.");
+          Alert.alert("Kolis", atPickup
+            ? (fr ? "Une photo du colis ramassé est demandée — elle figure sur la carte envoyée au destinataire." : "A photo of the parcel you picked up is requested — it goes on the card sent to the recipient.")
+            : (fr ? "Une photo du colis livré est demandée comme preuve de livraison." : "A photo of the delivered parcel is required as proof of delivery."));
         }
       }
-    } catch { /* a camera failure must never block a completed delivery */ }
+    } catch { /* a camera failure must never block a completed pickup / delivery */ }
+    return false;
   };
 
   const deliver = async (p: CourierParcel) => {
@@ -157,7 +163,7 @@ export default function Carrying() {
     // sender and recipient get on their delivered card, and the only evidence if the
     // drop is ever disputed. Asked twice, but never blocking — the parcel is already
     // delivered at this point and a camera problem must not strand the courier.
-    await captureProof(p);
+    await captureProof(p, "delivered");
     setCardFor({ id: p.id, who: p.recipient_name || "" });
     // Walled receipt: courier branch returns payout only.
     const r = await CourierAPI.receipt(p.id).catch(() => null);
@@ -317,7 +323,7 @@ export default function Carrying() {
         // Show the card right after, so they can pass it on while they're still there.
         if (cardFor) {
           const c = cardFor; setCardFor(null);
-          router.push(`/(app)/card?parcel=${c.id}&recipient=${encodeURIComponent(c.who)}` as never);
+          router.push(`/(app)/card?parcel=${c.id}&kind=delivered&recipient=${encodeURIComponent(c.who)}` as never);
         }
       }} />
     </SafeAreaView>

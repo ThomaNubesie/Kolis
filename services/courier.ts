@@ -141,28 +141,23 @@ export const CourierAPI = {
   // Where the branded cards are rendered (admin-web route, public by scan_token).
   cardBase: "https://business.kolis.ca",
 
-  // The card for one delivered parcel + whether the courier already passed it on.
-  // Courier RLS (kolis_parcels_driver_select) covers reading their own parcel.
-  async cardInfo(parcelId: string): Promise<{ url: string; code: string; shared: boolean; photo: string | null } | null> {
-    const { data } = await supabase.from("kolis_parcels")
-      .select("code, scan_token, delivery_proof").eq("id", parcelId).maybeSingle();
-    const token = (data as any)?.scan_token;
-    if (!token) return null;
-    const proof = (data as any)?.delivery_proof ?? null;
+  // The card for one parcel's pickup or delivery event, and whether it already
+  // went out (shared by the courier, or sent by the server).
+  async cardInfo(parcelId: string, kind: "picked_up" | "delivered" = "delivered"): Promise<{ url: string; code: string; shared: boolean; photo: string | null } | null> {
+    const { data } = await supabase.rpc("kolis_courier_card", { p_id: parcelId, p_kind: kind });
+    const d = data as any;
+    if (!d?.token) return null;
     return {
-      url: `${CourierAPI.cardBase}/card/${token}`,
-      code: (data as any).code,
-      shared: !!proof?.shared_at,
-      photo: proof?.url ?? null,
+      url: d.event_id ? `${CourierAPI.cardBase}/card/${d.token}/${d.event_id}` : `${CourierAPI.cardBase}/card/${d.token}`,
+      code: d.code,
+      shared: !!d.shared,
+      photo: d.photo ?? null,
     };
   },
 
-  // The courier passed the card on themselves. Recorded on the parcel so the
-  // server-side fallback (cron, 10 min after delivery) doesn't send a second copy.
-  async markCardShared(parcelId: string): Promise<void> {
-    const { data } = await supabase.from("kolis_parcels").select("delivery_proof").eq("id", parcelId).maybeSingle();
-    const proof = { ...((data as any)?.delivery_proof ?? {}), shared_at: new Date().toISOString(), shared_by: "courier" };
-    await supabase.from("kolis_parcels").update({ delivery_proof: proof }).eq("id", parcelId);
+  // The courier passed the card on themselves — the server sweep won't send it again.
+  async markCardShared(parcelId: string, kind: "picked_up" | "delivered" = "delivered"): Promise<void> {
+    await supabase.rpc("kolis_courier_card_shared", { p_id: parcelId, p_kind: kind });
   },
 
   // Past deliveries for the history list (RLS already limits this to their own).
@@ -173,14 +168,13 @@ export const CourierAPI = {
     return data ?? [];
   },
 
-  // Proof of delivery. The courier photographs the parcel where they left it; the
-  // shot lands in the public delivery-proof bucket and its URL is written onto the
-  // parcel, which is what the card route draws. Storage policy delivery_proof_upload
-  // allows the insert; kolis_parcels_driver_update (auth.uid() = driver_id) allows
-  // the write-back, so no service key is involved.
-  async uploadProof(parcelId: string, code: string, uri: string): Promise<string | null> {
+  // Pickup / drop-off photo. The shot lands in the public delivery-proof bucket;
+  // kolis_courier_set_proof writes its URL onto the parcel (and so onto the event
+  // card). An RPC rather than a table update so couriers signed in with their
+  // LoadQ identity are matched the same way kolis_courier_pickup matches them.
+  async uploadProof(parcelId: string, code: string, uri: string, kind: "picked_up" | "delivered" = "delivered"): Promise<string | null> {
     try {
-      const path = `${code}/proof-${Date.now()}.jpg`;
+      const path = `${code}/${kind === "picked_up" ? "pickup" : "proof"}-${Date.now()}.jpg`;
       const bytes = await (await fetch(uri)).arrayBuffer();
       const { error: upErr } = await supabase.storage.from("delivery-proof")
         .upload(path, bytes, { contentType: "image/jpeg", upsert: true });
@@ -188,10 +182,8 @@ export const CourierAPI = {
       const { data: pub } = supabase.storage.from("delivery-proof").getPublicUrl(path);
       const url = pub?.publicUrl ?? null;
       if (!url) return null;
-      const { error: rowErr } = await supabase.from("kolis_parcels")
-        .update({ delivery_proof: { url, taken_at: new Date().toISOString(), source: "courier app" } })
-        .eq("id", parcelId);
-      if (rowErr) throw rowErr;
+      const { data: ok, error: rowErr } = await supabase.rpc("kolis_courier_set_proof", { p_id: parcelId, p_kind: kind, p_url: url });
+      if (rowErr || !ok) throw rowErr ?? new Error("not_assigned");
       return url;
     } catch {
       return null;   // never fail a completed delivery over its photo

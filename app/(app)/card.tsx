@@ -1,5 +1,5 @@
-// Delivery confirmation — the courier sees the card the customer gets, and can pass
-// it on themselves. If they don't, the server sends it anyway (cron fallback 10 min
+// Pickup / delivery confirmation — the courier sees the card the customer gets
+// (Card 4 at pickup, Card 1 at delivery), and can pass it on themselves. If they don't, the server sends it anyway (cron fallback 10 min
 // after delivery), so the customer is never left without proof; sharing here just
 // marks the parcel so they don't receive it twice.
 //
@@ -15,7 +15,9 @@ import { useStrings } from "../../hooks/useStrings";
 import { CourierAPI } from "../../services/courier";
 
 export default function DeliveryCard() {
-  const { parcel, recipient } = useLocalSearchParams<{ parcel?: string; recipient?: string }>();
+  const { parcel, recipient, kind: kindParam } = useLocalSearchParams<{ parcel?: string; recipient?: string; kind?: string }>();
+  const kind: "picked_up" | "delivered" = kindParam === "picked_up" ? "picked_up" : "delivered";
+  const atPickup = kind === "picked_up";
   const router = useRouter();
   const { lang } = useStrings();
   const fr = lang === "fr";
@@ -25,20 +27,22 @@ export default function DeliveryCard() {
 
   useEffect(() => {
     if (!parcel) { setLoading(false); return; }
-    CourierAPI.cardInfo(String(parcel))
+    CourierAPI.cardInfo(String(parcel), kind)
       .then((i) => { setInfo(i); setShared(!!i?.shared); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [parcel]);
+  }, [parcel, kind]);
 
-  const note = fr
-    ? `Votre colis ${info?.code ?? ""} a été livré. Voici la confirmation : ${info?.url ?? ""}`
-    : `Your parcel ${info?.code ?? ""} has been delivered. Here is the confirmation: ${info?.url ?? ""}`;
+  const note = atPickup
+    ? (fr ? `Votre colis ${info?.code ?? ""} a été ramassé et est en route : ${info?.url ?? ""}`
+          : `Your parcel ${info?.code ?? ""} has been picked up and is on its way: ${info?.url ?? ""}`)
+    : (fr ? `Votre colis ${info?.code ?? ""} a été livré. Voici la confirmation : ${info?.url ?? ""}`
+          : `Your parcel ${info?.code ?? ""} has been delivered. Here is the confirmation: ${info?.url ?? ""}`);
 
   const done = useCallback(async () => {
     if (!parcel) return;
-    try { await CourierAPI.markCardShared(String(parcel)); setShared(true); } catch { /* fallback still covers it */ }
-  }, [parcel]);
+    try { await CourierAPI.markCardShared(String(parcel), kind); setShared(true); } catch { /* fallback still covers it */ }
+  }, [parcel, kind]);
 
   const viaWhatsApp = async () => {
     const url = `whatsapp://send?text=${encodeURIComponent(note)}`;
@@ -60,14 +64,14 @@ export default function DeliveryCard() {
       <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: Colors.card, borderBottomWidth: 1, borderBottomColor: Colors.line, paddingHorizontal: 12, paddingVertical: 12 }}>
         <Pressable onPress={() => router.back()} hitSlop={10}><ChevronLeft size={22} color={Colors.ink} strokeWidth={2.2} /></Pressable>
         <Text style={{ flex: 1, textAlign: "center", fontSize: 15, fontWeight: "800", color: Colors.ink, marginRight: 22 }}>
-          {fr ? "Livraison confirmée" : "Delivery confirmed"}
+          {atPickup ? (fr ? "Ramassage confirmé" : "Pickup confirmed") : (fr ? "Livraison confirmée" : "Delivery confirmed")}
         </Text>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 20, alignItems: "center" }}>
         <CheckCircle2 size={42} color={Colors.green} strokeWidth={2} />
         <Text style={{ fontSize: 19, fontWeight: "900", color: Colors.ink, marginTop: 8 }}>
-          {info?.code ? `${info.code} ${fr ? "livré" : "delivered"}` : (fr ? "Livré" : "Delivered")}
+          {info?.code ? `${info.code} ${atPickup ? (fr ? "ramassé" : "picked up") : (fr ? "livré" : "delivered")}` : (atPickup ? (fr ? "Ramassé" : "Picked up") : (fr ? "Livré" : "Delivered"))}
         </Text>
         <Text style={{ fontSize: 12.5, color: Colors.t2, marginTop: 4, textAlign: "center" }}>
           {shared
@@ -80,7 +84,7 @@ export default function DeliveryCard() {
           <ActivityIndicator color={Colors.accent} style={{ marginTop: 28 }} />
         ) : info ? (
           <Image source={{ uri: info.url }} resizeMode="contain"
-            style={{ width: "100%", aspectRatio: 1080 / 1680, borderRadius: 14, marginTop: 18, backgroundColor: Colors.cardAlt }} />
+            style={{ width: "100%", aspectRatio: atPickup ? 1080 / 760 : (info.photo ? 1080 / 1680 : 1080 / 1180), borderRadius: 14, marginTop: 18, backgroundColor: Colors.cardAlt }} />
         ) : (
           <Text style={{ fontSize: 12.5, color: Colors.t3, marginTop: 28, textAlign: "center" }}>
             {fr ? "Carte indisponible pour ce colis." : "No card available for this parcel."}

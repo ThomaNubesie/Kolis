@@ -387,3 +387,25 @@ hit that exact path at that exact time.** Exercise the real branch — force a r
 and read it back — not the demo that skips it.
 → Same shape as #16's environment traps: it compiles, it deploys, it's green; it fails only the one
 time it is finally asked to do the thing.
+
+## 26. One person, two accounts, and every lookup keyed on the one they didn't sign in with
+
+Drivers often hold two accounts on the shared project: **LoadQ** (signed in by email) and **Kolis**
+(signed in by phone). Every courier lookup from the LoadQ app — `kolis_carrying`,
+`kolis_courier_pickup`, `kolis_available_parcels` — resolves "me" as
+`kp.id = auth.uid() or kp.loadq_driver_id = auth.uid()`, falling back to `auth.uid()`. Dolly's parcel
+(KL-7877) was assigned to his **Kolis** profile; his `loadq_driver_id` was empty; signed into LoadQ he
+was a different uuid, so the parcel was **somebody else's** and the app showed nothing. No error, no
+empty-state warning — just a courier holding a parcel the system said he didn't have. A sweep found
+**13 more** couriers in the same state (same phone on both accounts, never linked), each one parcel
+away from the same failure.
+
+→ **When identity can arrive through two accounts, the link between them is load-bearing — make it
+automatic, not an admin chore.** Here: triggers on both `kolis_profiles` and `drivers` link by the
+last 10 phone digits, only when exactly one candidate matches (a shared/recycled number must never
+join two people).
+→ **Audit with the join, not the symptom.** `kolis_profiles ⋈ auth.users ⋈ drivers on phone where
+loadq_driver_id is null` listed every latent case in one query; waiting for the next stranded courier
+would have found them one at a time.
+→ Same family as #1/#24: nothing failed loudly. A lookup that silently returns *someone else's* empty
+set looks exactly like a correct empty set.

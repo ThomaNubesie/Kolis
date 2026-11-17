@@ -5,6 +5,7 @@ import { api } from "@/lib/supabase";
 import { cityList, regionFor } from "@/lib/cities";
 import { useLang } from "@/lib/i18n";
 import { LiveTracking, useTracking } from "@/components/LiveTracking";
+import ParcelTracking from "@/components/ParcelTracking";
 
 const c$ = (c?: number | null) => `C$${((c ?? 0) / 100).toFixed(2)}`;
 
@@ -19,15 +20,10 @@ export default function ParcelDetail() {
   const [city, setCity] = useState("");
   const [busy, setBusy] = useState(false);
   const [direct, setDirect] = useState(false);
-  const [pcode, setPcode] = useState("");   // sender's pickup code, typed by the admin
-  const [dcode, setDcode] = useState("");   // recipient's delivery code
-  const [offPlatform, setOffPlatform] = useState(false);
-  const [pickupCode, setPickupCode] = useState<string | null>(null);
 
   const load = useCallback(() => {
     api.parcel(id).then((d) => { setP(d); setCity(d?.to_city ?? ""); }).catch(() => {});
     api.role().then(setRole).catch(() => {});
-    api.pickupCode(id).then(setPickupCode).catch(() => {});
   }, [id]);
   useEffect(() => { load(); }, [load]);
 
@@ -92,11 +88,6 @@ export default function ParcelDetail() {
             <KV k={t("Sender paid", "Payé par l’expéditeur")} v={c$((p.price_cents ?? 0) + (p.insurance_premium_cents ?? 0))} />
             <KV k={t("Courier payout", "Versement au chauffeur")} v={c$(p.driver_payout_cents)} />
             <KV k={t("Driver", "Chauffeur")} v={p.driver_name || t("unassigned", "non assigné")} />
-            {/* Both codes, because closing a stuck parcel needs whichever the courier
-                could not scan. pickup_code is fetched separately — kolis_admin_parcel
-                returns only the delivery one. */}
-            <KV k={t("Pickup code", "Code de ramassage")} v={pickupCode || "—"} />
-            <KV k={t("Delivery code", "Code de livraison")} v={p.delivery_code || "—"} />
             {canOps && String(p.status) === "delivered" && p.driver_id && (p.driver_payout_cents ?? 0) > 0 && (
               <button className="btn green" style={{ marginTop: 12, width: "100%" }} disabled={busy}
                 onClick={() => {
@@ -108,60 +99,7 @@ export default function ParcelDetail() {
               </button>
             )}
 
-            {/* Courier-stuck rescue. The courier app fills the pickup code ONLY from a QR
-                scan, so a parcel with no label (or a scan that won't take) strands the
-                courier at "matched" — they can't pick up, and so can't deliver either.
-                These rows let an admin confirm the same codes by hand, in place. */}
-            {canOps && String(p.status) === "matched" && (
-              <div className="inlineAct">
-                <div className="inlineAct-h">{t("Mark picked up", "Marquer comme ramassé")}</div>
-                <div className="inlineAct-l">{t("Pickup code", "Code de ramassage")}</div>
-                <div className="row">
-                  <input className="input" style={{ width: 120, letterSpacing: 4, fontWeight: 800 }}
-                    value={pcode} onChange={(e) => setPcode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                    placeholder="••••" inputMode="numeric" />
-                  <button className="btn green" disabled={busy || !pickupCode || pcode.trim() !== String(pickupCode).trim()}
-                    onClick={() => run(() => api.markPickedUp(id), t("Marked picked up", "Marqué comme ramassé"))}>
-                    {t("Confirm pickup", "Confirmer le ramassage")}
-                  </button>
-                  <span className="sub" style={{ margin: 0 }}>{t("the sender's code", "le code de l'expéditeur")}</span>
-                </div>
-              </div>
-            )}
-
-            {canMoney && !["delivered", "cancelled"].includes(String(p.status)) && (
-              <div className="inlineAct">
-                <div className="inlineAct-h">{t("Mark delivered", "Marquer comme livré")}</div>
-                <div className="inlineAct-l">{t("Delivery code", "Code de livraison")}</div>
-                <div className="row">
-                  <input className="input" style={{ width: 120, letterSpacing: 4, fontWeight: 800 }}
-                    value={dcode} onChange={(e) => setDcode(e.target.value.replace(/\D/g, "").slice(0, 4))}
-                    placeholder="••••" inputMode="numeric" />
-                  <button className="btn green" disabled={busy || dcode.trim() !== String(p.delivery_code ?? "").trim() || !p.delivery_code}
-                    onClick={() => {
-                      const amt = c$((p.price_cents ?? 0) + (p.insurance_premium_cents ?? 0));
-                      if (!confirm(offPlatform
-                        ? t(`Close ${p.code} without capturing? The payment must already be settled off-platform.`,
-                             `Fermer ${p.code} sans encaisser ? Le paiement doit déjà être réglé hors plateforme.`)
-                        : t(`Capture ${amt} from the sender and mark ${p.code} delivered?`,
-                             `Encaisser ${amt} de l'expéditeur et marquer ${p.code} comme livré ?`))) return;
-                      run(() => api.captureDeliver(id, offPlatform), t("Captured and delivered", "Encaissé et livré"));
-                    }}>
-                    {offPlatform ? t("Close parcel", "Fermer le colis") : t("Capture & deliver", "Encaisser et livrer")}
-                  </button>
-                  <span className="sub" style={{ margin: 0 }}>
-                    {offPlatform ? t("no money moves", "aucun mouvement d'argent")
-                                 : t(`captures ${c$((p.price_cents ?? 0) + (p.insurance_premium_cents ?? 0))}`,
-                                      `encaisse ${c$((p.price_cents ?? 0) + (p.insurance_premium_cents ?? 0))}`)}
-                  </span>
-                </div>
-                <label className="inlineAct-c">
-                  <input type="checkbox" checked={offPlatform} onChange={(e) => setOffPlatform(e.target.checked)} />
-                  <span>{t("Already paid off-platform (Interac, cash) — skip the capture",
-                           "Déjà payé hors plateforme (Interac, comptant) — ne pas encaisser")}</span>
-                </label>
-              </div>
-            )}</div>
+</div>
 
           {canOps && (
             <div className="card"><div className="mono">{t("Dispatch & route", "Répartition et trajet")}</div>
@@ -192,6 +130,8 @@ export default function ParcelDetail() {
             <button className="btn red" disabled={busy} onClick={doCancel}>{t("Cancel & refund", "Annuler et rembourser")}</button>}
         </div>
       </div>
+
+      <ParcelTracking p={p} canOps={canOps} canMoney={canMoney} t={t} lang={lang} onChanged={load} />
 
       <div className="card">
         <div className="mono">{t("Live tracking", "Suivi en direct")}</div>

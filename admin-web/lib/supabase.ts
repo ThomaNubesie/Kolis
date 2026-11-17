@@ -44,22 +44,6 @@ export const api = {
     supabase.functions.invoke("kolis-notify", { body: { parcel_id: id, event: "direct" } }).catch(() => {});
     return res;
   },
-  // Courier-stuck rescue (admin only; RLS policy kolis_parcels_admin_all covers the
-  // write). The courier app can only fill the pickup code by scanning the label, so a
-  // parcel with no label — or a scan that won't take — strands the courier at
-  // "matched". Admin confirms possession with the sender's pickup code instead.
-  // kolis_admin_parcel deliberately returns delivery_code but not pickup_code, so read
-  // it straight off the row (admin RLS already allows it) rather than widen the RPC.
-  async pickupCode(id: string) {
-    const { data, error } = await supabase.from("kolis_parcels").select("pickup_code").eq("id", id).maybeSingle();
-    if (error) throw error;
-    return (data as any)?.pickup_code ?? null;
-  },
-  async markPickedUp(id: string) {
-    const { error } = await supabase.from("kolis_parcels").update({ status: "picked_up" }).eq("id", id);
-    if (error) throw error;
-    return true;
-  },
   // Capture the escrow and close the parcel. kolis-finalize-payment's admin path
   // refuses to mark delivered unless the money is actually captured/covered; `force`
   // is for parcels genuinely settled off-platform (Interac, cash).
@@ -68,6 +52,27 @@ export const api = {
     if (error) throw error;
     if ((data as any)?.error) throw new Error((data as any).error);
     return data;
+  },
+  // Tracking: both codes, the card token, the timeline of events, saved landmarks.
+  track: (id: string) => r<any>("kolis_admin_parcel_track", { p_id: id }),
+  // Picked up with the sender's code, or without it (override) when it can't be had.
+  async pickUp(id: string, code: string, override: boolean, photo: string | null) {
+    const res = await r<string>("kolis_admin_mark_picked_up", { p_id: id, p_code: code, p_override: override, p_photo: photo });
+    if (res !== "ok") throw new Error(res === "bad_code" ? "Wrong pickup code / Mauvais code de ramassage" : res);
+    return res;
+  },
+  // A stop along the way ("Kingston"); no photo → the city's saved landmark.
+  checkpoint: (id: string, city: string, note: string | null, photo: string | null, saveLandmark: boolean) =>
+    r<string>("kolis_admin_checkpoint", { p_id: id, p_city: city, p_note: note, p_photo: photo, p_save_landmark: saveLandmark }),
+  eventUpdate: (eventId: string, opts: { photo?: string | null; override?: boolean | null; resend?: boolean }) =>
+    r<boolean>("kolis_admin_event_update", { p_event: eventId, p_photo: opts.photo ?? null, p_override: opts.override ?? null, p_resend: !!opts.resend }),
+  // Photos go to the public delivery-proof bucket (the card route draws them).
+  async uploadPhoto(code: string, file: File) {
+    const ext = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const path = `${code}/admin-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from("delivery-proof").upload(path, file, { contentType: file.type || "image/jpeg", upsert: true });
+    if (error) throw error;
+    return supabase.storage.from("delivery-proof").getPublicUrl(path).data.publicUrl;
   },
   unassign: (id: string) => r("kolis_admin_unassign", { p_id: id }),
   reroute: (id: string, toCity: string, toRegion: string) => r("kolis_admin_reroute", { p_id: id, p_to_city: toCity, p_to_region: toRegion }),

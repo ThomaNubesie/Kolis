@@ -6,9 +6,9 @@ export type DropType = "hub" | "zone" | "door";
 
 // ─────────────────────────────────────────────────────────────────────────
 // PRICE IS NEVER COMPUTED IN THE APP. It comes from the database RPC
-// `kolis_quote` (→ kolis_estimate_price_cents), the single source of truth
-// shared with the business dashboard, so the two can never drift. To change
-// prices, edit the DB (see memory: kolis-pricing) — not this file.
+// `kolis_quote` (→ kolis_consumer_price): the old in-app formula, ported
+// unchanged, plus a $0.25/km door-to-door fee that Kolis keeps (courier payout
+// is on the base price). To change prices, edit the DB — not this file.
 // ─────────────────────────────────────────────────────────────────────────
 
 // Express courier (Canada Post / UPS / FedEx) baseline — pricier AND ~2 days

@@ -105,8 +105,8 @@ export const ParcelsAPI = {
     // First right of refusal: chosen driver gets a 10-min exclusive window.
     const preferred = input.preferred_driver_id || null;
     const offerExpires = preferred ? new Date(Date.now() + 10 * 60 * 1000).toISOString() : null;
-    // Price + driver payout are computed server-side (kolis_quote → the same
-    // formula the business dashboard uses), so the stored amount is authoritative
+    // Price + driver payout are computed server-side (kolis_quote →
+    // kolis_consumer_price), so the stored amount is authoritative
     // and the client cannot set its own price. Fall back to the carried estimate
     // only if the RPC is unreachable.
     const { data: q } = await supabase.rpc("kolis_quote", {

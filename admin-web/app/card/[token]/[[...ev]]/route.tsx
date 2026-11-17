@@ -44,17 +44,31 @@ function stamp(iso: string | null, fr: boolean) {
   return fr ? `${day} ${mon} · ${Number(parts.hour)} h ${parts.minute}` : `${mon} ${day} · ${parts.hour}:${parts.minute}`;
 }
 
+// One element (not a fragment — next/og drops fragment children's layout), stretched
+// across the card; `pad` cancels the parent's side padding.
 const Footer = ({ pad }: { pad: number }) => (
-  <>
-    <div style={{ display: "flex", height: 12, marginLeft: -pad, marginRight: -pad }}>
+  <div style={{ display: "flex", flexDirection: "column", alignSelf: "stretch", marginLeft: -pad, marginRight: -pad }}>
+    <div style={{ display: "flex", height: 12 }}>
       {STRIPE.map((c) => <div key={c} style={{ display: "flex", flex: 1, background: c }} />)}
     </div>
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: BLACK, marginLeft: -pad, marginRight: -pad, padding: "22px 0 26px" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", background: BLACK, padding: "22px 0 26px" }}>
       <div style={{ display: "flex", color: "#fff", fontSize: 34, fontWeight: 800 }}>CONCORD EXPRESS CO INC.</div>
       <div style={{ display: "flex", color: "#96969E", fontSize: 22, marginTop: 4 }}>Ottawa, Ontario, Canada · kolis.ca</div>
     </div>
-  </>
+  </div>
 );
+
+// The built-in font has no bold, so the headlines came out thin. Inter, fetched
+// once per instance and reused.
+const FONT_URL = (w: number) => `https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-${w}-normal.woff`;
+let fontsP: Promise<{ name: string; data: ArrayBuffer; weight: 400 | 700 | 800; style: "normal" }[]> | null = null;
+function fonts() {
+  fontsP ??= Promise.all(([400, 700, 800] as const).map(async (weight) => ({
+    name: "Inter", weight, style: "normal" as const,
+    data: await fetch(FONT_URL(weight)).then((r) => { if (!r.ok) throw new Error("font"); return r.arrayBuffer(); }),
+  }))).catch((e) => { fontsP = null; throw e; });
+  return fontsP;
+}
 
 export async function GET(req: Request, { params }: { params: { token: string; ev?: string[] } }) {
   const eventId = params.ev?.[0] ?? null;
@@ -71,13 +85,17 @@ export async function GET(req: Request, { params }: { params: { token: string; e
   const p = (await res.json().catch(() => null)) as Card | null;
   if (!p || !p.code) return new Response("not found", { status: 404 });
 
-  const kind = legacyPickup ? "picked_up" : p.kind;
+  // No event in the path = a link sent before events existed, which always meant
+  // the delivered card (or ?kind=pickup).
+  const kind = legacyPickup ? "picked_up" : eventId ? p.kind : "delivered";
   const fr = (p.lang ?? "fr") !== "en";
   const accent = p.brand?.color || MAG;
   const when = stamp(p.at, fr) || (fr ? "aujourd'hui" : "today");
   const brandName = p.brand?.name || "KOLIS";
   const photo = legacyPickup ? null : p.photo;
   const headers = { "Cache-Control": "public, max-age=60" };
+  // A missing font must not cost the customer their card: fall back to the default.
+  const fontList = await fonts().catch(() => undefined);
 
   // ── Card 4: landscape split — pickup and every checkpoint ─────────────────
   if (kind !== "delivered") {
@@ -92,7 +110,7 @@ export async function GET(req: Request, { params }: { params: { token: string; e
       : (p.courier ? (fr ? `Pris en charge par ${p.courier}.` : `Collected by ${p.courier}.`) : (fr ? `En route vers ${p.to_city}.` : `On its way to ${p.to_city}.`));
     return new ImageResponse(
       (
-        <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: accent, fontFamily: "sans-serif" }}>
+        <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: accent, fontFamily: "Inter, sans-serif" }}>
           <div style={{ display: "flex", flex: 1 }}>
             <div style={{ display: "flex", flexDirection: "column", width: 610, padding: "48px 0 0 56px" }}>
               <div style={{ display: "flex", background: BLACK, color: accent, fontSize: 34, fontWeight: 700, borderRadius: 14, padding: "11px 22px", alignSelf: "flex-start" }}>{brandName}</div>
@@ -122,14 +140,14 @@ export async function GET(req: Request, { params }: { params: { token: string; e
           <Footer pad={0} />
         </div>
       ),
-      { width: 1080, height: 760, headers }
+      { width: 1080, height: 760, headers, fonts: fontList }
     );
   }
 
   // ── Card 1: tall — delivered ──────────────────────────────────────────────
   return new ImageResponse(
     (
-      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: accent, padding: "64px 64px 0", fontFamily: "sans-serif" }}>
+      <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column", background: accent, padding: "64px 64px 0", fontFamily: "Inter, sans-serif" }}>
         <div style={{ display: "flex", background: BLACK, color: accent, fontSize: 46, fontWeight: 700, borderRadius: 20, padding: "14px 30px", alignSelf: "flex-start" }}>{brandName}</div>
         <div style={{ display: "flex", color: ROSE, fontSize: 26, fontWeight: 700, letterSpacing: 6, marginTop: 34 }}>{fr ? "LIVRÉ" : "DELIVERED"} · {p.code}</div>
         <div style={{ display: "flex", flexDirection: "column", marginTop: 18 }}>
@@ -151,6 +169,6 @@ export async function GET(req: Request, { params }: { params: { token: string; e
         <Footer pad={64} />
       </div>
     ),
-    { width: 1080, height: photo ? 1680 : 1180, headers }
+    { width: 1080, height: photo ? 1680 : 1180, headers, fonts: fontList }
   );
 }

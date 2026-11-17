@@ -21,8 +21,10 @@ const BRANDS: Record<string, Brand> = {
   quorly: { key: "quorly", name: "Quorly", initial: "Q", brand: "#4F46E5", ink: "#141427", from: Deno.env.get("QUORLY_FROM_EMAIL") || "Quorly <noreply@quorly.ca>" },
 };
 
+// Brand from the app's own redirect; the project Site URL is only a fallback.
+// (Concatenating both let a kolis Site URL brand every LoadQ email as Kolis.)
 function brandFor(redirect?: string, site?: string): Brand {
-  const s = `${redirect || ""} ${site || ""}`.toLowerCase();
+  const s = (redirect || site || "").toLowerCase();
   if (s.includes("kolis")) return BRANDS.kolis;
   if (s.includes("quorly")) return BRANDS.quorly;
   if (s.includes("loadq")) return BRANDS.loadq;
@@ -104,6 +106,7 @@ Deno.serve(async (req) => {
     if (!to || !code) return new Response(JSON.stringify({ error: "missing email or token" }), { status: 400 });
 
     const b = brandFor(ed.redirect_to, ed.site_url);
+    console.log(`[auth-send-email] redirect_to=${ed.redirect_to || ""} site_url=${ed.site_url || ""} -> brand=${b.key}`);
     const { heading, intro, subject } = copyFor(String(ed.email_action_type || ""), b.name);
     const html = renderHtml(b, heading, intro, code);
     const text = `${heading}\n\n${intro}\n\nCode: ${code}\n\nThis code expires in 10 minutes.`;

@@ -44,6 +44,31 @@ export const api = {
     supabase.functions.invoke("kolis-notify", { body: { parcel_id: id, event: "direct" } }).catch(() => {});
     return res;
   },
+  // Courier-stuck rescue (admin only; RLS policy kolis_parcels_admin_all covers the
+  // write). The courier app can only fill the pickup code by scanning the label, so a
+  // parcel with no label — or a scan that won't take — strands the courier at
+  // "matched". Admin confirms possession with the sender's pickup code instead.
+  // kolis_admin_parcel deliberately returns delivery_code but not pickup_code, so read
+  // it straight off the row (admin RLS already allows it) rather than widen the RPC.
+  async pickupCode(id: string) {
+    const { data, error } = await supabase.from("kolis_parcels").select("pickup_code").eq("id", id).maybeSingle();
+    if (error) throw error;
+    return (data as any)?.pickup_code ?? null;
+  },
+  async markPickedUp(id: string) {
+    const { error } = await supabase.from("kolis_parcels").update({ status: "picked_up" }).eq("id", id);
+    if (error) throw error;
+    return true;
+  },
+  // Capture the escrow and close the parcel. kolis-finalize-payment's admin path
+  // refuses to mark delivered unless the money is actually captured/covered; `force`
+  // is for parcels genuinely settled off-platform (Interac, cash).
+  async captureDeliver(parcelId: string, force = false) {
+    const { data, error } = await supabase.functions.invoke("kolis-finalize-payment", { body: { parcel_id: parcelId, action: "capture", force } });
+    if (error) throw error;
+    if ((data as any)?.error) throw new Error((data as any).error);
+    return data;
+  },
   unassign: (id: string) => r("kolis_admin_unassign", { p_id: id }),
   reroute: (id: string, toCity: string, toRegion: string) => r("kolis_admin_reroute", { p_id: id, p_to_city: toCity, p_to_region: toRegion }),
   members: (filter = "all", search: string | null = null) => r<any[]>("kolis_admin_members", { p_filter: filter, p_search: search }),

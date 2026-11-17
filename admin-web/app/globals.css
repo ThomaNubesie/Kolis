@@ -122,3 +122,12 @@ tr.clk{cursor:pointer}tr.clk:hover td{background:#faf8f3}
   .bp-main{padding:16px 14px}
   .bp-main>*{max-width:100%}
 }
+
+/* Inline admin action (pickup / deliver by code) — expands in place inside a card,
+   same idea as the Reroute row rather than a modal. */
+.inlineAct{border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:12px;margin-top:12px}
+.inlineAct-h{font-size:13px;font-weight:800;color:var(--ink);margin-bottom:8px}
+.inlineAct-l{font-size:11px;color:var(--t3);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.inlineAct .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.inlineAct .input{background:#fff}
+.inlineAct-c{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12px;color:var(--t2);cursor:pointer}

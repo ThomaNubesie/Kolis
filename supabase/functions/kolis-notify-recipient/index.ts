@@ -15,7 +15,7 @@ const TW_FROM = Deno.env.get("KOLIS_TWILIO_FROM");
 
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 
-function copyFor(status: string, code: string, city: string, pin: string | null, eta?: { min: number; clock: string | null } | null, contents?: string | null) {
+function copyFor(status: string, code: string, city: string, pin: string | null, eta?: { min: number; clock: string | null } | null, contents?: string | null, via?: string | null) {
   // Sender pickup ETA (bilingual sentence), inserted before the pickup-code line.
   const etaEn = eta ? ` Estimated arrival in about ${eta.min} min${eta.clock ? ` (around ${eta.clock})` : ""}.` : "";
   const etaFr = eta ? ` Arrivée estimée dans environ ${eta.min} min${eta.clock ? ` (vers ${eta.clock})` : ""}.` : "";
@@ -37,6 +37,8 @@ function copyFor(status: string, code: string, city: string, pin: string | null,
     return [`A courier is bringing your parcel ${code}`, `A courier has been assigned to bring your parcel ${code} to ${city}.${pinEn}\nUn livreur a été assigné pour vous livrer le colis ${code} à ${city}.${pinFr}`];
   if (status === "picked_up")
     return [`Your parcel ${code} is on its way`, `Your parcel ${code} has been picked up and is on its way to ${city}.${pinEn}\nVotre colis ${code} a été ramassé et est en route vers ${city}.${pinFr}`];
+  if (status === "in_transit" && via)  // a checkpoint along the way ("Kingston")
+    return [`Your parcel ${code} is in ${via}`, `Your parcel ${code} has reached ${via} on its way to ${city}.${pinEn}\nVotre colis ${code} est arrivé à ${via}, en route vers ${city}.${pinFr}`];
   if (status === "in_transit")
     return [`Your parcel ${code} is out for delivery`, `Your parcel ${code} is out for delivery in ${city}.${pinEn}\nVotre colis ${code} est en cours de livraison à ${city}.${pinFr}`];
   return [`Your parcel ${code} has been delivered`, `Your parcel ${code} has been delivered. Thank you for using Kolis!\nVotre colis ${code} a été livré. Merci d'utiliser Kolis!`];
@@ -45,10 +47,25 @@ function copyFor(status: string, code: string, city: string, pin: string | null,
 Deno.serve(async (req) => {
   try {
     if (req.headers.get("x-kolis-secret") !== SECRET) return json({ error: "forbidden" }, 403);
-    const { parcel_id, status } = await req.json();
+    const reqBody = await req.json();
+    const parcel_id = reqBody.parcel_id;
+    let status: string = reqBody.status;
     if (!parcel_id || !status) return json({ error: "parcel_id and status required" }, 400);
 
     const admin = createClient(SUPABASE_URL, SERVICE, { auth: { autoRefreshToken: false, persistSession: false } });
+
+    // Tracking-event cards (kolis_event_card_sweep). The drain retries with
+    // status = the notification kind, "ev:<event id>", so accept that form too.
+    let eventId: string | null = reqBody.event_id ?? null;
+    if (status.startsWith("ev:")) eventId = status.slice(3);
+    let ev: { id: string; kind: string; city: string | null } | null = null;
+    if (eventId) {
+      const { data: e } = await admin.from("kolis_parcel_events").select("id, kind, city").eq("id", eventId).eq("parcel_id", parcel_id).maybeSingle();
+      if (!e) return json({ error: "event not found" }, 404);
+      ev = e as any;
+      status = ev!.kind === "checkpoint" ? "in_transit" : ev!.kind;
+    }
+    if (status === "card") status = "delivered";   // legacy kind from the old fallback job
     const { data: p } = await admin.from("kolis_parcels")
       .select("code, to_city, recipient_email, recipient_phone, status, delivery_code, pickup_code, pickup_eta_minutes, pickup_eta_at, org_id, sender_id, contents_description, recipient_lang, scan_token, delivery_proof").eq("id", parcel_id).maybeSingle();
     if (!p) return json({ error: "not found" }, 404);
@@ -73,7 +90,8 @@ Deno.serve(async (req) => {
     // Audience: "pickup" targets the SENDER; everything else targets the recipient.
     const toSender = status === "pickup";
     const link = `${TRACK_URL}/${encodeURIComponent(code)}`;
-    const [subject, line] = copyFor(status, code, (p.to_city as string) || "", pin, eta, p.contents_description as string | null);
+    const via = ev?.kind === "checkpoint" ? ev.city : null;
+    const [subject, line] = copyFor(status, code, (p.to_city as string) || "", pin, eta, p.contents_description as string | null, via);
     const [enLine, frLine] = line.split("\n");
     // Deliver in the recipient's language (recipient_lang, set at creation from the
     // sender's language; default English). The tracking page has an EN/FR toggle.
@@ -86,23 +104,22 @@ Deno.serve(async (req) => {
       pickup: `Un livreur vient ramasser ${code}`,
       delivered: `Votre colis ${code} a été livré`,
     };
-    const subj = rlang === "fr" ? (frSubjects[status] || subject) : subject;
+    const subj = rlang === "fr" ? (via ? `Votre colis ${code} est à ${via}` : (frSubjects[status] || subject)) : subject;
     const bodyLine = rlang === "fr" ? frLine : enLine;
     const dlText = rlang === "fr" ? "Envoyé via Kolis — obtenez l'appli : kolis.ca" : "Sent via Kolis — get the app: kolis.ca";
     let emailed = false, texted = false;
 
-    // Branded card for the two moments that have one. Built on demand by the Next
-    // route on business.kolis.ca from this parcel's scan_token, so the card that used
-    // to be drawn by hand and MMS'd one at a time now rides along automatically.
-    // Delivered cards wait for the courier's proof photo; without one the plain text
-    // goes out rather than a half-empty card.
+    // Branded card for this step, rendered on demand by the Next route on
+    // business.kolis.ca: /card/<scan_token>/<event id>. The event id is in the path
+    // (not a query string) so the CDN can't hand back another step's cached image.
+    // A legacy delivered call without an event still gets the delivered card when a
+    // proof photo exists.
     const CARD_BASE = Deno.env.get("KOLIS_CARD_BASE") || "https://business.kolis.ca";
     let cardUrl: string | null = null;
     if (p.scan_token) {
-      if (status === "picked_up") cardUrl = `${CARD_BASE}/card/${p.scan_token}?kind=pickup`;
+      if (ev) cardUrl = `${CARD_BASE}/card/${p.scan_token}/${ev.id}`;
       else if (status === "delivered" && (p.delivery_proof as any)?.url) cardUrl = `${CARD_BASE}/card/${p.scan_token}`;
     }
-
 
     // White-label: if this parcel belongs to a business with email branding on,
     // wear their name/color/logo; otherwise plain Kolis.

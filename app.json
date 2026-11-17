@@ -3,6 +3,15 @@
     "name": "Kolis",
     "slug": "kolis",
     "version": "1.1.8",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/a1e023f4-20fe-4d64-8e4d-ad5871ab1d07",
+      "enabled": true,
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    },
     "newArchEnabled": false,
     "orientation": "portrait",
     "scheme": "kolis",

@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
-import { compare, SizeKey, DropType } from "../../constants/pricing";
+import { compare, SizeKey, DropType, Comparison } from "../../constants/pricing";
 import { HubsAPI } from "../../services/hubs";
 import { regionCode } from "../../constants/geo";
 import { CityPicker } from "../../components/CityPicker";
@@ -31,6 +31,8 @@ export default function Send() {
   const [addr, setAddr] = useState<Address>(emptyAddress); // door pickup address
   const [country, setCountry] = useState("CA");
   const [modal, setModal] = useState(false); // hub picker
+  const [cmp, setCmp] = useState<Comparison | null>(null); // DB-authoritative quote
+  const [quoting, setQuoting] = useState(true);
 
   useEffect(() => {
     HubsAPI.listActive().then(({ hubs }) => setHubRegions(new Set(hubs.map((h) => regionCode(h.city)))));
@@ -41,7 +43,17 @@ export default function Send() {
   // Selected hub no longer valid if the origin city changed.
   useEffect(() => { setSelHub(null); }, [from]);
 
-  const cmp = compare(size, drop, from, to);
+  // Quote comes from the DB (kolis_quote) — the single source of truth. Re-fetch
+  // whenever the inputs change; ignore stale responses if they change mid-flight.
+  useEffect(() => {
+    let cancelled = false;
+    setQuoting(true);
+    compare(size, drop, from, to)
+      .then((c) => { if (!cancelled) setCmp(c); })
+      .catch(() => { if (!cancelled) setCmp(null); })
+      .finally(() => { if (!cancelled) setQuoting(false); });
+    return () => { cancelled = true; };
+  }, [size, drop, from, to]);
 
   const selectMode = (m: DropType) => {
     setDrop(m);
@@ -54,8 +66,11 @@ export default function Send() {
   };
 
   const go = () => {
+    // Choosing a hub doesn't need a price yet.
+    if (drop === "hub" && !selHub) { setModal(true); return; }
+    if (!cmp) return; // wait for the quote before carrying a price forward
     if (drop === "hub") {
-      if (!selHub) { setModal(true); return; }
+      if (!selHub) { setModal(true); return; } // handled above; keeps the type narrowed
       // Collect shipping/insurance details before payment.
       router.push({
         pathname: "/(app)/details",
@@ -79,6 +94,10 @@ export default function Send() {
 
   const isHub = drop === "hub";
   const doorReady = drop !== "door" || isAddressComplete(addr);
+  // The "choose a hub" tap needs no price yet; every path that carries a price
+  // forward waits for the DB quote.
+  const needsQuote = !(isHub && !selHub);
+  const ctaReady = doorReady && (!needsQuote || !!cmp);
   const ctaLabel = isHub ? (selHub ? t("directionsToHub") : t("chooseHub")) : t("continue");
 
   return (
@@ -141,7 +160,7 @@ export default function Send() {
         <View style={{ backgroundColor: Colors.ink, borderRadius: 15, padding: 15, flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <View>
             <Text style={{ fontSize: 10, color: "#fff", opacity: 0.7, textTransform: "uppercase", letterSpacing: 0.6 }}>{t("estimatedPrice")}</Text>
-            <Text style={{ fontSize: 26, fontWeight: "800", color: "#ff7eb0" }}>C${cmp.price}</Text>
+            <Text style={{ fontSize: 26, fontWeight: "800", color: "#ff7eb0" }}>{cmp ? `C$${cmp.price}` : "…"}</Text>
           </View>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6, maxWidth: 124 }}>
             {isHub ? <Wallet size={13} color="#fff" strokeWidth={2.2} style={{ opacity: 0.8 }} /> : null}
@@ -149,16 +168,18 @@ export default function Send() {
           </View>
         </View>
 
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(46,204,143,0.12)", borderRadius: 12, padding: 11, marginBottom: 6 }}>
-          <PiggyBank size={13} color="#178a5e" strokeWidth={2.2} />
-          <Text style={{ color: "#178a5e", fontWeight: "800", fontSize: 13 }}>{t("saveVs", { amount: cmp.saved })}</Text>
-        </View>
+        {cmp ? (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "rgba(46,204,143,0.12)", borderRadius: 12, padding: 11, marginBottom: 6 }}>
+            <PiggyBank size={13} color="#178a5e" strokeWidth={2.2} />
+            <Text style={{ color: "#178a5e", fontWeight: "800", fontSize: 13 }}>{t("saveVs", { amount: cmp.saved })}</Text>
+          </View>
+        ) : null}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 16 }}>
           <Clock size={11.5} color={Colors.t2} strokeWidth={2.2} />
-          <Text style={{ fontSize: 11.5, color: Colors.t2 }}>{t("daysFaster", { days: cmp.courierDays })}</Text>
+          <Text style={{ fontSize: 11.5, color: Colors.t2 }}>{t("daysFaster", { days: cmp?.courierDays ?? 2 })}</Text>
         </View>
 
-        <Pressable onPress={go} disabled={!doorReady} style={{ backgroundColor: isHub && selHub ? Colors.ink : Colors.accent, borderRadius: 13, padding: 16, alignItems: "center", opacity: doorReady ? 1 : 0.5 }}>
+        <Pressable onPress={go} disabled={!ctaReady} style={{ backgroundColor: isHub && selHub ? Colors.ink : Colors.accent, borderRadius: 13, padding: 16, alignItems: "center", opacity: ctaReady ? 1 : 0.5 }}>
           <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6 }}>
             {isHub && selHub ? <Navigation size={15} color="#fff" strokeWidth={2.2} /> : null}
             <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{ctaLabel}</Text>

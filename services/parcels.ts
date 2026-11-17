@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { supabase } from "./supabase";
-import { SizeKey, DropType, driverPayoutCents } from "../constants/pricing";
+import { SizeKey, DropType } from "../constants/pricing";
 import { regionCode } from "../constants/geo";
 import { ACTIVE_ORG_KEY } from "./orgs";
 
@@ -105,6 +105,15 @@ export const ParcelsAPI = {
     // First right of refusal: chosen driver gets a 10-min exclusive window.
     const preferred = input.preferred_driver_id || null;
     const offerExpires = preferred ? new Date(Date.now() + 10 * 60 * 1000).toISOString() : null;
+    // Price + driver payout are computed server-side (kolis_quote → the same
+    // formula the business dashboard uses), so the stored amount is authoritative
+    // and the client cannot set its own price. Fall back to the carried estimate
+    // only if the RPC is unreachable.
+    const { data: q } = await supabase.rpc("kolis_quote", {
+      p_size: input.size, p_drop: input.dropoff_type, p_from: input.from_city, p_to: input.to_city,
+    });
+    const priceCents = (q as any)?.price_cents ?? Math.round(input.price * 100);
+    const payoutCents = (q as any)?.payout_cents ?? 0;
     const { data, error } = await supabase
       .from("kolis_parcels")
       .insert({
@@ -119,8 +128,8 @@ export const ParcelsAPI = {
         pickup_zone: input.pickup_zone ?? null,
         pickup_hub: input.pickup_hub ?? null,
         pickup_addr: input.pickup_addr ?? null,
-        price_cents: Math.round(input.price * 100),
-        driver_payout_cents: driverPayoutCents(Math.round(input.price * 100), input.dropoff_type),
+        price_cents: priceCents,
+        driver_payout_cents: payoutCents,
         preferred_driver_id: preferred,
         offer_expires_at: offerExpires,
         // Shipping form

@@ -68,6 +68,8 @@ export default function AppLayout() {
           them href:null stops expo-router from auto-adding them as stray tabs
           with default (blank) icons. */}
       <Tabs.Screen name="scan" options={{ href: null }} />
+      <Tabs.Screen name="card" options={{ href: null }} />
+      <Tabs.Screen name="delivered" options={{ href: null }} />
       <Tabs.Screen name="contact" options={{ href: null }} />
     </Tabs>
   );

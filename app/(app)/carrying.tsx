@@ -2,13 +2,14 @@
 // (captures the escrow through kolis-finalize-payment). Courier never sees the
 // sender's price — only their own payout.
 import { useCallback, useState } from "react";
-import { View, Text, Pressable, ScrollView, RefreshControl, Alert, ActivityIndicator, Linking, Platform } from "react-native";
+import { View, Text, Pressable, ScrollView, RefreshControl, Alert, ActivityIndicator, Linking, Platform, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { CourierAPI, CourierParcel } from "../../services/courier";
 import { drainScannedCodes } from "../../services/scanBridge";
+import * as ImagePicker from "expo-image-picker";
 import { DeliveryReceiptModal, DeliveryReceiptData } from "../../components/DeliveryReceiptModal";
 import { Package, Mail, Luggage, Camera, Truck, Building2, DoorOpen, Navigation, Lock, CheckCircle2, MapPin, Phone } from "lucide-react-native";
 
@@ -18,6 +19,42 @@ const SizeIcon = ({ size, px = 22, color = Colors.ink }: { size: string; px?: nu
   return <Package size={px} color={color} strokeWidth={2} />;
 };
 
+
+// Scan fills the code automatically — but a parcel can turn up with no label on it,
+// or the QR won't take, and then the courier was stranded: the confirm button stays
+// disabled and there was no other way to fill the field. The RPCs have always
+// accepted a typed code (kolis_courier_pickup / kolis-finalize-payment check it
+// server-side), so offer manual entry alongside the scan.
+const CodeEntry = ({ value, onChange, onScan, fr }: {
+  value: string; onChange: (v: string) => void; onScan: () => void; fr: boolean;
+}) => (
+  <>
+    <Pressable onPress={onScan} style={{ borderWidth: 1.5, borderColor: Colors.accent, borderStyle: "dashed", borderRadius: 11, padding: 14, alignItems: "center", backgroundColor: Colors.bg, marginBottom: 10 }}>
+      <Camera size={22} color={Colors.accent} strokeWidth={1.8} />
+      <Text style={{ fontSize: 12.5, color: Colors.accent, fontWeight: "800", marginTop: 4, textAlign: "center" }}>
+        {fr ? "Scannez le QR à moins de 100 m pour remplir le code" : "Scan the QR within 100 m to fill the code"}
+      </Text>
+    </Pressable>
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+      <View style={{ flex: 1, height: 1, backgroundColor: Colors.line }} />
+      <Text style={{ fontSize: 11, color: Colors.t3, fontWeight: "700" }}>{fr ? "ou" : "or"}</Text>
+      <View style={{ flex: 1, height: 1, backgroundColor: Colors.line }} />
+    </View>
+    <TextInput
+      value={value}
+      onChangeText={(v) => onChange(v.replace(/[^0-9]/g, "").slice(0, 4))}
+      keyboardType="number-pad"
+      maxLength={4}
+      placeholder={fr ? "Entrez le code à 4 chiffres" : "Enter the 4-digit code"}
+      placeholderTextColor={Colors.t3}
+      style={{ borderWidth: 1.5, borderColor: Colors.line, borderRadius: 11, padding: 12, marginBottom: 10, fontSize: 18, fontWeight: "800", letterSpacing: 6, textAlign: "center", color: Colors.ink, backgroundColor: Colors.card }}
+    />
+    <Text style={{ fontSize: 10.5, color: Colors.t3, textAlign: "center", marginTop: -4, marginBottom: 10 }}>
+      {fr ? "Le code est vérifié par le serveur." : "The code is checked by the server."}
+    </Text>
+  </>
+);
+
 export default function Carrying() {
   const { t, lang } = useStrings();
   const fr = lang === "fr";
@@ -26,6 +63,11 @@ export default function Carrying() {
   const [loading, setLoading] = useState(true);
   const [codes, setCodes] = useState<Record<string, string>>({});
   const [pcodes, setPcodes] = useState<Record<string, string>>({});
+  // "<parcel id>:pickup" / "<parcel id>:delivery" whose code came from the scanner
+  // (vs typed by hand) — keyed per stage, since one parcel has both.
+  const [scanned, setScanned] = useState<Record<string, boolean>>({});
+  // parcel whose delivery card to show once the payout receipt is dismissed
+  const [cardFor, setCardFor] = useState<{ id: string; who: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<DeliveryReceiptData | null>(null);
 
@@ -44,6 +86,8 @@ export default function Carrying() {
     }
     if (Object.keys(p).length) setPcodes((c) => ({ ...c, ...p }));
     if (Object.keys(d).length) setCodes((c) => ({ ...c, ...d }));
+    const scannedKeys = [...Object.keys(p).map((k) => `${k}:pickup`), ...Object.keys(d).map((k) => `${k}:delivery`)];
+    if (scannedKeys.length) setScanned((c) => ({ ...c, ...Object.fromEntries(scannedKeys.map((k) => [k, true])) }));
   }, [load]));
 
   // Open the platform maps app with turn-by-turn directions to an address.
@@ -74,6 +118,28 @@ export default function Carrying() {
     load();
   };
 
+  // Camera prompt for the proof shot. Returns once the courier has taken one or
+  // declined twice.
+  const captureProof = async (p: CourierParcel) => {
+    try {
+      const perm = await ImagePicker.requestCameraPermissionsAsync();
+      if (!perm.granted) return;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const shot = await ImagePicker.launchCameraAsync({ quality: 0.6, exif: false });
+        if (!shot.canceled && shot.assets?.[0]?.uri) {
+          const url = await CourierAPI.uploadProof(p.id, p.code, shot.assets[0].uri);
+          if (!url) Alert.alert("Kolis", fr ? "Photo non envoyée — la livraison reste enregistrée." : "Photo upload failed — the delivery is still recorded.");
+          return;
+        }
+        if (attempt === 0) {
+          Alert.alert("Kolis", fr
+            ? "Une photo du colis livré est demandée comme preuve de livraison."
+            : "A photo of the delivered parcel is required as proof of delivery.");
+        }
+      }
+    } catch { /* a camera failure must never block a completed delivery */ }
+  };
+
   const deliver = async (p: CourierParcel) => {
     const code = (codes[p.id] || "").trim();
     if (code.length < 4) return;
@@ -87,6 +153,12 @@ export default function Carrying() {
       Alert.alert("Kolis", m); return;
     }
     setCodes((c) => ({ ...c, [p.id]: "" }));
+    // Proof of delivery, right after the delivery is accepted: the photo is what the
+    // sender and recipient get on their delivered card, and the only evidence if the
+    // drop is ever disputed. Asked twice, but never blocking — the parcel is already
+    // delivered at this point and a camera problem must not strand the courier.
+    await captureProof(p);
+    setCardFor({ id: p.id, who: p.recipient_name || "" });
     // Walled receipt: courier branch returns payout only.
     const r = await CourierAPI.receipt(p.id).catch(() => null);
     if (r) {
@@ -110,6 +182,10 @@ export default function Carrying() {
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} tintColor={Colors.accent} />}
       >
+        <Pressable onPress={() => router.push("/(app)/delivered" as never)}
+          style={{ alignSelf: "flex-end", flexDirection: "row", alignItems: "center", gap: 5, paddingVertical: 4 }}>
+          <Text style={{ fontSize: 12, fontWeight: "800", color: Colors.accentDk }}>{fr ? "Mes livraisons" : "My deliveries"}</Text>
+        </Pressable>
         <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 4 }}>
           <Text style={{ fontSize: 26, fontWeight: "800", color: Colors.ink, flex: 1 }}>{t("carrying")}</Text>
           <Pressable onPress={() => router.push("/(app)/scan" as never)} style={{ flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: "#E11D6B", borderRadius: 12, paddingHorizontal: 15, paddingVertical: 10 }}>
@@ -157,7 +233,7 @@ export default function Carrying() {
                     <Text style={{ fontSize: 11.5, color: Colors.t3 }}>{t("recipientMasked")}</Text>
                   </View>
                   <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{fr ? "Code de ramassage" : "Pickup code"}</Text>
-                  {(pcodes[p.id] || "").length >= 4 ? (
+                  {scanned[`${p.id}:pickup`] && (pcodes[p.id] || "").length >= 4 ? (
                     <View style={{ borderWidth: 1.5, borderColor: "#178a5e", borderRadius: 11, padding: 12, backgroundColor: "rgba(23,138,94,0.08)", marginBottom: 10 }}>
                       <Text style={{ fontSize: 22, fontWeight: "800", letterSpacing: 10, textAlign: "center", color: Colors.ink }}>{pcodes[p.id]}</Text>
                       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 4 }}>
@@ -166,10 +242,9 @@ export default function Carrying() {
                       </View>
                     </View>
                   ) : (
-                    <Pressable onPress={() => router.push("/(app)/scan" as never)} style={{ borderWidth: 1.5, borderColor: Colors.accent, borderStyle: "dashed", borderRadius: 11, padding: 14, alignItems: "center", backgroundColor: Colors.bg, marginBottom: 10 }}>
-                      <Camera size={22} color={Colors.accent} strokeWidth={1.8} />
-                      <Text style={{ fontSize: 12.5, color: Colors.accent, fontWeight: "800", marginTop: 4, textAlign: "center" }}>{fr ? "Scannez le QR à moins de 100 m pour remplir le code" : "Scan the QR within 100 m to fill the code"}</Text>
-                    </Pressable>
+                    <CodeEntry fr={fr} value={pcodes[p.id] || ""}
+                      onChange={(v) => setPcodes((c) => ({ ...c, [p.id]: v }))}
+                      onScan={() => router.push("/(app)/scan" as never)} />
                   )}
                   <Pressable onPress={() => pickup(p)} disabled={busyId === p.id || (pcodes[p.id] || "").trim().length < 4} style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6, backgroundColor: Colors.accent, borderRadius: 12, padding: 14, opacity: (busyId === p.id || (pcodes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
                     {busyId === p.id ? <ActivityIndicator color="#fff" /> : <><Package size={14} color="#fff" strokeWidth={2.2} /><Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{t("confirmPickup")}</Text></>}
@@ -213,7 +288,7 @@ export default function Carrying() {
                   ) : null}
 
                   <Text style={{ fontSize: 10, color: Colors.t3, textTransform: "uppercase", letterSpacing: 0.6, marginBottom: 6 }}>{fr ? "Code de livraison" : "Delivery code"}</Text>
-                  {(codes[p.id] || "").length >= 4 ? (
+                  {scanned[`${p.id}:delivery`] && (codes[p.id] || "").length >= 4 ? (
                     <View style={{ borderWidth: 1.5, borderColor: "#178a5e", borderRadius: 11, padding: 12, backgroundColor: "rgba(23,138,94,0.08)", marginBottom: 10 }}>
                       <Text style={{ fontSize: 22, fontWeight: "800", letterSpacing: 10, textAlign: "center", color: Colors.ink }}>{codes[p.id]}</Text>
                       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 4 }}>
@@ -222,10 +297,9 @@ export default function Carrying() {
                       </View>
                     </View>
                   ) : (
-                    <Pressable onPress={() => router.push("/(app)/scan" as never)} style={{ borderWidth: 1.5, borderColor: Colors.accent, borderStyle: "dashed", borderRadius: 11, padding: 14, alignItems: "center", backgroundColor: Colors.bg, marginBottom: 10 }}>
-                      <Camera size={22} color={Colors.accent} strokeWidth={1.8} />
-                      <Text style={{ fontSize: 12.5, color: Colors.accent, fontWeight: "800", marginTop: 4, textAlign: "center" }}>{fr ? "Scannez le QR à moins de 100 m pour remplir le code" : "Scan the QR within 100 m to fill the code"}</Text>
-                    </Pressable>
+                    <CodeEntry fr={fr} value={codes[p.id] || ""}
+                      onChange={(v) => setCodes((c) => ({ ...c, [p.id]: v }))}
+                      onScan={() => router.push("/(app)/scan" as never)} />
                   )}
                   <Pressable onPress={() => deliver(p)} disabled={busyId === p.id || (codes[p.id] || "").trim().length < 4} style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 14, alignItems: "center", opacity: (busyId === p.id || (codes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
                     {busyId === p.id ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{t("markDelivered")}</Text>}
@@ -237,7 +311,15 @@ export default function Carrying() {
           );
         })}
       </ScrollView>
-      <DeliveryReceiptModal visible={!!receipt} data={receipt} onClose={() => setReceipt(null)} />
+      <DeliveryReceiptModal visible={!!receipt} data={receipt} onClose={() => {
+        setReceipt(null);
+        // The payout receipt is the courier's money; the card is the customer's proof.
+        // Show the card right after, so they can pass it on while they're still there.
+        if (cardFor) {
+          const c = cardFor; setCardFor(null);
+          router.push(`/(app)/card?parcel=${c.id}&recipient=${encodeURIComponent(c.who)}` as never);
+        }
+      }} />
     </SafeAreaView>
   );
 }

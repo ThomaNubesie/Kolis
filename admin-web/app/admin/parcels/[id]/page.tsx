@@ -92,6 +92,10 @@ export default function ParcelDetail() {
             <KV k={t("Sender paid", "Payé par l’expéditeur")} v={c$((p.price_cents ?? 0) + (p.insurance_premium_cents ?? 0))} />
             <KV k={t("Courier payout", "Versement au chauffeur")} v={c$(p.driver_payout_cents)} />
             <KV k={t("Driver", "Chauffeur")} v={p.driver_name || t("unassigned", "non assigné")} />
+            {/* Both codes, because closing a stuck parcel needs whichever the courier
+                could not scan. pickup_code is fetched separately — kolis_admin_parcel
+                returns only the delivery one. */}
+            <KV k={t("Pickup code", "Code de ramassage")} v={pickupCode || "—"} />
             <KV k={t("Delivery code", "Code de livraison")} v={p.delivery_code || "—"} />
             {canOps && String(p.status) === "delivered" && p.driver_id && (p.driver_payout_cents ?? 0) > 0 && (
               <button className="btn green" style={{ marginTop: 12, width: "100%" }} disabled={busy}

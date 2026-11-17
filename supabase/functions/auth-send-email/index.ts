@@ -14,11 +14,14 @@ import { Webhook } from "https://esm.sh/standardwebhooks@1.0.0";
 const RESEND = Deno.env.get("RESEND_API_KEY");
 const HOOK_SECRET = Deno.env.get("SEND_EMAIL_HOOK_SECRET") || "";
 
-type Brand = { key: string; name: string; initial: string; brand: string; ink: string; from: string };
+type Brand = { key: string; name: string; initial: string; brand: string; tint: string; ink: string; from: string; logo?: string; footer: string };
+const LOGO_BASE = "https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand";
+const CONCORD_FOOTER = "Operated by Concord Express Co Inc. · support@concordexpress.ca";
 const BRANDS: Record<string, Brand> = {
-  kolis:  { key: "kolis",  name: "Kolis",  initial: "K", brand: "#E11D6B", ink: "#0F1A17", from: Deno.env.get("KOLIS_FROM_EMAIL")  || "Kolis <noreply@kolis.ca>" },
-  loadq:  { key: "loadq",  name: "LoadQ",  initial: "L", brand: "#FF8A1A", ink: "#1A1205", from: Deno.env.get("LOADQ_FROM_EMAIL")  || "LoadQ <noreply@loadq.ca>" },
-  quorly: { key: "quorly", name: "Quorly", initial: "Q", brand: "#4F46E5", ink: "#141427", from: Deno.env.get("QUORLY_FROM_EMAIL") || "Quorly <noreply@quorly.ca>" },
+  kolis:  { key: "kolis",  name: "Kolis",  initial: "Ko", brand: "#E11D6B", tint: "#FDEEF4", ink: "#0F1A17", logo: `${LOGO_BASE}/kolis-logo.png`, footer: CONCORD_FOOTER, from: Deno.env.get("KOLIS_FROM_EMAIL")  || "Kolis <noreply@kolis.ca>" },
+  loadq:  { key: "loadq",  name: "LoadQ",  initial: "LQ", brand: "#FF8A1A", tint: "#FFF1E3", ink: "#1A1205", logo: `${LOGO_BASE}/loadq-logo.png`, footer: CONCORD_FOOTER, from: Deno.env.get("LOADQ_FROM_EMAIL")  || "LoadQ <noreply@loadq.ca>" },
+  // Quorly is a separate business — never carries the Concord footer.
+  quorly: { key: "quorly", name: "Quorly", initial: "Q",  brand: "#4F46E5", tint: "#EEF0FE", ink: "#141427", footer: "© Quorly", from: Deno.env.get("QUORLY_FROM_EMAIL") || "Quorly <noreply@quorly.ca>" },
 };
 
 // Brand from the app's own redirect; the project Site URL is only a fallback.
@@ -35,7 +38,7 @@ function brandFor(redirect?: string, site?: string): Brand {
 function copyFor(action: string, name: string): { heading: string; intro: string; subject: string } {
   switch (action) {
     case "signup":
-      return { heading: "Confirm your email", intro: `Use this code to finish signing up to ${name}.`, subject: `Your ${name} confirmation code` };
+      return { heading: "Verify your email", intro: `Use this code to continue signing up to ${name}.`, subject: `Your ${name} verification code` };
     case "recovery":
       return { heading: "Reset your password", intro: `Use this code to reset your ${name} password.`, subject: `Your ${name} password reset code` };
     case "invite":
@@ -45,29 +48,24 @@ function copyFor(action: string, name: string): { heading: string; intro: string
       return { heading: "Confirm your email change", intro: `Use this code to confirm your new email on ${name}.`, subject: `Confirm your email on ${name}` };
     case "reauthentication":
       return { heading: "Confirm it's you", intro: `Enter this code in ${name} to continue.`, subject: `Your ${name} code` };
-    default: // magiclink / login / otp
-      return { heading: "Your sign-in code", intro: `Enter this code in the ${name} app to sign in.`, subject: `Your ${name} sign-in code` };
+    default: // magiclink / login / otp — same "Verify your email" card as the app's signup code
+      return { heading: "Verify your email", intro: `Use this code to continue signing in to ${name}.`, subject: `Your ${name} verification code` };
   }
 }
 
+// Same card as kolis-send-email-otp ("Verify your email"): logo, heading, intro,
+// code on a light brand tint, expiry line, footer. No outer frame.
 function renderHtml(b: Brand, heading: string, intro: string, code: string): string {
-  return `<div style="font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:#eceef1;padding:24px 0;margin:0">
-  <div style="max-width:440px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e6e9ec">
-    <div style="padding:26px">
-      <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 18px"><tr>
-        <td style="width:40px;height:40px;background:${b.brand};border-radius:11px;color:#fff;font-weight:800;font-size:18px;text-align:center;vertical-align:middle">${b.initial}</td>
-        <td style="padding-left:10px;font-weight:800;font-size:15px;color:${b.ink};vertical-align:middle">${b.name}</td>
-      </tr></table>
-      <h2 style="font-size:17px;color:${b.ink};margin:0 0 6px">${heading}</h2>
-      <p style="color:#6b7772;font-size:13.5px;line-height:1.5;margin:0 0 16px">${intro}</p>
-      <div style="background:${b.ink};border-radius:12px;padding:18px 20px;text-align:center">
-        <span style="font-weight:800;letter-spacing:.3em;font-size:30px;color:${b.brand}">${code}</span>
-      </div>
-      <p style="color:#9aa4ab;font-size:12px;margin:14px 0 0">This code expires in 10 minutes. If you didn't request it, you can ignore this email.</p>
-    </div>
-    <div style="font-size:11px;color:#9aa4ab;border-top:1px solid #eef1f3;padding:14px 26px">&copy; ${b.name} &middot; ${b.from.replace(/.*<|>.*/g, "")}</div>
-  </div>
-</div>`;
+  const mark = b.logo
+    ? `<img src="${b.logo}" width="46" height="46" alt="${b.name}" style="border-radius:11px;display:block"/>`
+    : `<div style="width:46px;height:46px;line-height:46px;background:${b.brand};border-radius:11px;color:#fff;font-weight:800;font-size:18px;text-align:center">${b.initial}</div>`;
+  return `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:420px;margin:0 auto;padding:24px">
+  <div style="margin:0 0 16px">${mark}</div>
+  <h2 style="color:${b.ink};margin:0 0 8px">${heading}</h2>
+  <p style="color:#5A6B63;margin:0 0 16px">${intro}</p>
+  <div style="font-size:32px;font-weight:800;letter-spacing:8px;color:${b.brand};text-align:center;padding:16px;background:${b.tint};border-radius:12px">${code}</div>
+  <p style="color:#8A978F;font-size:12px;margin:16px 0 0">Expires in 10 minutes.</p>
+  <p style="color:#8A978F;font-size:12px;margin:6px 0 0">${b.footer}</p></div>`;
 }
 
 async function sendViaResend(from: string, to: string, subject: string, html: string, text: string) {
@@ -109,7 +107,7 @@ Deno.serve(async (req) => {
     console.log(`[auth-send-email] redirect_to=${ed.redirect_to || ""} site_url=${ed.site_url || ""} -> brand=${b.key}`);
     const { heading, intro, subject } = copyFor(String(ed.email_action_type || ""), b.name);
     const html = renderHtml(b, heading, intro, code);
-    const text = `${heading}\n\n${intro}\n\nCode: ${code}\n\nThis code expires in 10 minutes.`;
+    const text = `Your ${b.name} verification code is ${code}. Valid for 10 minutes.`;
 
     if (!RESEND) {
       console.error("[auth-send-email] RESEND_API_KEY not set — cannot send");

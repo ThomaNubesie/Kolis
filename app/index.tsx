@@ -25,7 +25,9 @@ export default function Index() {
       if (prof?.role) await AsyncStorage.setItem("userRole", prof.role);
       if (prof?.country) await AsyncStorage.setItem("userCountry", prof.country);
 
-      if (prof?.role && verified && paid) { router.replace("/(app)/send"); return; }
+      // Home tab by role: a courier-only account has no Send tab, so it opens on
+      // what it's carrying; senders and "both" open on Send.
+      if (prof?.role && verified && paid) { router.replace(prof.role === "courier" ? "/(app)/carrying" : "/(app)/send"); return; }
 
       if (prof?.role && verified) router.replace("/(auth)/pay");        // needs to pay
       else if (prof?.role) router.replace("/(auth)/verify");            // needs to verify

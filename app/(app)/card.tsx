@@ -44,11 +44,18 @@ export default function DeliveryCard() {
     try { await CourierAPI.markCardShared(String(parcel), kind); setShared(true); } catch { /* fallback still covers it */ }
   }, [parcel, kind]);
 
+  // Don't ask iOS whether WhatsApp is installed: canOpenURL answers "no" for any
+  // scheme not pre-declared in Info.plist (LSApplicationQueriesSchemes), so it
+  // claimed WhatsApp was missing on phones that have it. Open the app scheme
+  // directly; if that fails, the wa.me universal link opens WhatsApp (or its page).
   const viaWhatsApp = async () => {
-    const url = `whatsapp://send?text=${encodeURIComponent(note)}`;
-    const ok = await Linking.canOpenURL(url).catch(() => false);
-    if (!ok) { Alert.alert("Kolis", fr ? "WhatsApp n'est pas installé." : "WhatsApp isn't installed."); return; }
-    await Linking.openURL(url); done();
+    const text = encodeURIComponent(note);
+    try { await Linking.openURL(`whatsapp://send?text=${text}`); }
+    catch {
+      try { await Linking.openURL(`https://wa.me/?text=${text}`); }
+      catch { Alert.alert("Kolis", fr ? "Impossible d'ouvrir WhatsApp — utilisez SMS ou Partager." : "Couldn't open WhatsApp — use SMS or Share."); return; }
+    }
+    done();
   };
   const viaSms = async () => {
     await Linking.openURL(`sms:&body=${encodeURIComponent(note)}`).catch(() => {});

@@ -35,6 +35,9 @@
         "NSCameraUsageDescription": "Kolis uses the camera so you can photograph your parcel.",
         "UIBackgroundModes": [
           "location"
+        ],
+        "LSApplicationQueriesSchemes": [
+          "whatsapp"
         ]
       }
     },

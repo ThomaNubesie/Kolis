@@ -4,7 +4,7 @@ import { PackagePlus, PackageSearch, ClipboardList, Route, HandCoins, Store, Car
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
-import { KolisRole } from "../../services/profile";
+import { KolisRole, ProfileAPI } from "../../services/profile";
 import { OrgsAPI, MyOrg } from "../../services/orgs";
 import { useDeliveryTracking } from "../../hooks/useDeliveryTracking";
 
@@ -20,6 +20,12 @@ export default function AppLayout() {
     AsyncStorage.getItem("userRole").then((r) => {
       if (r === "sender" || r === "courier" || r === "both") setRole(r);
     });
+    // The server profile is the source of truth; the device copy is only a fast
+    // first paint. Re-read it so a role changed elsewhere shows up here.
+    ProfileAPI.get().then((p) => {
+      const r = p?.role;
+      if (r === "sender" || r === "courier" || r === "both") { setRole(r); AsyncStorage.setItem("userRole", r).catch(() => {}); }
+    }).catch(() => {});
     // Org membership drives the business-mode tabs.
     OrgsAPI.myOrgs().then(setOrgs).catch(() => {});
   }, []);

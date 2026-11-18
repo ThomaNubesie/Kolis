@@ -19,11 +19,13 @@ export default function Index() {
       const prof = await ProfileAPI.get();
       const verified = !!prof?.identity_verified;
       const paid = !!prof?.verification_fee_paid; // founding activation also sets this
-      if (prof?.role && verified && paid) { router.replace("/(app)/send"); return; }
-
-      // Keep the standalone verify/pay screens' AsyncStorage deps in sync.
+      // Sync the role to the device BEFORE routing: the tab bar reads it, and a
+      // fresh install of a fully verified account used to skip this and fall back
+      // to "sender" — couriers lost their courier tabs after a reinstall.
       if (prof?.role) await AsyncStorage.setItem("userRole", prof.role);
       if (prof?.country) await AsyncStorage.setItem("userCountry", prof.country);
+
+      if (prof?.role && verified && paid) { router.replace("/(app)/send"); return; }
 
       if (prof?.role && verified) router.replace("/(auth)/pay");        // needs to pay
       else if (prof?.role) router.replace("/(auth)/verify");            // needs to verify

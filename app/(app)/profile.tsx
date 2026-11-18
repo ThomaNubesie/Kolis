@@ -46,7 +46,7 @@ export default function Profile() {
       { label: t("roleSender"), v: "sender" }, { label: t("roleCourier"), v: "courier" }, { label: t("roleBoth"), v: "both" },
     ];
     Alert.alert(t("changeRole"), undefined, [
-      ...opts.map((o) => ({ text: o.label, onPress: async () => { await ProfileAPI.save({ role: o.v }); load(); } })),
+      ...opts.map((o) => ({ text: o.label, onPress: async () => { await ProfileAPI.save({ role: o.v }); await AsyncStorage.setItem("userRole", o.v); load(); } })),
       { text: t("cancel"), style: "cancel" as const },
     ]);
   };

@@ -2,7 +2,7 @@
 // app, BEFORE the system "Allow all the time / Always" prompt, explaining what is
 // collected, why, and that it continues when the app is closed. The system prompt
 // is only requested if the courier taps Continue; "Not now" asks nothing.
-import { Modal, View, Text, Pressable } from "react-native";
+import { Modal, View, Text, Pressable, Platform } from "react-native";
 import { MapPin, Clock, ShieldCheck } from "lucide-react-native";
 import { Colors } from "../constants/colors";
 
@@ -37,8 +37,9 @@ export function LocationDisclosure({ visible, fr, onAccept, onDecline }: {
           <Row icon={<ShieldCheck size={16} color={Colors.accent} strokeWidth={2.4} />}
             text={fr ? "Jamais utilisée pour la publicité. Vous pouvez la désactiver à tout moment dans Réglages." : "Never used for advertising. You can turn it off at any time in Settings."} />
           <Text style={{ fontSize: 12.5, color: Colors.t2, marginTop: 14, lineHeight: 18 }}>
-            {fr ? "À l'étape suivante, choisissez « Toujours autoriser » (Android : « Toujours autoriser » / « Autoriser tout le temps »)."
-                : "On the next screen, choose \"Allow all the time\" (iPhone: \"Always\")."}
+            {Platform.OS === "ios"
+              ? (fr ? "À l'étape suivante, choisissez « Autoriser lorsque l'app est active »." : "On the next screen, choose \"Allow While Using App\".")
+              : (fr ? "À l'étape suivante, choisissez « Toujours autoriser »." : "On the next screen, choose \"Allow all the time\".")}
           </Text>
           <Pressable onPress={onAccept} style={{ backgroundColor: Colors.accent, borderRadius: 13, padding: 15, alignItems: "center", marginTop: 18 }}>
             <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{fr ? "Continuer" : "Continue"}</Text>

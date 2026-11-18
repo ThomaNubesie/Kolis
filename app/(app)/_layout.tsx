@@ -7,14 +7,15 @@ import { useStrings } from "../../hooks/useStrings";
 import { KolisRole, ProfileAPI } from "../../services/profile";
 import { OrgsAPI, MyOrg } from "../../services/orgs";
 import { useDeliveryTracking } from "../../hooks/useDeliveryTracking";
+import { LocationDisclosure } from "../../components/LocationDisclosure";
 
 export default function AppLayout() {
-  const { t } = useStrings();
+  const { t, lang } = useStrings();
   const [role, setRole] = useState<KolisRole>("sender");
   const [orgs, setOrgs] = useState<MyOrg[]>([]);
 
   // Background location while carrying a Kolis-accepted parcel; stops when idle.
-  useDeliveryTracking();
+  const tracking = useDeliveryTracking();
 
   useEffect(() => {
     AsyncStorage.getItem("userRole").then((r) => {
@@ -37,6 +38,8 @@ export default function AppLayout() {
   const hasFleet = orgs.some((o) => o.type === "carrier" || o.type === "both"); // Fleet tab
 
   return (
+    <>
+    <LocationDisclosure visible={tracking.needDisclosure} fr={lang === "fr"} onAccept={tracking.accept} onDecline={tracking.decline} />
     <Tabs
       screenOptions={{
         headerShown: false,
@@ -79,5 +82,6 @@ export default function AppLayout() {
       <Tabs.Screen name="delivered" options={{ href: null }} />
       <Tabs.Screen name="contact" options={{ href: null }} />
     </Tabs>
+    </>
   );
 }

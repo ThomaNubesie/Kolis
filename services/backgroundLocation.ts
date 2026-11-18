@@ -27,13 +27,29 @@ TaskManager.defineTask(BG_LOCATION_TASK, async ({ data, error }) => {
   }
 });
 
-// Ask for Always/background permission and start streaming. Idempotent.
-export async function startBackgroundTracking(): Promise<boolean> {
+// Is "Always / Allow all the time" already granted? (No prompt.)
+export async function hasBackgroundPermission(): Promise<boolean> {
   try {
-    const fg = await Location.requestForegroundPermissionsAsync();
-    if (fg.status !== "granted") return false;
-    const bg = await Location.requestBackgroundPermissionsAsync();
-    if (bg.status !== "granted") return false;
+    const fg = await Location.getForegroundPermissionsAsync();
+    const bg = await Location.getBackgroundPermissionsAsync();
+    return fg.status === "granted" && bg.status === "granted";
+  } catch { return false; }
+}
+
+// Start streaming. With `request`, asks for Always/background permission first —
+// only ever call that right after the courier accepted the in-app disclosure
+// (components/LocationDisclosure.tsx; Google Play prominent-disclosure policy).
+// Without it, starts only if permission was already granted. Idempotent.
+export async function startBackgroundTracking(opts: { request?: boolean } = {}): Promise<boolean> {
+  try {
+    if (opts.request) {
+      const fg = await Location.requestForegroundPermissionsAsync();
+      if (fg.status !== "granted") return false;
+      const bg = await Location.requestBackgroundPermissionsAsync();
+      if (bg.status !== "granted") return false;
+    } else if (!(await hasBackgroundPermission())) {
+      return false;
+    }
     if (await Location.hasStartedLocationUpdatesAsync(BG_LOCATION_TASK)) return true;
     await Location.startLocationUpdatesAsync(BG_LOCATION_TASK, {
       accuracy: Location.Accuracy.Balanced,

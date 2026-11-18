@@ -45,6 +45,19 @@ export async function hasBackgroundPermission(): Promise<boolean> {
   } catch { return false; }
 }
 
+// Last failure, so the Carrying screen can show WHY tracking isn't running
+// instead of failing silently (it hid a real iOS problem for a whole afternoon).
+let lastError: string | null = null;
+
+export type TrackingStatus = { active: boolean; permission: "granted" | "denied" | "undetermined"; error: string | null };
+export async function getTrackingStatus(): Promise<TrackingStatus> {
+  let permission: TrackingStatus["permission"] = "undetermined";
+  try { permission = (await Location.getForegroundPermissionsAsync()).status as TrackingStatus["permission"]; } catch { /* keep */ }
+  let active = false;
+  try { active = await Location.hasStartedLocationUpdatesAsync(BG_LOCATION_TASK); } catch { /* keep */ }
+  return { active, permission, error: lastError };
+}
+
 // Start streaming. With `request`, asks for Always/background permission first —
 // only ever call that right after the courier accepted the in-app disclosure
 // (components/LocationDisclosure.tsx; Google Play prominent-disclosure policy).
@@ -53,14 +66,18 @@ export async function startBackgroundTracking(opts: { request?: boolean } = {}):
   try {
     if (opts.request) {
       const fg = await Location.requestForegroundPermissionsAsync();
-      if (fg.status !== "granted") return false;
+      if (fg.status !== "granted") { lastError = "permission_denied"; return false; }
       // iOS: also offer the optional "Always" upgrade. Android: never — the app
       // doesn't declare ACCESS_BACKGROUND_LOCATION (foreground service instead).
       if (Platform.OS === "ios") await Location.requestBackgroundPermissionsAsync().catch(() => null);
     } else if (!(await hasBackgroundPermission())) {
+      lastError = "permission_denied";
       return false;
     }
-    if (await Location.hasStartedLocationUpdatesAsync(BG_LOCATION_TASK)) return true;
+    // Always (re)start rather than returning early when a task is already
+    // registered: re-registering applies the current options, so a task left
+    // over from an older version (e.g. without the iOS background indicator)
+    // picks up today's settings.
     await Location.startLocationUpdatesAsync(BG_LOCATION_TASK, {
       accuracy: Location.Accuracy.Balanced,
       distanceInterval: 120,
@@ -76,8 +93,10 @@ export async function startBackgroundTracking(opts: { request?: boolean } = {}):
         notificationColor: "#E11D6B",
       },
     });
+    lastError = null;
     return true;
-  } catch {
+  } catch (e) {
+    lastError = String((e as Error)?.message ?? e);
     return false;
   }
 }

@@ -10,6 +10,8 @@ import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { AuthAPI } from "../../services/auth";
 import { AdminAPI } from "../../services/admin";
+import * as Updates from "expo-updates";
+import Constants from "expo-constants";
 import { ProfileAPI, KolisProfile, KolisRole } from "../../services/profile";
 
 export default function Profile() {
@@ -139,6 +141,10 @@ export default function Profile() {
           <Pressable onPress={() => Linking.openURL("https://www.concordexpress.ca").catch(() => {})}>
             <Text style={{ textAlign: "center", color: Colors.accent, fontSize: 11.5, marginTop: 1, fontWeight: "600" }}>www.concordexpress.ca</Text>
           </Pressable>
+          {/* Which code is actually running — the store build, or an over-the-air update (and which). */}
+          <Text style={{ textAlign: "center", color: Colors.t3, fontSize: 10.5, marginTop: 10 }}>
+            v{Constants.expoConfig?.version ?? "?"} · {Updates.isEmbeddedLaunch ? "build" : `update ${String(Updates.updateId ?? "").slice(0, 8)}`}
+          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>

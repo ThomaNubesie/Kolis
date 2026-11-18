@@ -12,6 +12,7 @@ import { watchLocation, Coords } from "../../services/location";
 import { PickupFallbacks } from "../../components/PickupFallbacks";
 import { CourierJourney, kmBetween } from "../../components/CourierJourney";
 import { BlockingOverlay } from "../../components/BlockingOverlay";
+import { TrackingStatus } from "../../components/TrackingStatus";
 
 // Within this distance of the drop-off the parcel opens on the delivery flow;
 // farther out it shows the journey timeline. The courier can switch either way.
@@ -232,6 +233,8 @@ export default function Carrying() {
           </Pressable>
         </View>
         <Text style={{ fontSize: 13, color: Colors.t2, marginBottom: 18 }}>{t("carryingSub")}</Text>
+
+        <TrackingStatus fr={fr} carrying={list.some((x) => x.accepted_via === "kolis")} />
 
         {!loading && list.length === 0 && (
           <View style={{ alignItems: "center", marginTop: 60 }}>

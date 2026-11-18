@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from "react-native";
-import { Printer, Tag } from "lucide-react-native";
+import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet, Image, Linking } from "react-native";
+import { Printer, Tag, Radio, Check, ChevronRight } from "lucide-react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, Region } from "react-native-maps";
@@ -47,6 +47,10 @@ export default function Track() {
   // A courier at the door asking this sender to confirm the handover (e-label option 5).
   const [handover, setHandover] = useState<{ courier: string | null } | null>(null);
   const [hBusy, setHBusy] = useState(false);
+  // Journey timeline (same steps the courier and admin see). Signed-in sender gets
+  // photos + card links; the live map opens from the "Suivi en direct" button.
+  const [journey, setJourney] = useState<{ token: string | null; events: { id: string | null; kind: string; city: string | null; at: string; photo: string | null }[] } | null>(null);
+  const [liveOpen, setLiveOpen] = useState(false);
 
   const emailLabel = async () => {
     if (!parcel || labelBusy) return;
@@ -82,6 +86,11 @@ export default function Track() {
     setHBusy(false); setHandover(null);
     ParcelsAPI.get(id).then(({ parcel }) => setParcel(parcel));
   };
+
+  useEffect(() => {
+    if (!parcel?.code) return;
+    supabase.rpc("kolis_track_events", { p_code: parcel.code, p_token: null }).then(({ data }) => setJourney((data as any) ?? null));
+  }, [parcel?.code, parcel?.status]);
 
   // Poll live tracking by code every 45s while mounted.
   const code = parcel?.code;
@@ -148,20 +157,53 @@ export default function Track() {
           </Pressable>
         ) : null}
 
+        {journey && journey.events.length > 0 ? (
+          <View style={{ marginBottom: 18 }}>
+            {!["delivered", "cancelled"].includes(parcel.status) ? (
+              <TlRow color={Colors.accent} last={false} title={`${t2("Livraison", "Delivery")} · ${parcel.to_city}`}
+                sub={track?.eta_minutes != null ? t2(`Arrivée dans environ ${track.eta_minutes} min`, `Arriving in about ${track.eta_minutes} min`) : t2("En route", "On its way")}>
+                {showMap ? (
+                  <Pressable onPress={() => setLiveOpen((v) => !v)} style={{ flexDirection: "row", alignItems: "center", gap: 6, alignSelf: "flex-start", backgroundColor: Colors.accent, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginTop: 8 }}>
+                    <Radio size={14} color="#fff" strokeWidth={2.4} />
+                    <Text style={{ color: "#fff", fontWeight: "800", fontSize: 12.5 }}>{liveOpen ? t2("Masquer le suivi", "Hide live tracking") : t2("Suivi en direct", "Live tracking")}</Text>
+                  </Pressable>
+                ) : null}
+              </TlRow>
+            ) : null}
+            {[...journey.events].reverse().map((e, i, arr) => (
+              <TlRow key={i} color={Colors.green} done last={i === arr.length - 1}
+                title={`${e.kind === "picked_up" ? t2("Ramassé", "Picked up") : e.kind === "delivered" ? t2("Livré", "Delivered") : (e.city || t2("Étape", "Stop"))} · ${new Date(e.at).toLocaleTimeString(lang === "fr" ? "fr-CA" : "en-CA", { hour: "2-digit", minute: "2-digit" })}`}
+                sub={e.kind === "picked_up" ? parcel.from_city : e.kind === "delivered" ? parcel.to_city : t2(`En route vers ${parcel.to_city}`, `On the way to ${parcel.to_city}`)}>
+                {e.photo || (e.id && journey.token) ? (
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginTop: 7 }}>
+                    {e.photo ? <Image source={{ uri: e.photo }} style={{ width: 64, height: 46, borderRadius: 8, backgroundColor: Colors.cardAlt }} /> : null}
+                    {e.id && journey.token ? (
+                      <Pressable onPress={() => Linking.openURL(`https://business.kolis.ca/card/${journey.token}/${e.id}`)} style={{ flexDirection: "row", alignItems: "center", gap: 2 }} hitSlop={8}>
+                        <Text style={{ color: Colors.accentDk, fontWeight: "800", fontSize: 12.5 }}>{t2("Voir la carte", "View card")}</Text>
+                        <ChevronRight size={14} color={Colors.accentDk} strokeWidth={2.4} />
+                      </Pressable>
+                    ) : null}
+                  </View>
+                ) : null}
+              </TlRow>
+            ))}
+          </View>
+        ) : (
         <View style={{ marginBottom: 18 }}>
-          {order.map((s, i) => {
-            const done = cur >= 0 && i <= cur;
-            const now = i === cur;
-            return (
-              <View key={s} style={{ flexDirection: "row", gap: 11, alignItems: "flex-start", marginBottom: 16 }}>
-                <View style={{ width: 15, height: 15, borderRadius: 8, backgroundColor: done ? Colors.accent : "#fff", borderWidth: 2, borderColor: done ? Colors.accent : Colors.line, marginTop: 1 }} />
-                <Text style={{ fontSize: 14, fontWeight: now ? "800" : done ? "600" : "500", color: done ? Colors.ink : Colors.t3 }}>{labels[s]}</Text>
-              </View>
-            );
-          })}
-        </View>
+            {order.map((s, i) => {
+              const done = cur >= 0 && i <= cur;
+              const now = i === cur;
+              return (
+                <View key={s} style={{ flexDirection: "row", gap: 11, alignItems: "flex-start", marginBottom: 16 }}>
+                  <View style={{ width: 15, height: 15, borderRadius: 8, backgroundColor: done ? Colors.accent : "#fff", borderWidth: 2, borderColor: done ? Colors.accent : Colors.line, marginTop: 1 }} />
+                  <Text style={{ fontSize: 14, fontWeight: now ? "800" : done ? "600" : "500", color: done ? Colors.ink : Colors.t3 }}>{labels[s]}</Text>
+                </View>
+              );
+            })}
+          </View>
+        )}
 
-        {showMap && track && track.driver_lat != null && track.driver_lng != null && (
+        {showMap && (liveOpen || !journey || journey.events.length === 0) && track && track.driver_lat != null && track.driver_lng != null && (
           <View style={styles.liveCard}>
             <MapView
               style={styles.map}
@@ -291,3 +333,22 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
 });
+
+// One row of the journey timeline: dot + rail, title, subtitle, optional extras.
+function TlRow({ color, done, last, title, sub, children }: { color: string; done?: boolean; last: boolean; title: string; sub?: string; children?: React.ReactNode }) {
+  return (
+    <View style={{ flexDirection: "row", gap: 11 }}>
+      <View style={{ alignItems: "center", width: 16 }}>
+        <View style={{ width: 15, height: 15, borderRadius: 8, backgroundColor: done ? color : "#fff", borderWidth: 3, borderColor: color, alignItems: "center", justifyContent: "center" }}>
+          {done ? <Check size={8} color="#fff" strokeWidth={4} /> : null}
+        </View>
+        {!last ? <View style={{ flex: 1, width: 2, backgroundColor: done ? Colors.green : Colors.line, minHeight: 14 }} /> : null}
+      </View>
+      <View style={{ flex: 1, paddingBottom: 14 }}>
+        <Text style={{ fontSize: 14, fontWeight: "800", color: Colors.ink }}>{title}</Text>
+        {sub ? <Text style={{ fontSize: 12, color: Colors.t2, marginTop: 1 }}>{sub}</Text> : null}
+        {children}
+      </View>
+    </View>
+  );
+}

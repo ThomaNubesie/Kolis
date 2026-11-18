@@ -1,5 +1,5 @@
 // Bridge from the QR scanner (app/(app)/scan.tsx) to the Carrying screen.
-// When the driver scans a parcel's QR and is inside the 100 m geofence, the
+// When the driver scans a parcel's QR and is inside the 1000 m geofence, the
 // server reveals the pickup/delivery code. We stash it here so the matching
 // code input on the Carrying card auto-fills — the driver never types it, and
 // the code is never printed on the label.

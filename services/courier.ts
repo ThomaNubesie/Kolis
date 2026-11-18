@@ -190,13 +190,45 @@ export const CourierAPI = {
     }
   },
 
-  // Scan a parcel's QR at pickup/delivery. The server enforces a 100 m geofence:
+  // On-the-road timeline (design E-2): events with photos/cards, plus the pickup and
+  // drop-off coordinates used to switch to the delivery flow within 25 km.
+  async journey(parcelId: string): Promise<Journey | null> {
+    const { data } = await supabase.rpc("kolis_courier_journey", { p_id: parcelId });
+    return (data as Journey) ?? null;
+  },
+
+  // No label at all: send only the courier's position. kolis-scan accepts a scan
+  // without a token and reveals the pickup code within 1000 m of the address.
+  async scanNoLabel(parcelId: string, lat: number | null, lng: number | null): Promise<ScanResult> {
+    return CourierAPI.scan(parcelId, "pickup", "", lat, lng);
+  },
+
+  // Ask the sender to confirm the handover on their own phone (SMS link / app).
+  async requestHandover(parcelId: string, lat: number | null, lng: number | null): Promise<{ status?: string; expires_at?: string; error?: string }> {
+    const { data, error } = await supabase.rpc("kolis_courier_request_handover", { p_id: parcelId, p_lat: lat, p_lng: lng });
+    if (error) return { error: error.message };
+    return (data as any) ?? { error: "failed" };
+  },
+  async handoverStatus(parcelId: string): Promise<"pending" | "confirmed" | "declined" | "expired" | null> {
+    const { data } = await supabase.rpc("kolis_courier_handover_status", { p_id: parcelId });
+    return ((data as any)?.status as any) ?? null;
+  },
+
+  // Scan a parcel's QR at pickup/delivery. The server enforces a 1000 m geofence:
   // within range it returns the code + records/shares the scan location.
   async scan(parcelId: string, kind: "pickup" | "delivery", token: string, lat: number | null, lng: number | null): Promise<ScanResult> {
     const { data, error } = await supabase.functions.invoke("kolis-scan", { body: { parcel_id: parcelId, kind, token, lat, lng } });
     if (error) throw error;
     return data as ScanResult;
   },
+};
+
+export type JourneyEvent = { id: string; kind: "picked_up" | "checkpoint" | "delivered"; city: string | null; note: string | null; photo: string | null; at: string; sent: boolean; shared: boolean };
+export type Journey = {
+  code: string; status: string; token: string | null;
+  pickup: { lat: number | null; lng: number | null; addr: string | null; city: string | null };
+  dropoff: { lat: number | null; lng: number | null; addr: string | null; city: string | null };
+  events: JourneyEvent[];
 };
 
 export type ScanResult = {

@@ -7,7 +7,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
-import { CourierAPI, CourierParcel } from "../../services/courier";
+import { CourierAPI, CourierParcel, Journey } from "../../services/courier";
+import { watchLocation, Coords } from "../../services/location";
+import { PickupFallbacks } from "../../components/PickupFallbacks";
+import { CourierJourney, kmBetween } from "../../components/CourierJourney";
+
+// Within this distance of the drop-off the parcel opens on the delivery flow;
+// farther out it shows the journey timeline. The courier can switch either way.
+const DELIVERY_SWITCH_KM = 25;
 import { drainScannedCodes } from "../../services/scanBridge";
 import * as ImagePicker from "expo-image-picker";
 import { DeliveryReceiptModal, DeliveryReceiptData } from "../../components/DeliveryReceiptModal";
@@ -32,7 +39,7 @@ const CodeEntry = ({ value, onChange, onScan, fr }: {
     <Pressable onPress={onScan} style={{ borderWidth: 1.5, borderColor: Colors.accent, borderStyle: "dashed", borderRadius: 11, padding: 14, alignItems: "center", backgroundColor: Colors.bg, marginBottom: 10 }}>
       <Camera size={22} color={Colors.accent} strokeWidth={1.8} />
       <Text style={{ fontSize: 12.5, color: Colors.accent, fontWeight: "800", marginTop: 4, textAlign: "center" }}>
-        {fr ? "Scannez le QR à moins de 100 m pour remplir le code" : "Scan the QR within 100 m to fill the code"}
+        {fr ? "Scannez le QR (étiquette ou écran de l'expéditeur) à moins de 1000 m" : "Scan the QR (label or sender's screen) within 1000 m"}
       </Text>
     </Pressable>
     <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
@@ -70,13 +77,30 @@ export default function Carrying() {
   const [cardFor, setCardFor] = useState<{ id: string; who: string } | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<DeliveryReceiptData | null>(null);
+  // Picked-up parcels: their journey (events + drop-off coords), the courier's
+  // position, and a manual journey/deliver choice that overrides the 25 km rule.
+  const [journeys, setJourneys] = useState<Record<string, Journey>>({});
+  const [pos, setPos] = useState<Coords | null>(null);
+  const [view, setView] = useState<Record<string, "journey" | "deliver">>({});
 
   const load = useCallback(() => {
     setLoading(true);
-    CourierAPI.carrying().then(setList).catch(() => {}).finally(() => setLoading(false));
+    CourierAPI.carrying().then(async (l) => {
+      setList(l);
+      const moving = l.filter((x) => x.status !== "matched");
+      const js = await Promise.all(moving.map((x) => CourierAPI.journey(x.id).catch(() => null)));
+      setJourneys(Object.fromEntries(moving.map((x, i) => [x.id, js[i]]).filter(([, j]) => !!j)) as Record<string, Journey>);
+    }).catch(() => {}).finally(() => setLoading(false));
   }, []);
+
+  // Live position while this screen is open, for the 25 km switch.
+  useFocusEffect(useCallback(() => {
+    let stop: (() => void) | null = null, gone = false;
+    watchLocation(setPos).then((u) => { if (gone) u(); else stop = u; });
+    return () => { gone = true; stop?.(); };
+  }, []));
   // On focus: reload, then drain any code the QR scanner stashed while in the
-  // 100 m geofence and auto-fill the matching input. The driver never types it.
+  // 1000 m geofence and auto-fill the matching input. The driver never types it.
   useFocusEffect(useCallback(() => {
     load();
     const drained = drainScannedCodes();
@@ -115,8 +139,13 @@ export default function Carrying() {
     setBusyId(null);
     if (res !== "ok") { Alert.alert("Kolis", res === "bad_code" ? t("badPickupCode") : t("badCode")); return; }
     setPcodes((c) => ({ ...c, [p.id]: "" }));
-    // Pickup photo: it goes on the pickup card the recipient receives. Same rule as
-    // the drop-off shot — asked, never blocking.
+    await afterPickup(p);
+  };
+
+  // Pickup photo: it goes on the pickup card the recipient receives. Same rule as
+  // the drop-off shot — asked, never blocking. Runs after any way of picking up
+  // (code, scan, sender-confirmed handover).
+  const afterPickup = async (p: CourierParcel) => {
     const took = await captureProof(p, "picked_up");
     load();
     if (took) router.push(`/(app)/card?parcel=${p.id}&kind=picked_up&recipient=${encodeURIComponent(p.recipient_name || "")}` as never);
@@ -255,12 +284,30 @@ export default function Carrying() {
                   <Pressable onPress={() => pickup(p)} disabled={busyId === p.id || (pcodes[p.id] || "").trim().length < 4} style={{ flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 6, backgroundColor: Colors.accent, borderRadius: 12, padding: 14, opacity: (busyId === p.id || (pcodes[p.id] || "").trim().length < 4) ? 0.55 : 1 }}>
                     {busyId === p.id ? <ActivityIndicator color="#fff" /> : <><Package size={14} color="#fff" strokeWidth={2.2} /><Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{t("confirmPickup")}</Text></>}
                   </Pressable>
+                  <PickupFallbacks parcelId={p.id} code={p.code} fr={fr}
+                    onCode={(code) => { setPcodes((c) => ({ ...c, [p.id]: code })); setScanned((c) => ({ ...c, [`${p.id}:pickup`]: true })); }}
+                    onPickedUp={() => afterPickup(p)} />
                 </>
               )}
 
               {/* STAGE 2 — after pickup: delivery address + recipient + deliver code */}
-              {gotIt && (
+              {gotIt && (() => {
+                const j = journeys[p.id];
+                const dist = pos && j ? kmBetween(pos, j.dropoff) : null;
+                const auto = dist == null || dist <= DELIVERY_SWITCH_KM ? "deliver" : "journey";
+                const mode = view[p.id] ?? auto;
+                if (mode === "journey" && j) return (
+                  <CourierJourney j={j} fr={fr} distanceKm={dist}
+                    onDeliver={() => setView((v) => ({ ...v, [p.id]: "deliver" }))}
+                    onDirections={() => p.dropoff_addr && openDirections(p.dropoff_addr)} />
+                );
+                return (
                 <>
+                  {j ? (
+                    <Pressable onPress={() => setView((v) => ({ ...v, [p.id]: "journey" }))} hitSlop={8} style={{ alignSelf: "flex-start", marginBottom: 8 }}>
+                      <Text style={{ fontSize: 12, fontWeight: "800", color: Colors.accentDk }}>‹ {fr ? "Voir le trajet" : "View the trip"}</Text>
+                    </Pressable>
+                  ) : null}
                   <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 10 }}>
                     <CheckCircle2 size={11} color="#178a5e" strokeWidth={2.2} />
                     <Text style={{ fontSize: 11, color: "#178a5e", fontWeight: "700" }}>{t("pickedUpNote")}</Text>
@@ -312,7 +359,8 @@ export default function Carrying() {
                   </Pressable>
                   <Text style={{ color: "#178a5e", fontSize: 11.5, textAlign: "center", marginTop: 8, fontWeight: "700" }}>+C${payout(p)} {t("released")}</Text>
                 </>
-              )}
+                );
+              })()}
             </View>
           );
         })}

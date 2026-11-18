@@ -28,6 +28,8 @@ function copyFor(status: string, code: string, city: string, pin: string | null,
     const cFr = contents ? ` Contenu : ${contents}.` : "";
     return [`You've been sent a package · ${code}`, `Good news — a package (${code}) is on its way to you in ${city}.${cEn} You'll get live updates and a delivery code as it moves.\nBonne nouvelle — un colis (${code}) est en route vers vous à ${city}.${cFr} Vous recevrez des mises à jour en direct et un code de livraison.`];
   }
+  if (status === "handover")  // SENDER: courier is at the door with no label/code — confirm on your phone
+    return [`Your courier is here for ${code}`, `Your courier is here to pick up ${code}. Hand over the parcel, then confirm with the link below (valid 15 min).\nVotre livreur est là pour ramasser ${code}. Remettez le colis, puis confirmez avec le lien ci-dessous (valide 15 min).`];
   if (status === "pickup") {  // SENDER: courier assigned — ETA + give them the pickup code to release
     const pkEn = pin ? ` Give the courier your pickup code ${pin} to release the parcel.` : "";
     const pkFr = pin ? ` Donnez au livreur votre code de ramassage ${pin} pour remettre le colis.` : "";
@@ -88,8 +90,12 @@ Deno.serve(async (req) => {
     }
 
     // Audience: "pickup" targets the SENDER; everything else targets the recipient.
-    const toSender = status === "pickup";
-    const link = `${TRACK_URL}/${encodeURIComponent(code)}`;
+    const toSender = status === "pickup" || status === "handover";
+    // Handover: the link is the sender's one-tap confirm page, not tracking.
+    const HANDOVER_URL = Deno.env.get("KOLIS_HANDOVER_URL") || "https://business.kolis.ca/h";
+    const link = status === "handover" && reqBody.handover_token
+      ? `${HANDOVER_URL}/${encodeURIComponent(String(reqBody.handover_token))}`
+      : `${TRACK_URL}/${encodeURIComponent(code)}`;
     const via = ev?.kind === "checkpoint" ? ev.city : null;
     const [subject, line] = copyFor(status, code, (p.to_city as string) || "", pin, eta, p.contents_description as string | null, via);
     const [enLine, frLine] = line.split("\n");
@@ -102,6 +108,7 @@ Deno.serve(async (req) => {
       picked_up: `Votre colis ${code} est en route`,
       in_transit: `Votre colis ${code} est en cours de livraison`,
       pickup: `Un livreur vient ramasser ${code}`,
+      handover: `Votre livreur est là pour ${code}`,
       delivered: `Votre colis ${code} a été livré`,
     };
     const subj = rlang === "fr" ? (via ? `Votre colis ${code} est à ${via}` : (frSubjects[status] || subject)) : subject;
@@ -158,7 +165,7 @@ Deno.serve(async (req) => {
           // events back to this parcel. Values must be [A-Za-z0-9_-] — a uuid and
           // the status slug both qualify.
           tags: [{ name: "kind", value: "transactional" }, { name: "parcel_id", value: String(parcel_id) }, { name: "status", value: String(status) }],
-          text: `${bodyLine}\n\n${rlang === "fr" ? "Suivez-le" : "Track it"}: ${link}\n\n${dlText}`,
+          text: `${bodyLine}\n\n${status === "handover" ? (rlang === "fr" ? "Confirmer la remise" : "Confirm handover") : (rlang === "fr" ? "Suivez-le" : "Track it")}: ${link}\n\n${dlText}`,
           html: `<div style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;max-width:480px">
             ${bLogo ? `<img src="${bLogo}" alt="${bName}" style="max-height:46px;margin-bottom:8px"/>` : `<img src="https://kzjptcpjpwlxfofzhyku.supabase.co/storage/v1/object/public/marketing/brand/kolis-logo.png" width="46" height="46" alt="Kolis" style="border-radius:11px;margin-bottom:10px;display:block"/>`}
             <h2 style="color:${bColor}">${subj}</h2>
@@ -170,7 +177,7 @@ Deno.serve(async (req) => {
               <div style="color:#6B6675;font-size:12px">${pinHelp}</div>
             </div>` : ""}
             <div style="text-align:center;margin:20px 0">
-              <a href="${link}" style="display:inline-block;background:${bColor};color:#fff;text-decoration:none;padding:13px 26px;border-radius:10px;font-weight:700">${rlang === "fr" ? "Suivez votre colis" : "Track your parcel"}</a>
+              <a href="${link}" style="display:inline-block;background:${bColor};color:#fff;text-decoration:none;padding:13px 26px;border-radius:10px;font-weight:700">${status === "handover" ? (rlang === "fr" ? "Confirmer la remise" : "Confirm handover") : (rlang === "fr" ? "Suivez votre colis" : "Track your parcel")}</a>
               <div style="margin-top:10px;font-size:12px;color:#9b97a6"><a href="${link}?lang=en" style="color:${bColor};text-decoration:none;font-weight:700">EN</a> &nbsp;·&nbsp; <a href="${link}?lang=fr" style="color:${bColor};text-decoration:none;font-weight:700">FR</a></div>
             </div>
             <p style="color:#9b97a6;font-size:12px;text-align:center;margin-top:18px">${rlang === "fr" ? "Envoyé via" : "Sent via"} <b style="color:${bColor}">Kolis</b> — <a href="https://kolis.ca" style="color:${bColor};text-decoration:none;font-weight:700">kolis.ca</a></p>

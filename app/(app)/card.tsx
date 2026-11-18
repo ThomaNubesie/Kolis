@@ -41,6 +41,11 @@ export default function DeliveryCard() {
   const frozen = !released && (loading || (!!info && !ready));
 
   useEffect(() => {
+    // This screen stays mounted between visits (it's a hidden tab), so start every
+    // visit clean — otherwise the previous card (e.g. the pickup card) showed,
+    // unfrozen, on the delivery screen until the new one loaded.
+    setInfo(null); setLoading(true); setShared(false);
+    setReady(false); setStuck(false); setReleased(false); setAttempt(0);
     if (!parcel) { setLoading(false); return; }
     CourierAPI.cardInfo(String(parcel), kind)
       .then((i) => { setInfo(i); setShared(!!i?.shared); })

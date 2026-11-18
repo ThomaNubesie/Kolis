@@ -39,7 +39,7 @@ export function LocationDisclosure({ visible, fr, onAccept, onDecline }: {
           <Text style={{ fontSize: 12.5, color: Colors.t2, marginTop: 14, lineHeight: 18 }}>
             {Platform.OS === "ios"
               ? (fr ? "À l'étape suivante, choisissez « Autoriser lorsque l'app est active »." : "On the next screen, choose \"Allow While Using App\".")
-              : (fr ? "À l'étape suivante, choisissez « Toujours autoriser »." : "On the next screen, choose \"Allow all the time\".")}
+              : (fr ? "À l'étape suivante, choisissez « Lorsque vous utilisez l'appli ». Une notification reste affichée pendant le partage." : "On the next screen, choose \"While using the app\". A notification stays on while your location is shared.")}
           </Text>
           <Pressable onPress={onAccept} style={{ backgroundColor: Colors.accent, borderRadius: 13, padding: 15, alignItems: "center", marginTop: 18 }}>
             <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{fr ? "Continuer" : "Continue"}</Text>

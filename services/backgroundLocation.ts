@@ -33,14 +33,15 @@ TaskManager.defineTask(BG_LOCATION_TASK, async ({ data, error }) => {
 //        updates started while it's open keep running in the background (iOS shows
 //        the blue location indicator). "Always" is a nice-to-have upgrade, not a
 //        requirement; requiring it meant most couriers were never tracked.
-//   Android: needs "Allow all the time" (ACCESS_BACKGROUND_LOCATION).
+//   Android: "While using the app" is enough too — tracking runs as a visible
+//        foreground service ("Kolis is sharing your location" notification),
+//        started while the app is open, which Android allows without
+//        ACCESS_BACKGROUND_LOCATION. The app doesn't declare that permission at all
+//        (blocked in app.json), so no background-location review is involved.
 export async function hasBackgroundPermission(): Promise<boolean> {
   try {
     const fg = await Location.getForegroundPermissionsAsync();
-    if (fg.status !== "granted") return false;
-    if (Platform.OS === "ios") return true;
-    const bg = await Location.getBackgroundPermissionsAsync();
-    return bg.status === "granted";
+    return fg.status === "granted";
   } catch { return false; }
 }
 
@@ -53,9 +54,9 @@ export async function startBackgroundTracking(opts: { request?: boolean } = {}):
     if (opts.request) {
       const fg = await Location.requestForegroundPermissionsAsync();
       if (fg.status !== "granted") return false;
-      const bg = await Location.requestBackgroundPermissionsAsync().catch(() => null);
-      // iOS: "Always" is optional (see hasBackgroundPermission); Android requires it.
-      if (Platform.OS !== "ios" && bg?.status !== "granted") return false;
+      // iOS: also offer the optional "Always" upgrade. Android: never — the app
+      // doesn't declare ACCESS_BACKGROUND_LOCATION (foreground service instead).
+      if (Platform.OS === "ios") await Location.requestBackgroundPermissionsAsync().catch(() => null);
     } else if (!(await hasBackgroundPermission())) {
       return false;
     }

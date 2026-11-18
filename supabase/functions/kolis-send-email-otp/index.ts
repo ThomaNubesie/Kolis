@@ -1,9 +1,12 @@
 // Sends a 6-digit email verification code for Kolis signup. Stores it in
-// kolis_email_otp and emails via Resend. If Resend isn't configured it returns
-// dev_otp so the team can test (set RESEND_API_KEY before launch to stop that).
+// kolis_email_otp and emails via Resend. A resend re-sends the SAME code while it is
+// still valid; the code is never returned to the caller unless KOLIS_OTP_DEV=true.
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+// Set KOLIS_OTP_DEV=true ONLY on a development project: it returns the code in the
+// response body when mail cannot be sent.
+const DEV_EXPOSE_OTP = Deno.env.get("KOLIS_OTP_DEV") === "true";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const RESEND = Deno.env.get("RESEND_API_KEY");
@@ -25,9 +28,24 @@ Deno.serve(async (req) => {
     if (!EMAIL_RE.test(e)) return json({ error: "Enter a valid email address" }, 400);
 
     const admin = createClient(SUPABASE_URL, SERVICE);
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
-    const expires = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-    await admin.from("kolis_email_otp").upsert({ email: e, otp, expires, attempts: 0, updated_at: new Date().toISOString() });
+
+    // Re-send the SAME code while it is still valid, instead of minting a new one.
+    // There is one row per email, so minting on every tap silently invalidated the
+    // code already sitting in the customer's inbox: verify then answered it with
+    // "Wrong code — try again", which reads as a bad code and makes people tap resend,
+    // which invalidates the next one too. (2026-11-02: a business customer asked for
+    // four codes in six minutes before getting in — all four were delivered and opened
+    // within seconds; only the newest one could ever have worked.)
+    const { data: live } = await admin.from("kolis_email_otp").select("otp, expires, attempts").eq("email", e).maybeSingle();
+    const stillValid = live && Date.now() < new Date(live.expires).getTime() && (live.attempts ?? 0) < 5;
+
+    const otp = stillValid ? String(live!.otp) : String(Math.floor(100000 + Math.random() * 900000));
+    const expires = stillValid ? String(live!.expires) : new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    // attempts are NOT reset on a resend — otherwise resending would hand an attacker
+    // an unlimited supply of guesses against the same code.
+    if (!stillValid) {
+      await admin.from("kolis_email_otp").upsert({ email: e, otp, expires, attempts: 0, updated_at: new Date().toISOString() });
+    }
 
     if (RESEND) {
       try {
@@ -52,11 +70,18 @@ Deno.serve(async (req) => {
         return json({ success: true });
       } catch (mailErr) {
         console.error("[kolis-email-otp] send failed:", String(mailErr));
-        return json({ success: true, dev_otp: otp });
+        // NEVER hand the code back to the caller on a mail failure: this code is what
+        // gates account access, and anyone can POST an address here. Only an explicit
+        // dev flag may expose it.
+        if (DEV_EXPOSE_OTP) return json({ success: true, dev_otp: otp });
+        return json({ error: "Could not send the code. Please try again." }, 502);
       }
     }
-    // No provider configured yet — expose the code so signup can be tested.
-    return json({ success: true, dev_otp: otp });
+    // No provider configured. Same rule: the code is only returned when this
+    // deployment is explicitly marked as a development one.
+    if (DEV_EXPOSE_OTP) return json({ success: true, dev_otp: otp });
+    console.error("[kolis-email-otp] RESEND_API_KEY is not set — cannot send codes");
+    return json({ error: "Email sending is not configured." }, 500);
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }

@@ -9,7 +9,7 @@ export default function DeleteAccount() {
   return (
     <main style={{ maxWidth: 720, margin: "0 auto", padding: "40px 22px 80px", fontFamily: "-apple-system, Segoe UI, Roboto, sans-serif", color: "#1a1722", lineHeight: 1.6 }}>
       <h1 style={{ color: "#E11D6B" }}>Delete your Kolis account</h1>
-      <p>Kolis is operated by <b>Concord Express Inc.</b> You can delete your account and personal data at any time, either in the app or by request.</p>
+      <p>Kolis is operated by <b>Concord Express Co Inc.</b> You can delete your account and personal data at any time, either in the app or by request.</p>
 
       <h2>Option 1 — In the app (instant)</h2>
       <ol>

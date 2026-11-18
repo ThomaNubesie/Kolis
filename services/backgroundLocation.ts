@@ -1,4 +1,5 @@
 import * as Location from "expo-location";
+import { Platform } from "react-native";
 import * as TaskManager from "expo-task-manager";
 import { supabase } from "./supabase";
 
@@ -27,12 +28,19 @@ TaskManager.defineTask(BG_LOCATION_TASK, async ({ data, error }) => {
   }
 });
 
-// Is "Always / Allow all the time" already granted? (No prompt.)
+// Can tracking run? (No prompt.)
+//   iOS: "While Using" is enough — the app has the `location` background mode, so
+//        updates started while it's open keep running in the background (iOS shows
+//        the blue location indicator). "Always" is a nice-to-have upgrade, not a
+//        requirement; requiring it meant most couriers were never tracked.
+//   Android: needs "Allow all the time" (ACCESS_BACKGROUND_LOCATION).
 export async function hasBackgroundPermission(): Promise<boolean> {
   try {
     const fg = await Location.getForegroundPermissionsAsync();
+    if (fg.status !== "granted") return false;
+    if (Platform.OS === "ios") return true;
     const bg = await Location.getBackgroundPermissionsAsync();
-    return fg.status === "granted" && bg.status === "granted";
+    return bg.status === "granted";
   } catch { return false; }
 }
 
@@ -45,8 +53,9 @@ export async function startBackgroundTracking(opts: { request?: boolean } = {}):
     if (opts.request) {
       const fg = await Location.requestForegroundPermissionsAsync();
       if (fg.status !== "granted") return false;
-      const bg = await Location.requestBackgroundPermissionsAsync();
-      if (bg.status !== "granted") return false;
+      const bg = await Location.requestBackgroundPermissionsAsync().catch(() => null);
+      // iOS: "Always" is optional (see hasBackgroundPermission); Android requires it.
+      if (Platform.OS !== "ios" && bg?.status !== "granted") return false;
     } else if (!(await hasBackgroundPermission())) {
       return false;
     }
@@ -57,7 +66,9 @@ export async function startBackgroundTracking(opts: { request?: boolean } = {}):
       timeInterval: 60_000,
       deferredUpdatesInterval: 60_000,
       pausesUpdatesAutomatically: false,
-      showsBackgroundLocationIndicator: false,
+      // iOS: show the blue location indicator while tracking in the background —
+      // required for "While Using" tracking to continue, and honest with the courier.
+      showsBackgroundLocationIndicator: true,
       foregroundService: {
         notificationTitle: "Kolis is sharing your location",
         notificationBody: "The sender and dispatch can see your position and ETA while you deliver.",

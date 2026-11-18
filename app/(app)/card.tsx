@@ -13,6 +13,7 @@ import { CheckCircle2, ChevronLeft, MessageCircle, Share2 } from "lucide-react-n
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { CourierAPI } from "../../services/courier";
+import { BlockingOverlay } from "../../components/BlockingOverlay";
 
 export default function DeliveryCard() {
   const { parcel, recipient, kind: kindParam } = useLocalSearchParams<{ parcel?: string; recipient?: string; kind?: string }>();
@@ -24,6 +25,20 @@ export default function DeliveryCard() {
   const [info, setInfo] = useState<{ url: string; code: string; shared: boolean; photo: string | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const [shared, setShared] = useState(false);
+  // Frozen until the card image has actually loaded (it's rendered on demand by
+  // business.kolis.ca), so nothing can be shared or closed before it exists.
+  // After 20 s or an error the overlay offers Retry / Continue — never a trap.
+  const [ready, setReady] = useState(false);
+  const [stuck, setStuck] = useState(false);
+  const [attempt, setAttempt] = useState(0);
+  const [released, setReleased] = useState(false);
+  useEffect(() => {
+    if (ready || released || !info) return;
+    setStuck(false);
+    const tm = setTimeout(() => setStuck(true), 20000);
+    return () => clearTimeout(tm);
+  }, [info, ready, released, attempt]);
+  const frozen = !released && (loading || (!!info && !ready));
 
   useEffect(() => {
     if (!parcel) { setLoading(false); return; }
@@ -90,7 +105,8 @@ export default function DeliveryCard() {
         {loading ? (
           <ActivityIndicator color={Colors.accent} style={{ marginTop: 28 }} />
         ) : info ? (
-          <Image source={{ uri: info.url }} resizeMode="contain"
+          <Image key={attempt} source={{ uri: attempt ? `${info.url}?r=${attempt}` : info.url }} resizeMode="contain"
+            onLoad={() => setReady(true)} onError={() => setStuck(true)}
             style={{ width: "100%", aspectRatio: atPickup ? 1080 / 760 : (info.photo ? 1080 / 1680 : 1080 / 1180), borderRadius: 14, marginTop: 18, backgroundColor: Colors.cardAlt }} />
         ) : (
           <Text style={{ fontSize: 12.5, color: Colors.t3, marginTop: 28, textAlign: "center" }}>
@@ -118,6 +134,14 @@ export default function DeliveryCard() {
           <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{fr ? "Terminé" : "Done"}</Text>
         </Pressable>
       </ScrollView>
+      <BlockingOverlay visible={frozen}
+        message={fr ? "Génération de la carte…" : "Generating the card…"}
+        sub={stuck ? (fr ? "La carte tarde à arriver. Elle sera aussi envoyée automatiquement au client." : "The card is taking a while. It will also be sent to the customer automatically.")
+                   : (fr ? "Un instant — la carte avec votre photo est en préparation." : "One moment — the card with your photo is being prepared.")}
+        actions={stuck ? [
+          { label: fr ? "Réessayer" : "Retry", primary: true, onPress: () => { setReady(false); setAttempt((a) => a + 1); } },
+          { label: fr ? "Continuer sans la carte" : "Continue without the card", onPress: () => setReleased(true) },
+        ] : undefined} />
     </SafeAreaView>
   );
 }

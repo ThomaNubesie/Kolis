@@ -11,6 +11,7 @@ import { CourierAPI, CourierParcel, Journey } from "../../services/courier";
 import { watchLocation, Coords } from "../../services/location";
 import { PickupFallbacks } from "../../components/PickupFallbacks";
 import { CourierJourney, kmBetween } from "../../components/CourierJourney";
+import { BlockingOverlay } from "../../components/BlockingOverlay";
 
 // Within this distance of the drop-off the parcel opens on the delivery flow;
 // farther out it shows the journey timeline. The courier can switch either way.
@@ -82,6 +83,8 @@ export default function Carrying() {
   const [journeys, setJourneys] = useState<Record<string, Journey>>({});
   const [pos, setPos] = useState<Coords | null>(null);
   const [view, setView] = useState<Record<string, "journey" | "deliver">>({});
+  // Blocks the whole screen while a photo uploads, so nothing else can be tapped.
+  const [uploading, setUploading] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -161,7 +164,8 @@ export default function Carrying() {
       for (let attempt = 0; attempt < 2; attempt++) {
         const shot = await ImagePicker.launchCameraAsync({ quality: 0.6, exif: false });
         if (!shot.canceled && shot.assets?.[0]?.uri) {
-          const url = await CourierAPI.uploadProof(p.id, p.code, shot.assets[0].uri, kind);
+          setUploading(true);
+          const url = await CourierAPI.uploadProof(p.id, p.code, shot.assets[0].uri, kind).finally(() => setUploading(false));
           if (!url) Alert.alert("Kolis", fr ? `Photo non envoyée — ${atPickup ? "le ramassage" : "la livraison"} reste enregistré${atPickup ? "" : "e"}.` : `Photo upload failed — the ${atPickup ? "pickup" : "delivery"} is still recorded.`);
           return !!url;
         }
@@ -365,6 +369,8 @@ export default function Carrying() {
           );
         })}
       </ScrollView>
+      <BlockingOverlay visible={uploading} message={fr ? "Envoi de la photo…" : "Uploading the photo…"}
+        sub={fr ? "Ne quittez pas l'écran." : "Please stay on this screen."} />
       <DeliveryReceiptModal visible={!!receipt} data={receipt} onClose={() => {
         setReceipt(null);
         // The payout receipt is the courier's money; the card is the customer's proof.

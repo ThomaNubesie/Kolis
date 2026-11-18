@@ -8,6 +8,7 @@ import { AlertTriangle } from "lucide-react-native";
 import { Colors } from "../../constants/colors";
 import { useStrings } from "../../hooks/useStrings";
 import { ParcelsAPI, Parcel, ParcelStatus, ParcelTracking } from "../../services/parcels";
+import { supabase } from "../../services/supabase";
 
 const ORDER_DEFAULT: ParcelStatus[] = ["requested", "matched", "picked_up", "in_transit", "delivered"];
 const ORDER_HUB: ParcelStatus[] = ["received_at_hub", "dispatched", "in_transit", "delivered"];
@@ -34,7 +35,8 @@ function etaLabel(mins: number): string {
 }
 
 export default function Track() {
-  const { t } = useStrings();
+  const { t, lang } = useStrings();
+  const t2 = (fr: string, en: string) => (lang === "fr" ? fr : en);
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [parcel, setParcel] = useState<Parcel | null>(null);
@@ -42,6 +44,9 @@ export default function Track() {
   const [track, setTrack] = useState<ParcelTracking | null>(null);
   const [labelBusy, setLabelBusy] = useState(false);
   const [labelMsg, setLabelMsg] = useState<string | null>(null);
+  // A courier at the door asking this sender to confirm the handover (e-label option 5).
+  const [handover, setHandover] = useState<{ courier: string | null } | null>(null);
+  const [hBusy, setHBusy] = useState(false);
 
   const emailLabel = async () => {
     if (!parcel || labelBusy) return;
@@ -55,6 +60,28 @@ export default function Track() {
     if (!id) { setLoading(false); return; }
     ParcelsAPI.get(id).then(({ parcel }) => { setParcel(parcel); setLoading(false); });
   }, [id]);
+
+  // Pending handover request for this parcel — polled while the screen is open, so
+  // the sender can confirm in the app as well as from the SMS link.
+  useEffect(() => {
+    if (!id) return;
+    let active = true;
+    const poll = () => supabase.rpc("kolis_sender_pending_handovers").then(({ data }) => {
+      if (!active) return;
+      const mine = ((data as any[]) || []).find((h) => h.parcel_id === id);
+      setHandover(mine ? { courier: mine.courier ?? null } : null);
+    });
+    poll();
+    const iv = setInterval(poll, 8000);
+    return () => { active = false; clearInterval(iv); };
+  }, [id]);
+  const decideHandover = async (ok: boolean) => {
+    if (!id) return;
+    setHBusy(true);
+    await supabase.rpc("kolis_sender_handover", { p_id: id, p_ok: ok });
+    setHBusy(false); setHandover(null);
+    ParcelsAPI.get(id).then(({ parcel }) => setParcel(parcel));
+  };
 
   // Poll live tracking by code every 45s while mounted.
   const code = parcel?.code;
@@ -95,6 +122,28 @@ export default function Track() {
         <Pressable onPress={() => router.replace("/(app)/shipments")}><Text style={{ color: Colors.t2, fontSize: 15, marginBottom: 6 }}>← {t("tabShipments")}</Text></Pressable>
         <Text style={{ fontSize: 22, fontWeight: "800", color: Colors.ink }}>{parcel.from_city} → {parcel.to_city}</Text>
         <Text style={{ fontSize: 12.5, color: Colors.t3, marginBottom: 20 }}>#{parcel.code}</Text>
+
+        {handover ? (
+          <View style={{ backgroundColor: "#FDECF3", borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 14, padding: 14, marginBottom: 18 }}>
+            <Text style={{ fontSize: 15, fontWeight: "900", color: Colors.ink }}>{t2(`${handover.courier || "Votre livreur"} est là pour votre colis`, `${handover.courier || "Your courier"} is here for your parcel`)}</Text>
+            <Text style={{ fontSize: 12.5, color: Colors.t2, marginTop: 4 }}>{t2("Remettez le colis, puis confirmez. Cela remplace le code de ramassage.", "Hand the parcel over, then confirm. This replaces the pickup code.")}</Text>
+            <View style={{ flexDirection: "row", gap: 8, marginTop: 12 }}>
+              <Pressable disabled={hBusy} onPress={() => decideHandover(true)} style={{ flex: 1, backgroundColor: Colors.accent, borderRadius: 11, padding: 12, alignItems: "center", opacity: hBusy ? 0.6 : 1 }}>
+                <Text style={{ color: "#fff", fontWeight: "800" }}>{t2("Confirmer la remise", "Confirm handover")}</Text>
+              </Pressable>
+              <Pressable disabled={hBusy} onPress={() => decideHandover(false)} style={{ flex: 1, borderWidth: 1.5, borderColor: Colors.accent, borderRadius: 11, padding: 12, alignItems: "center", backgroundColor: "#fff" }}>
+                <Text style={{ color: Colors.accentDk, fontWeight: "800" }}>{t2("Ce n'est pas moi", "Not me")}</Text>
+              </Pressable>
+            </View>
+          </View>
+        ) : null}
+
+        {["requested", "received_at_hub", "matched", "dispatched"].includes(parcel.status) ? (
+          <Pressable onPress={() => router.push({ pathname: "/(app)/elabel", params: { id: parcel.id } })} style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 13, alignItems: "center", marginBottom: 18 }}>
+            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>🏷️ {t2("Étiquette électronique", "Electronic label")}</Text>
+            <Text style={{ color: "#fff", opacity: 0.85, fontSize: 11.5, marginTop: 2 }}>{t2("Pas d'imprimante ? Montrez-la au livreur.", "No printer? Show it to the courier.")}</Text>
+          </Pressable>
+        ) : null}
 
         <View style={{ marginBottom: 18 }}>
           {order.map((s, i) => {

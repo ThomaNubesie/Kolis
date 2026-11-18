@@ -69,6 +69,7 @@ export default function AppLayout() {
           with default (blank) icons. */}
       <Tabs.Screen name="scan" options={{ href: null }} />
       <Tabs.Screen name="card" options={{ href: null }} />
+      <Tabs.Screen name="elabel" options={{ href: null }} />
       <Tabs.Screen name="delivered" options={{ href: null }} />
       <Tabs.Screen name="contact" options={{ href: null }} />
     </Tabs>

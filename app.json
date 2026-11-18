@@ -87,7 +87,8 @@
       ],
       "expo-web-browser",
       "expo-localization",
-      "expo-notifications"
+      "expo-notifications",
+      "./plugins/withOptionalScreenFeatures"
     ],
     "experiments": {
       "typedRoutes": true

@@ -28,7 +28,8 @@ export function DeliveryReceiptModal({ visible, data, onClose }: { visible: bool
   const [busy, setBusy] = useState(false);
 
   if (!data) return null;
-  const total = `C$${(data.amountCents / 100).toFixed(2)}`;
+  // A missing amount must never print "C$NaN" — show a dash instead.
+  const total = Number.isFinite(data.amountCents) ? `C$${(data.amountCents / 100).toFixed(2)}` : "—";
   const date = (data.dateISO || "").slice(0, 10);
   const lines = [{ label: data.amountLabel, amount: total }];
 

@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/supabase";
 import { cityList } from "@/lib/cities";
+import { Check } from "lucide-react";
 
 const c$ = (c?: number | null) => `C$${((c ?? 0) / 100).toFixed(2)}`;
 const PRE_PICKUP = ["requested", "received_at_hub", "matched", "dispatched"];
@@ -29,7 +30,7 @@ const PhotoPick = ({ file, onPick, label }: { file: File | null; onPick: (f: Fil
   <label className="inlineAct-c" style={{ marginTop: 8 }}>
     <input type="file" accept="image/*" capture="environment" style={{ maxWidth: 220 }}
       onChange={(e) => onPick(e.target.files?.[0] ?? null)} />
-    <span>{file ? `✓ ${file.name}` : label}</span>
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>{file ? <><Check size={13} strokeWidth={2.6} color="#178a5e" />{file.name}</> : label}</span>
   </label>
 );
 

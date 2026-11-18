@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from "react-native";
-import { Printer } from "lucide-react-native";
+import { Printer, Tag } from "lucide-react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import MapView, { Marker, Region } from "react-native-maps";
@@ -140,7 +140,10 @@ export default function Track() {
 
         {["requested", "received_at_hub", "matched", "dispatched"].includes(parcel.status) ? (
           <Pressable onPress={() => router.push({ pathname: "/(app)/elabel", params: { id: parcel.id } })} style={{ backgroundColor: Colors.accent, borderRadius: 12, padding: 13, alignItems: "center", marginBottom: 18 }}>
-            <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>🏷️ {t2("Étiquette électronique", "Electronic label")}</Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 7 }}>
+              <Tag size={16} color="#fff" strokeWidth={2.2} />
+              <Text style={{ color: "#fff", fontWeight: "800", fontSize: 14 }}>{t2("Étiquette électronique", "Electronic label")}</Text>
+            </View>
             <Text style={{ color: "#fff", opacity: 0.85, fontSize: 11.5, marginTop: 2 }}>{t2("Pas d'imprimante ? Montrez-la au livreur.", "No printer? Show it to the courier.")}</Text>
           </Pressable>
         ) : null}

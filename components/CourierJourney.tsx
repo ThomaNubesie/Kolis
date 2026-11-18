@@ -5,7 +5,7 @@
 // maintenant" switches early (GPS off, wrong coordinates, short trip), and the
 // delivery view has a way back here.
 import { View, Text, Pressable, Image, Share } from "react-native";
-import { Navigation } from "lucide-react-native";
+import { Navigation, Check } from "lucide-react-native";
 import { Colors } from "../constants/colors";
 import { CourierAPI, Journey, JourneyEvent } from "../services/courier";
 
@@ -65,9 +65,12 @@ export function CourierJourney({ j, fr, distanceKm, onDeliver, onDirections }: {
           </View>
           <View style={{ flex: 1, paddingBottom: 12 }}>
             <Text style={{ fontSize: 13, fontWeight: "800", color: Colors.ink }}>{label(e)} · {fmt(e.at, fr)}</Text>
-            <Text style={{ fontSize: 11, color: Colors.t2, marginTop: 1 }}>
-              {e.note ? `${e.note} · ` : ""}{e.shared || e.sent ? (fr ? "carte envoyée ✓" : "card sent ✓") : (fr ? "carte en attente" : "card pending")}
-            </Text>
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 1 }}>
+              <Text style={{ fontSize: 11, color: Colors.t2 }}>
+                {e.note ? `${e.note} · ` : ""}{e.shared || e.sent ? (fr ? "carte envoyée" : "card sent") : (fr ? "carte en attente" : "card pending")}
+              </Text>
+              {e.shared || e.sent ? <Check size={12} color="#178a5e" strokeWidth={2.6} /> : null}
+            </View>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 6 }}>
               {e.photo ? <Image source={{ uri: e.photo }} style={{ width: 56, height: 40, borderRadius: 7, backgroundColor: Colors.cardAlt }} /> : null}
               <Pressable onPress={() => share(e)} hitSlop={8}>

@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { useLang, LangToggle } from "@/lib/i18n";
+import { CheckCircle2 } from "lucide-react";
 
 type H = { code: string; from_city: string; to_city: string; courier: string | null; status: string; lang: string };
 
@@ -58,7 +59,7 @@ export default function Handover() {
       <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1.5, color: "#E11D6B" }}>{h.code} · {h.from_city} → {h.to_city}</div>
       {done ? (
         <>
-          <h1 style={{ fontSize: 24, margin: "10px 0 6px" }}>✓ {t("Handover confirmed", "Remise confirmée")}</h1>
+          <h1 style={{ fontSize: 24, margin: "10px 0 6px", display: "flex", alignItems: "center", gap: 8 }}><CheckCircle2 size={24} color="#178a5e" strokeWidth={2.4} /> {t("Handover confirmed", "Remise confirmée")}</h1>
           <p style={{ color: "#5A6B63", lineHeight: 1.5 }}>{t(`${who} has your parcel. You'll get a card with the photo shortly.`, `${who} a votre colis. Vous recevrez bientôt une carte avec la photo.`)}</p>
         </>
       ) : declined ? (

@@ -95,7 +95,10 @@ Deno.serve(async (req) => {
     const HANDOVER_URL = Deno.env.get("KOLIS_HANDOVER_URL") || "https://business.kolis.ca/h";
     const link = status === "handover" && reqBody.handover_token
       ? `${HANDOVER_URL}/${encodeURIComponent(String(reqBody.handover_token))}`
-      : `${TRACK_URL}/${encodeURIComponent(code)}`;
+      // The private token unlocks the photos and cards on the tracking page (the KL
+      // code alone is guessable, so by code it shows steps only).
+      : `${TRACK_URL}/${encodeURIComponent(code)}${p.scan_token ? `?t=${encodeURIComponent(String(p.scan_token))}` : ""}`;
+    const withLang = (l: string) => `${link}${link.includes("?") ? "&" : "?"}lang=${l}`;
     const via = ev?.kind === "checkpoint" ? ev.city : null;
     const [subject, line] = copyFor(status, code, (p.to_city as string) || "", pin, eta, p.contents_description as string | null, via);
     const [enLine, frLine] = line.split("\n");
@@ -178,7 +181,7 @@ Deno.serve(async (req) => {
             </div>` : ""}
             <div style="text-align:center;margin:20px 0">
               <a href="${link}" style="display:inline-block;background:${bColor};color:#fff;text-decoration:none;padding:13px 26px;border-radius:10px;font-weight:700">${status === "handover" ? (rlang === "fr" ? "Confirmer la remise" : "Confirm handover") : (rlang === "fr" ? "Suivez votre colis" : "Track your parcel")}</a>
-              <div style="margin-top:10px;font-size:12px;color:#9b97a6"><a href="${link}?lang=en" style="color:${bColor};text-decoration:none;font-weight:700">EN</a> &nbsp;·&nbsp; <a href="${link}?lang=fr" style="color:${bColor};text-decoration:none;font-weight:700">FR</a></div>
+              <div style="margin-top:10px;font-size:12px;color:#9b97a6"><a href="${withLang("en")}" style="color:${bColor};text-decoration:none;font-weight:700">EN</a> &nbsp;·&nbsp; <a href="${withLang("fr")}" style="color:${bColor};text-decoration:none;font-weight:700">FR</a></div>
             </div>
             <p style="color:#9b97a6;font-size:12px;text-align:center;margin-top:18px">${rlang === "fr" ? "Envoyé via" : "Sent via"} <b style="color:${bColor}">Kolis</b> — <a href="https://kolis.ca" style="color:${bColor};text-decoration:none;font-weight:700">kolis.ca</a></p>
             ${bName !== "Kolis" ? `<p style="color:#9b97a6;font-size:11px;text-align:center">${bName}${bPowered ? " · powered by Kolis" : ""}</p>` : ""}

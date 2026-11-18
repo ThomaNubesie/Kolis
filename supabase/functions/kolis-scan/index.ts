@@ -1,7 +1,8 @@
-// Driver scans a parcel's pickup/delivery QR. Only the ASSIGNED courier may scan
-// and receive the code — that check (below) is the sole gate. No distance geofence:
-// the code is revealed to the assigned driver regardless of GPS. The scan is still
-// geolocated best-effort for the audit trail, and notifies sender + recipient + admin.
+// Driver scans a parcel's pickup/delivery QR. Only the ASSIGNED courier may scan,
+// and the code is revealed only within GEOFENCE_M (1000 m) of the pickup / drop-off
+// address. Typing the code (or an admin override) works anywhere, so the fence
+// never strands anyone. The scan is geolocated for the audit trail and notifies
+// sender + recipient + admin.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -11,7 +12,10 @@ const RESEND = Deno.env.get("RESEND_API_KEY");
 const FROM = Deno.env.get("KOLIS_FROM_EMAIL") || "Kolis <noreply@loadq.ca>";
 const ADMIN_EMAIL = Deno.env.get("KOLIS_ADMIN_EMAIL") || "support@concordexpress.ca";
 const TW_SID = Deno.env.get("KOLIS_TWILIO_SID"), TW_TOKEN = Deno.env.get("KOLIS_TWILIO_TOKEN"), TW_FROM = Deno.env.get("KOLIS_TWILIO_FROM");
-// Geofence removed — the assigned-driver check is the only gate.
+// 1000 m (was 100 m, then removed entirely). Wide enough for a big building or a
+// curb-side handoff down the street, tight enough that a label photo forwarded
+// from across town won't unlock the code.
+const GEOFENCE_M = 1000;
 
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
@@ -82,10 +86,15 @@ Deno.serve(async (req) => {
       recipient: { name: p.recipient_name, phone: p.recipient_phone, address: p.dropoff_addr || p.to_city },
     };
 
-    // ── Geofence REMOVED ──────────────────────────────────────────────────
-    // The assigned-driver check above is the ONLY gate. If the caller is the
-    // parcel's courier, reveal the code regardless of GPS distance. Location is
-    // still captured below (best-effort) for the audit trail, but never blocks.
+    // ── Geofence (1000 m) ─────────────────────────────────────────────────
+    // No location from the phone → keep the code hidden (ask to turn it on).
+    // Address never geocoded → can't judge distance; reveal, flagged unverified,
+    // rather than strand the courier on our missing data.
+    const fence = { geofence_m: GEOFENCE_M, distance_m: distance, ...details };
+    const hasFix = typeof lat === "number" && typeof lng === "number";
+    if (!hasFix) return json({ ok: true, in_range: false, reason: "location_off", verified: false, ...fence });
+    const geocoded = tLat != null && tLng != null;
+    if (geocoded && distance != null && distance > GEOFENCE_M) return json({ ok: true, in_range: false, reason: "too_far", verified: false, ...fence });
 
     // Assigned driver confirmed → reveal the code, record the scan, notify.
     const pin = kind === "pickup" ? p.pickup_code : p.delivery_code;
@@ -105,7 +114,7 @@ Deno.serve(async (req) => {
     sms(p.recipient_phone as string, `🇬🇧 ${body}`);
     sms(senderPhone as string, `🇬🇧 ${body}`);
 
-    return json({ ok: true, in_range: true, reason: "assigned_driver", verified: true, distance_m: distance, scan: { lat, lng, map: mapUrl }, ...details, code: pin });
+    return json({ ok: true, in_range: true, reason: geocoded ? "in_range" : "not_geocoded", verified: geocoded, geofence_m: GEOFENCE_M, distance_m: distance, scan: { lat, lng, map: mapUrl }, ...details, code: pin });
   } catch (e) {
     return json({ error: String((e as Error)?.message ?? e) }, 500);
   }
